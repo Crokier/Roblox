@@ -21,7 +21,7 @@ local OFFSET=UDim2.new(0,100,0,50)
 local UIFolder="Sampluy"
 local baseX,baseY=1024,768
 
-local Strs=loadstring(game:HttpGet("https://raw.githubusercontent.com/Paazlis/Roblox/refs/heads/main/Packages/Strs/init.luau"))()
+local Strs=loadstring(game:HttpGet("https://raw.githubusercontent.com/Crokier/Roblox/refs/heads/main/Packages/Strs/init.luau"))()
 
 local function Round(num, bracket)
     num = tonumber(num) or 0
