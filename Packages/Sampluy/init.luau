@@ -1267,7 +1267,7 @@ end
 	function elements:AddSelector(options)
 		options=Missing("table",options,{})
 		options.Type="Selector"
-		options.Text=options.Text or options.Title or options.Name or options.Type
+		options.Text=options.Text or options.Title or options.Name or nil
 		if not options.Options or type(options.Options)~="table" or #options.Options<=0 then
 			options.Options={"Option 1","Option 2","Option 3"}
 		end
