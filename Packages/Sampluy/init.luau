@@ -24,13 +24,13 @@ local baseX,baseY=1024,768
 local Strs=loadstring(game:HttpGet("https://raw.githubusercontent.com/Crokier/Roblox/refs/heads/main/Packages/Strs/init.luau"))()
 
 local function Round(num, bracket)
-    num = tonumber(num) or 0
-    bracket = math.abs(tonumber(bracket) or 1)
-    local v = math.floor(num / bracket + (math.sign(num) * 0.5)) * bracket
-    if v < 0 and num % bracket == 0 then
-        v = num
-    end
-    return v
+	num = tonumber(num) or 0
+	bracket = math.abs(tonumber(bracket) or 1)
+	local v = math.floor(num / bracket + (math.sign(num) * 0.5)) * bracket
+	if v < 0 and num % bracket == 0 then
+		v = num
+	end
+	return v
 end
 
 local function Missing(t,v,f)
@@ -102,7 +102,7 @@ local function ConnectDestroying(instance,saveName,func)
 				enabledChanged=instance:GetPropertyChangedSignal("Enabled"):Connect(function()
 					if instance and instance.Parent and not instance.Enabled and instance.Name~=saveName then 
 						enabledChanged:Disconnect() 
-                        CallSafely(func)
+						CallSafely(func)
 					end
 				end)
 			end
@@ -239,27 +239,27 @@ local function GetComponents(Window)
 		function options:Set(text)
 			title.Text=tostring(text or "")
 		end
-		
+
 		if options.Visible~=nil then
 			main.Visible=options.Visible and true or false
 		end
-		
+
 		local originals={["TitleScaled"]="TextScaled",["TitleStrokeTransparency"]="TextStrokeTransparency",["TitleStrokeColor3"]="TextStrokeColor3",["TitleColor3"]="TextColor3",["TitleTransparency"]="TextTransparency",["TitleXAlignment"]="TextXAlignment",["TitleYAlignment"]="TextYAlignment"}
-		
+
 		for _,k in ipairs({"TextStrokeTransparency","TextStrokeColor3","TextScaled","TextTransparency","TextColor3","TextXAlignment","TextYAlignment","TextBounds","TextDirection","RichText","Font"}) do
 			local v=options[k]
 			if v~=nil then
 				pcall(function() title[k]=v end)
 			end
 		end
-		
+
 		for k,i in pairs(originals) do
 			local v=options[k]
 			if v~=nil then
 				pcall(function() title[i]=v end)
 			end
 		end
-		
+
 		options.Template=main
 
 		return setmetatable({},{
@@ -296,7 +296,7 @@ local function GetComponents(Window)
 						end
 					end
 				end
-				
+
 				options[i]=nv
 			end
 		})
@@ -321,11 +321,18 @@ local function GetComponents(Window)
 		options.Type="Button"
 		options.Text=options.Text or options.Title or options.Name or options.Type
 		options.Callback=Missing("function",options.Callback,function() end)
-        options.MethodType=options.MethodType or "Default"
-        options.ClickThreshold=options.ClickThreshold or 0.5
-        options.MaxClick=options.MaxClick or 3
-        options.ClickCount=0
-        options.LastClickTime=0
+		options.MethodType=options.MethodType or "Default"
+		options.ClickThreshold=options.ClickThreshold or 0.5
+		options.ClickDuration=options.ClickDuration or 1
+		options.MaxClick=options.MaxClick or 3
+		options.ClickCount=0
+		options.LastClickTime=0
+		options.ClickWaiting=false
+		
+		local ClickMethodTypes={
+			"Default","None","SingleClick","DoubleClick","MultiClick","AntiSpamClick","DebounceClick","1","2","3"
+		}
+		
 		local main=Create("Frame",{
 			Name=options.Type,
 			Size=UDim2.new(1,0,0,30),
@@ -376,20 +383,28 @@ local function GetComponents(Window)
 				clicking=true
 				Tween(round,TweenInfo.new(0.2,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{ImageColor3=Color3.fromRGB(255,65,65)})
 				local methodType=tostring(options.MethodType)
-                if methodType=="DoubleClick" or methodType=="MultiClick" or methodType=="2" then
-                   local currentClickTime=os.clock()
-                   if (currentClickTime-options.LastClickTime)>options.ClickThreshold then
-                      options.ClickCount=0
-                   end
-                   options.ClickCount=options.ClickCount+1
-                   options.LastClickTime=currentClickTime
-                   if options.ClickCount>=options.MaxClick then
-                      options.ClickCount=0
-                      CallSafely(options.Callback)
-                   end
-                else
-                   CallSafely(options.Callback)
-                end
+				if methodType=="DoubleClick" or methodType=="MultiClick" or methodType=="2" then
+					local currentClickTime=os.clock()
+					if (currentClickTime-options.LastClickTime)>options.ClickThreshold then
+						options.ClickCount=0
+					end
+					options.ClickCount=options.ClickCount+1
+					options.LastClickTime=currentClickTime
+					if options.ClickCount>=options.MaxClick then
+						options.ClickCount=0
+						CallSafely(options.Callback)
+					end
+				elseif methodType=="AntiSpamClick" or methodType=="DebounceClick" or methodType=="3" then
+					if not options.ClickWaiting then
+						options.ClickWaiting=true
+						CallSafely(options.Callback)
+						task.wait(options.ClickDuration)
+						options.ClickWaiting=false
+					end
+				else
+					options.ClickWaiting=false
+					CallSafely(options.Callback)
+				end
 			end
 			if input.UserInputType==Enum.UserInputType.MouseMovement then
 				inContact=true
@@ -413,16 +428,16 @@ local function GetComponents(Window)
 				end
 			end
 		end)
-		
+
 		ConnectDestroying(Window.Gui,Window.SaveName,function()
 			inputBegan:Disconnect()
 			inputEnded:Disconnect()
 		end)
-		
+
 		if options.Visible~=nil then
 			main.Visible=options.Visible and true or false
 		end
-		
+
 		options.Template=main
 
 		return setmetatable({},{
@@ -433,15 +448,25 @@ local function GetComponents(Window)
 				return options[i]
 			end,
 			__newindex=function(_,i,v)
-				if i~="Set" then
+				if i~="Set" and i~="ClickWaiting" and i~="MethodType" then
 					options[i]=v
 				end
 				if i=="Visible" then
 					main.Visible=v
 				elseif i=="Text" or i=="Title" then
 					title.Text=v
+				elseif i=="MethodType" then
+					if v~=nil then
+						local methodType=tostring(v)
+						if table.find(ClickMethodTypes, methodType) then
+							options.MethodType=methodType
+							
+							if methodType=="AntiSpamClick" or methodType=="DebounceClick" or methodType=="3" then
+								options.ClickWaiting=false
+							end
+						end
+					end
 				end
-
 			end
 		})
 	end
@@ -468,7 +493,7 @@ local function GetComponents(Window)
 		options.Version=Missing("number",options.Version,1)
 		options.Text=options.Text or options.Title or options.Name or options.Type
 		options.Callback=Missing("function",options.Callback,function() end)
-		
+
 		local inContact,title,tickboxOutline,changeFunc=false,nil,nil,nil
 
 		local main=Create("Frame",{
@@ -509,7 +534,7 @@ local function GetComponents(Window)
 				SliceScale=0.02,
 				Parent=main
 			})
-			
+
 			changeFunc=function(value,callback)
 				value=value and true or false
 				if options.Value~=value then
@@ -522,11 +547,11 @@ local function GetComponents(Window)
 					CallSafely(callback,value)
 				end
 			end
-			
+
 			function options:Set(value)
 				changeFunc(value,options.Callback)
 			end
-			
+
 			function options:Replace(value)
 				changeFunc(value,nil)
 			end
@@ -566,7 +591,7 @@ local function GetComponents(Window)
 				TextSize=9,
 				Parent=indicator
 			})
-			
+
 			changeFunc=function(value,callback)
 				value=value and true or false
 				if options.Value~=value then
@@ -580,11 +605,11 @@ local function GetComponents(Window)
 					CallSafely(callback,value)
 				end
 			end
-			
+
 			function options:Set(value)
 				changeFunc(value,options.Callback)
 			end
-			
+
 			function options:Replace(value)
 				changeFunc(value,nil)
 			end
@@ -646,7 +671,7 @@ local function GetComponents(Window)
 				ImageColor3=Color3.fromRGB(20,20,20),
 				Parent=checkmarkHolder
 			})
-			
+
 			changeFunc=function(value,callback)
 				value=value and true or false
 				if options.Value~=value then
@@ -663,7 +688,7 @@ local function GetComponents(Window)
 					CallSafely(callback,value)
 				end
 			end
-			
+
 			function options:Set(value)
 				changeFunc(value,options.Callback)
 			end
@@ -702,7 +727,7 @@ local function GetComponents(Window)
 			inputEnded:Disconnect()
 			options:Set(false)
 		end)
-		
+
 		if options.Visible~=nil then
 			main.Visible=options.Visible and true or false
 		end
@@ -800,7 +825,7 @@ local function GetComponents(Window)
 		ConnectDestroying(Window.Gui,Window.SaveName,function()
 			focusLost:Disconnect()
 		end)
-		
+
 		if options.Visible~=nil then
 			main.Visible=options.Visible and true or false
 		end
@@ -923,7 +948,7 @@ local function GetComponents(Window)
 				BorderSizePixel=0,
 				Parent=track
 			})
-			
+
 			handle=Create("ImageLabel",{
 				Name="Handle",
 				AnchorPoint=Vector2.new(0.5,0.5),
@@ -937,14 +962,14 @@ local function GetComponents(Window)
 				SliceScale=1,
 				Parent=track
 			})
-			
+
 			if options.Min>=0 then
 				fill.Size=UDim2.new((options.Value-options.Min)/(options.Max-options.Min),0,1,0)
 			else
 				fill.Position=UDim2.new((0-options.Min)/(options.Max-options.Min),0,0,0)
 				fill.Size=UDim2.new(options.Value/(options.Max-options.Min),0,1,0)
 			end
-			
+
 			function options:Set(value)
 				value=Round(value,self.Increment)
 				value=math.clamp(value,self.Min,self.Max)
@@ -962,7 +987,7 @@ local function GetComponents(Window)
 			end
 
 			options:Set(options.Value)
-			
+
 			dragStart=uiDragDetector.DragStart:Connect(function(inputPosition)
 				sliding=true
 				Tween(fill,TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = options.FillColor3})
@@ -1001,9 +1026,9 @@ local function GetComponents(Window)
 					end
 				end
 			end)
-			
+
 			cleanFunc=function()
-				
+
 			end
 		else
 			main=Create("Frame",{
@@ -1095,7 +1120,7 @@ local function GetComponents(Window)
 				fill.Position=UDim2.new((0-options.Min)/(options.Max-options.Min),0,0,0)
 				fill.Size=UDim2.new(options.Value/(options.Max-options.Min),0,1,0)
 			end
-			
+
 			dragStart=uiDragDetector.DragStart:Connect(function(inputPosition)
 				sliding=true
 				Tween(fill,TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {ImageColor3 = options.FillColor3})
@@ -1114,7 +1139,7 @@ local function GetComponents(Window)
 				Tween(fill,TweenInfo.new(0.2,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{ImageColor3=Color3.fromRGB(60,60,60)})
 				Tween(handle,TweenInfo.new(0.2,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Size=UDim2.new(0,0,0,0),ImageColor3=Color3.fromRGB(60,60,60)})
 			end)
-			
+
 			inputBegan=main.InputBegan:connect(function(input)
 				if input.UserInputType==Enum.UserInputType.MouseMovement then
 					inContact=true
@@ -1152,43 +1177,43 @@ local function GetComponents(Window)
 
 
 
-function options:Set(value)
-    -- Pastikan semua nilai konfigurasi ada dan valid
-    local Increment = tonumber(self.Increment) or 1
-    local Min = tonumber(self.Min) or 0
-    local Max = tonumber(self.Max) or 100
-    
-    if Min > Max then
-        Min, Max = Max, Min
-    end
+			function options:Set(value)
+				-- Pastikan semua nilai konfigurasi ada dan valid
+				local Increment = tonumber(self.Increment) or 1
+				local Min = tonumber(self.Min) or 0
+				local Max = tonumber(self.Max) or 100
 
-    value = tonumber(value) or Min
-    value = Round(value, Increment)
-    value = math.clamp(value, Min, Max)
-    self.Value = value
+				if Min > Max then
+					Min, Max = Max, Min
+				end
 
-    local range = Max - Min
-    local ratio = range ~= 0 and (value - Min) / range or 0
+				value = tonumber(value) or Min
+				value = Round(value, Increment)
+				value = math.clamp(value, Min, Max)
+				self.Value = value
 
-    handle:TweenPosition(UDim2.new(ratio, 0, 0.5, 0), "Out", "Quad", 0.1, true)
+				local range = Max - Min
+				local ratio = range ~= 0 and (value - Min) / range or 0
 
-    -- Animasi fill dengan penanganan yang benar untuk Min negatif
-    if Min >= 0 then
-        fill:TweenSize(UDim2.new(ratio, 0, 1, 0), "Out", "Quad", 0.1, true)
-    else
-        -- Hitung posisi dasar dan ukuran fill dengan perlindungan
-        local basePosRatio = range ~= 0 and (0 - Min) / range or 0
-        local fillSizeRatio = range ~= 0 and math.max(0, value / range) or 0 -- Jaga ukuran tidak negatif
+				handle:TweenPosition(UDim2.new(ratio, 0, 0.5, 0), "Out", "Quad", 0.1, true)
 
-        fill:TweenPosition(UDim2.new(basePosRatio, 0, 0, 0), "Out", "Quad", 0.1, true)
-        fill:TweenSize(UDim2.new(fillSizeRatio, 0, 1, 0), "Out", "Quad", 0.1, true)
-    end
+				-- Animasi fill dengan penanganan yang benar untuk Min negatif
+				if Min >= 0 then
+					fill:TweenSize(UDim2.new(ratio, 0, 1, 0), "Out", "Quad", 0.1, true)
+				else
+					-- Hitung posisi dasar dan ukuran fill dengan perlindungan
+					local basePosRatio = range ~= 0 and (0 - Min) / range or 0
+					local fillSizeRatio = range ~= 0 and math.max(0, value / range) or 0 -- Jaga ukuran tidak negatif
 
-    -- Tampilkan nilai dengan aman
-    local newValue = Strs.ToNumber(value) or tostring(value) -- Jika konversi gagal, gunakan string nilai asli
-    inputBox.Text = newValue
-    CallSafely(self.Callback, tonumber(newValue) or value)
-end
+					fill:TweenPosition(UDim2.new(basePosRatio, 0, 0, 0), "Out", "Quad", 0.1, true)
+					fill:TweenSize(UDim2.new(fillSizeRatio, 0, 1, 0), "Out", "Quad", 0.1, true)
+				end
+
+				-- Tampilkan nilai dengan aman
+				local newValue = Strs.ToNumber(value) or tostring(value) -- Jika konversi gagal, gunakan string nilai asli
+				inputBox.Text = newValue
+				CallSafely(self.Callback, tonumber(newValue) or value)
+			end
 --[[
 			function options:Set(value)
 				value=Round(value,self.Increment)
@@ -1275,7 +1300,7 @@ end
 		options.Index=table.find(options.Options,options.Value) or 1
 		options.Value=Missing("string",options.Value,options.Options[options.Index])
 		options.Callback=Missing("function",options.Callback,function() end)
-		
+
 		local main=Create("Frame",{
 			Name=options.Type,
 			Size=UDim2.new(1,0,0,30),
@@ -1372,12 +1397,12 @@ end
 				options:Set(newOptions[newIndex],newIndex)
 			end
 		end)
-		
+
 		ConnectDestroying(Window.Gui,Window.SaveName,function()
 			nextBegan:Disconnect()
 			previousBegan:Disconnect()
 		end)
-		
+
 		if options.Visible~=nil then
 			main.Visible=options.Visible and true or false
 		end
@@ -1406,15 +1431,15 @@ end
 		options.Type="Select"
 		options.Active=false
 		options.Callback=Missing("function",options.Callback,function() end)
-		
+
 		local text=options.Text or options.Title or options.Name
-		
+
 		local titleLabel=nil
-		
+
 		if text then
 			titleLabel=GetComponents(Window):AddLabel({Text=text})
 		end
-		
+
 		local main=Create("Frame",{
 			Name=options.Type,
 			Size=UDim2.new(1,0,0,30),
@@ -1525,7 +1550,7 @@ end
 			if selectClick then selectClick:Disconnect() selectClick=nil end
 			inputBegan:Disconnect()
 		end)
-		
+
 		if options.Visible~=nil then
 			local currentVisible=options.Visible and true or false
 			if titleLabel then
@@ -1561,7 +1586,7 @@ end
 			end
 		})
 	end
-	
+
 	function elements:AddDropdown(options)
 		options=Missing("table",options,{})
 		options.Type="Dropdown"
@@ -1570,7 +1595,7 @@ end
 		options.MultipleOptions=options.MultipleOptions and true or false
 		options.Callback=Missing("function",options.Callback,function() end)
 		options.Open=false
-		
+
 		if not options.Options or type(options.Options)~="table" or #options.Options<=0 then
 			options.Options={"Option 1","Option 2"}
 		end
@@ -1587,7 +1612,7 @@ end
 		else
 			options.Option={}
 		end
-		
+
 		local main=Create("Frame", {
 			BackgroundTransparency=1,
 			Size=UDim2.new(1,0,0,52),
@@ -1641,7 +1666,7 @@ end
 			ScaleType=Enum.ScaleType.Fit,
 			Parent=round
 		})
-		
+
 		local mainHolder=Create("ImageButton",{
 			Name="List",
 			ZIndex=3,
@@ -1657,9 +1682,9 @@ end
 			Visible=false,
 			Parent=Window.Gui
 		})
-		
+
 		options.MainHolder=mainHolder
-		
+
 		local content=Create("ScrollingFrame",{
 			Name="Content",
 			ZIndex=3,
@@ -1674,7 +1699,7 @@ end
 
 		local layout=Create("UIListLayout",{Parent=content})
 		local optionLength=0
-		
+
 		if options.MultipleOptions then
 			if #options.Option==1 then
 				selected.Text=options.Option[1]
@@ -1686,12 +1711,12 @@ end
 		else
 			selected.Text=options.Option[1] or "None"
 		end
-		
+
 		local layoutChanged=layout.Changed:Connect(function()
 			mainHolder.Size=UDim2.new(0,240,0,(optionLength>4 and (4*40) or layout.AbsoluteContentSize.Y)+12)
 			content.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+12)
 		end)
-		
+
 		function options:Add(option)
 			if option==nil then return end
 			optionLength=optionLength+1
@@ -1760,12 +1785,12 @@ end
 						end
 					end
 				end)
-				
+
 				local cleanup=ConnectDestroying(Window.Gui,Window.SaveName,function()
 					inputeBegan:Disconnect() 
 					inputEnded:Disconnect() 
 				end)
-				
+
 				ConnectDestroying(droption,nil,function()
 					cleanup()
 				end)
@@ -1824,7 +1849,7 @@ end
 				end
 			end
 		end
-		
+
 		local inContact=false
 
 		function options:Close()
@@ -1844,11 +1869,11 @@ end
 				self.MainHolder.Visible=false
 			end
 		end
-		
+
 		for _,value in ipairs(options.Options) do
 			options:Add(value)
 		end
-		
+
 		local inputBegan=round.InputBegan:Connect(function(input)
 			if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
 				if Library.ActivePopup then
@@ -1884,19 +1909,19 @@ end
 				end
 			end
 		end)
-		
+
 		ConnectDestroying(Window.Gui,Window.SaveName,function()
 			inputBegan:Disconnect()
 			inputEnded:Disconnect()
 			layoutChanged:Disconnect()
 			options:Set(nil)
 		end)
-		
+
 		if options.Flag then
 			Library.Flags[options.Flag]=options
 		end
 		options.Template=main
-		
+
 		return setmetatable({},{
 			__index=function(_,i)
 				local DropdownReturns={
@@ -1918,7 +1943,7 @@ end
 			end
 		})
 	end
-	
+
 	function elements:AddFolder(...)
 		local args={...}
 		local options={}
@@ -1966,7 +1991,7 @@ end
 			TextXAlignment=Enum.TextXAlignment.Center,
 			Parent=main
 		})
-		
+
 		local closeHolder=Create("Frame",{
 			Name="Close",
 			Position=UDim2.new(1,0,0,0),
@@ -2017,7 +2042,7 @@ end
 			Tween(close,TweenInfo.new(0.2,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Rotation=open and 90 or 180})
 			childContainer.Visible=open
 		end
-		
+
 		if options.Flag then
 			Library.Flags[options.Flag]=options
 		end
@@ -2059,7 +2084,7 @@ end
 			end
 		})
 	end
-	
+
 	local ListOfElements={
 		["Label"]=elements.AddLabel,
 		["Button"]=elements.AddButton,
@@ -2070,7 +2095,7 @@ end
 		["Folder"]=elements.AddFolder,
 		["Dropdown"]=elements.AddDropdown
 	}
-	
+
 	ListOfElements.Expand=ListOfElements.Folder
 	ListOfElements.TextBox=ListOfElements.Input
 
@@ -2219,7 +2244,7 @@ function Library:CreateKeySystem(keyInfo)
 	--! Library Json and Cryptography
 	-------------------------------------------------------------------------------
 	local a=2^32;local b=a-1;local function c(d,e)local f,g=0,1;while d~=0 or e~=0 do local h,i=d%2,e%2;local j=(h+i)%2;f=f+j*g;d=math.floor(d/2)e=math.floor(e/2)g=g*2 end;return f%a end;local function k(d,e,l,...)local m;if e then d=d%a;e=e%a;m=c(d,e)if l then m=k(m,l,...)end;return m elseif d then return d%a else return 0 end end;local function n(d,e,l,...)local m;if e then d=d%a;e=e%a;m=(d+e-c(d,e))/2;if l then m=n(m,l,...)end;return m elseif d then return d%a else return b end end;local function o(p)return b-p end;local function q(d,r)if r<0 then return lshift(d,-r)end;return math.floor(d%2^32/2^r)end;local function s(p,r)if r>31 or r<-31 then return 0 end;return q(p%a,r)end;local function lshift(d,r)if r<0 then return s(d,-r)end;return d*2^r%2^32 end;local function t(p,r)p=p%a;r=r%32;local u=n(p,2^r-1)return s(p,r)+lshift(u,32-r)end;local v={0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2}local function w(x)return string.gsub(x,".",function(l)return string.format("%02x",string.byte(l))end)end;local function y(z,A)local x=""for B=1,A do local C=z%256;x=string.char(C)..x;z=(z-C)/256 end;return x end;local function D(x,B)local A=0;for B=B,B+3 do A=A*256+string.byte(x,B)end;return A end;local function E(F,G)local H=64-(G+9)%64;G=y(8*G,8)F=F.."\128"..string.rep("\0",H)..G;assert(#F%64==0)return F end;local function I(J)J[1]=0x6a09e667;J[2]=0xbb67ae85;J[3]=0x3c6ef372;J[4]=0xa54ff53a;J[5]=0x510e527f;J[6]=0x9b05688c;J[7]=0x1f83d9ab;J[8]=0x5be0cd19;return J end;local function K(F,B,J)local L={}for M=1,16 do L[M]=D(F,B+(M-1)*4)end;for M=17,64 do local N=L[M-15]local O=k(t(N,7),t(N,18),s(N,3))N=L[M-2]L[M]=(L[M-16]+O+L[M-7]+k(t(N,17),t(N,19),s(N,10)))%a end;local d,e,l,P,Q,R,S,T=J[1],J[2],J[3],J[4],J[5],J[6],J[7],J[8]for B=1,64 do local O=k(t(d,2),t(d,13),t(d,22))local U=k(n(d,e),n(d,l),n(e,l))local V=(O+U)%a;local W=k(t(Q,6),t(Q,11),t(Q,25))local X=k(n(Q,R),n(o(Q),S))local Y=(T+W+X+v[B]+L[B])%a;T=S;S=R;R=Q;Q=(P+Y)%a;P=l;l=e;e=d;d=(Y+V)%a end;
-	J[1]=(J[1]+d)%a;J[2]=(J[2]+e)%a;J[3]=(J[3]+l)%a;J[4]=(J[4]+P)%a;J[5]=(J[5]+Q)%a;J[6]=(J[6]+R)%a;J[7]=(J[7]+S)%a;J[8]=(J[8]+T)%a end;local function Z(F)F=E(F,#F)local J=I({})for B=1,#F,64 do K(F,B,J)end;return w(y(J[1],4)..y(J[2],4)..y(J[3],4)..y(J[4],4)..y(J[5],4)..y(J[6],4)..y(J[7],4)..y(J[8],4))end;local e;local l={["\\"]="\\",["\""]="\"",["\b"]="b",["\f"]="f",["\n"]="n",["\r"]="r",["\t"]="t"}
+		J[1]=(J[1]+d)%a;J[2]=(J[2]+e)%a;J[3]=(J[3]+l)%a;J[4]=(J[4]+P)%a;J[5]=(J[5]+Q)%a;J[6]=(J[6]+R)%a;J[7]=(J[7]+S)%a;J[8]=(J[8]+T)%a end;local function Z(F)F=E(F,#F)local J=I({})for B=1,#F,64 do K(F,B,J)end;return w(y(J[1],4)..y(J[2],4)..y(J[3],4)..y(J[4],4)..y(J[5],4)..y(J[6],4)..y(J[7],4)..y(J[8],4))end;local e;local l={["\\"]="\\",["\""]="\"",["\b"]="b",["\f"]="f",["\n"]="n",["\r"]="r",["\t"]="t"}
 	local P={["/"]="/"}for Q,R in pairs(l)do P[R]=Q end;local S=function(T)return"\\"..(l[T]or string.format("u%04x",T:byte()))end;local B=function(M)return"null"end;local v=function(M,z)local _={}z=z or{}if z[M]then error("circular reference")end;z[M]=true;if rawget(M,1)~=nil or next(M)==nil then local A=0;for Q in pairs(M)do if type(Q)~="number"then error("invalid table: mixed or invalid key types")end;A=A+1 end;if A~=#M then error("invalid table: sparse array")end;for a0,R in ipairs(M)do table.insert(_,e(R,z))end;z[M]=nil;return"["..table.concat(_,",").."]"else for Q,R in pairs(M)do if type(Q)~="string"then error("invalid table: mixed or invalid key types")end;table.insert(_,e(Q,z)..":"..e(R,z))end;z[M]=nil;return"{"..table.concat(_,",").."}"end end;local g=function(M)return'"'..M:gsub('[%z\1-\31\\"]',S)..'"'end;local a1=function(M)if M~=M or M<=-math.huge or M>=math.huge then error("unexpected number value '"..tostring(M).."'")end;return string.format("%.14g",M)end;local j={["nil"]=B,["table"]=v,["string"]=g,["number"]=a1,["boolean"]=tostring}e=function(M,z)local x=type(M)local a2=j[x]if a2 then return a2(M,z)end;error("unexpected type '"..x.."'")end;local a3=function(M)return e(M)end;local a4;local N=function(...)local _={}for a0=1,select("#",...)do _[select(a0,...)]=true end;return _ end;local L=N(" ","\t","\r","\n")local p=N(" ","\t","\r","\n","]","}",",")local a5=N("\\","/",'"',"b","f","n","r","t","u")local m=N("true","false","null")local a6={["true"]=true,["false"]=false,["null"]=nil}local a7=function(a8,a9,aa,ab)for a0=a9,#a8 do if aa[a8:sub(a0,a0)]~=ab then return a0 end end;return#a8+1 end;local ac=function(a8,a9,J)local ad=1;local ae=1;for a0=1,a9-1 do ae=ae+1;if a8:sub(a0,a0)=="\n"then ad=ad+1;ae=1 end end;error(string.format("%s at line %d col %d",J,ad,ae))end;local af=function(A)local a2=math.floor;if A<=0x7f then return string.char(A)elseif A<=0x7ff then return string.char(a2(A/64)+192,A%64+128)elseif A<=0xffff then return string.char(a2(A/4096)+224,a2(A%4096/64)+128,A%64+128)elseif A<=0x10ffff then return string.char(a2(A/262144)+240,a2(A%262144/4096)+128,a2(A%4096/64)+128,A%64+128)end;error(string.format("invalid unicode codepoint '%x'",A))end;local ag=function(ah)local ai=tonumber(ah:sub(1,4),16)local aj=tonumber(ah:sub(7,10),16)if aj then return af((ai-0xd800)*0x400+aj-0xdc00+0x10000)else return af(ai)end end;local ak=function(a8,a0)local _=""local al=a0+1;local Q=al;while al<=#a8 do local am=a8:byte(al)if am<32 then ac(a8,al,"control character in string")elseif am==92 then _=_..a8:sub(Q,al-1)al=al+1;local T=a8:sub(al,al)if T=="u"then local an=a8:match("^[dD][89aAbB]%x%x\\u%x%x%x%x",al+1)or a8:match("^%x%x%x%x",al+1)or ac(a8,al-1,"invalid unicode escape in string")_=_..ag(an)al=al+#an else if not a5[T]then ac(a8,al-1,"invalid escape char '"..T.."' in string")end;_=_..P[T]end;Q=al+1 elseif am==34 then _=_..a8:sub(Q,al-1)return _,al+1 end;al=al+1 end;ac(a8,a0,"expected closing quote for string")end;local ao=function(a8,a0)local am=a7(a8,a0,p)local ah=a8:sub(a0,am-1)local A=tonumber(ah)if not A then ac(a8,a0,"invalid number '"..ah.."'")end;return A,am end;local ap=function(a8,a0)local am=a7(a8,a0,p)local aq=a8:sub(a0,am-1)if not m[aq]then ac(a8,a0,"invalid literal '"..aq.."'")end;return a6[aq],am end;local ar=function(a8,a0)local _={}local A=1;a0=a0+1;while 1 do local am;a0=a7(a8,a0,L,true)if a8:sub(a0,a0)=="]"then a0=a0+1;break end;am,a0=a4(a8,a0)_[A]=am;A=A+1;a0=a7(a8,a0,L,true)local as=a8:sub(a0,a0)a0=a0+1;if as=="]"then break end;if as~=","then ac(a8,a0,"expected ']' or ','")end end;return _,a0 end;local at=function(a8,a0)local _={}a0=a0+1;while 1 do local au,M;a0=a7(a8,a0,L,true)if a8:sub(a0,a0)=="}"then a0=a0+1;break end;if a8:sub(a0,a0)~='"'then ac(a8,a0,"expected string for key")end;au,a0=a4(a8,a0)a0=a7(a8,a0,L,true)if a8:sub(a0,a0)~=":"then ac(a8,a0,"expected ':' after key")end;a0=a7(a8,a0+1,L,true)M,a0=a4(a8,a0)_[au]=M;a0=a7(a8,a0,L,true)local as=a8:sub(a0,a0)a0=a0+1;if as=="}"then break end;if as~=","then ac(a8,a0,"expected '}' or ','")end end;return _,a0 end;local av={['"']=ak,["0"]=ao,["1"]=ao,["2"]=ao,["3"]=ao,["4"]=ao,["5"]=ao,["6"]=ao,["7"]=ao,["8"]=ao,["9"]=ao,["-"]=ao,["t"]=ap,["f"]=ap,["n"]=ap,["["]=ar,["{"]=at}a4=function(a8,a9)local as=a8:sub(a9,a9)local a2=av[as]if a2 then return a2(a8,a9)end;ac(a8,a9,"unexpected character '"..as.."'")end;local aw=function(a8)if type(a8)~="string"then error("expected argument of type string,got "..type(a8))end;local _,a9=a4(a8,a7(a8,1,L,true))a9=a7(a8,a9,L,true)if a9<=#a8 then ac(a8,a9,"trailing garbage")end;return _ end;
 	local lEncode,lDecode,lDigest=a3,aw,Z;
 
@@ -2236,7 +2261,7 @@ function Library:CreateKeySystem(keyInfo)
 	local KeyCode=keyInfo.Code or keyInfo.Secret
 	local GuiName=keyInfo.Name
 	local OldGuiName=keyInfo.OldName
-	
+
 	--! functions
 	local fStringChar,fToString,fStringSub,fOsTime,fMathRandom,fMathFloor,fGetHwid=string.char,tostring,string.sub,os.time,math.random,math.floor,gethwid or function() return LocalPlayer.UserId end
 	local requestSending,cachedLink,cachedTime=false,"",0
@@ -2440,14 +2465,14 @@ function Library:CreateKeySystem(keyInfo)
 	-------------------------------------------------------------------------------
 
 	local scriptInfo={Enabled=keyInfo.ShowScript,Link=keyInfo.ScriptURL or keyInfo.ScriptLink}
-	
+
 	local function LoadScript()
 		-- Set secret global variable to bypass main script protection
 		pcall(function() getgenv()[KeyCode]=true end)
 		-- Execute main script
 		if scriptInfo.Enabled and scriptInfo.Link then pcall(function() loadstring(game:HttpGet(scriptInfo.Link))() end) end
 	end
-	
+
 	if not FolderName or type(FolderName)~="string" then FolderName=UIFolder end
 	EnsureFolder(FolderName.."/Key System")
 
@@ -2475,7 +2500,7 @@ function Library:CreateKeySystem(keyInfo)
 		Name=GuiName,
 		ResetOnSpawn=false
 	})
-	
+
 	local mainFrame=Create("Frame",{
 		Size=UDim2.new(0,340,0,420),
 		Position=UDim2.new(0.5,-170,0.5,-210),
@@ -2483,7 +2508,7 @@ function Library:CreateKeySystem(keyInfo)
 		Active=true,
 		Parent=keyGui
 	})
-	
+
 	Create("UICorner",{CornerRadius=UDim.new(0,15),Parent=mainFrame})
 
 	local mainStroke=Create("UIStroke",{
@@ -2505,7 +2530,7 @@ function Library:CreateKeySystem(keyInfo)
 		ZIndex=10,
 		Parent=mainFrame
 	})
-	
+
 	local title=Create("TextLabel",{
 		Name="Title",
 		Size=UDim2.new(1,0,0,50),
@@ -2517,9 +2542,9 @@ function Library:CreateKeySystem(keyInfo)
 		TextSize=16,
 		Parent=mainFrame
 	})
-	
+
 	Create("UICorner",{CornerRadius=UDim.new(0,15),Parent=title})
-	
+
 	local description=Create("TextLabel",{
 		Name="Description",
 		Size=UDim2.new(0.9,0,0,50),
@@ -2532,7 +2557,7 @@ function Library:CreateKeySystem(keyInfo)
 		TextWrapped=true,
 		Parent=mainFrame
 	})
-	
+
 	-- Rainbow Stroke Function
 	local function AddRainbowStroke(parent)
 		local stroke=Create("UIStroke",{
@@ -2548,13 +2573,13 @@ function Library:CreateKeySystem(keyInfo)
 			end
 		end)
 	end
-	
+
 	local keyCache={}
 	local Status=nil
-	
+
 	-- Dynamic Positioning for elements
 	local currentYOffset=105
-	
+
 	-- Discord Button
 	local discordInfo={Enabled=keyInfo.ShowDiscord,Link=keyInfo.DiscordURL or keyInfo.DiscordLink}
 	if discordInfo.Enabled and discordInfo.Link then
@@ -2675,7 +2700,7 @@ function Library:CreateKeySystem(keyInfo)
 		Parent=mainFrame
 	})
 	Create("UICorner",{Parent=keyInput})
-	
+
 	local verifyButton=Create("TextButton",{
 		Name="Verify",
 		Size=UDim2.new(0.4,0,0,40),
@@ -2688,7 +2713,7 @@ function Library:CreateKeySystem(keyInfo)
 		Parent=mainFrame
 	})
 	Create("UICorner",{Parent=verifyButton})
-	
+
 	local getKeyButton=Create("TextButton",{
 		Name="Get",
 		Size=UDim2.new(0.4,0,0,40),
@@ -2701,7 +2726,7 @@ function Library:CreateKeySystem(keyInfo)
 		Parent=mainFrame,
 	})
 	Create("UICorner",{Parent=getKeyButton})
-	
+
 	Status=Create("TextLabel",{
 		Name="Status",
 		Size=UDim2.new(1,0,0,30),
@@ -2716,9 +2741,9 @@ function Library:CreateKeySystem(keyInfo)
 
 	-- Dynamically adjust main frame height based on active elements
 	mainFrame.Size=UDim2.new(0,340,0,currentYOffset+160)
-	
+
 	local cleanDraggable=Library:MakeDraggable(mainFrame,mainFrame)
-	
+
 	local protectGui=Library:GetProtectGui(keyGui)
 
 	for _,interface in ipairs(protectGui:GetChildren()) do
@@ -2727,9 +2752,9 @@ function Library:CreateKeySystem(keyInfo)
 			interface.Name=OldGuiName
 		end
 	end
-	
+
 	keyGui.Parent=protectGui
-	
+
 	local cleanResize=Library:SetAutoResizeGui(keyGui,{BaseX=baseX,BaseY=baseY})
 
 	local SaveStatus={TextColor3=Status.TextColor3,Text=Status.Text}
@@ -2787,11 +2812,11 @@ function Library:CreateKeySystem(keyInfo)
 	function keyInfo:WaitForKey()
 		repeat FastWait() until keyInfo.Pass==true or keyInfo.Rejected==true or keyInfo.Closed==true
 	end
-	
+
 	keyInfo.Parent=true
-	
+
 	local cleanDestroying=nil
-	
+
 	function keyInfo:Destroy()
 		if not keyInfo.Parent then return end
 		keyInfo.Parent=nil
@@ -2807,9 +2832,9 @@ function Library:CreateKeySystem(keyInfo)
 			k,v=next(keyCache)
 		end
 	end
-	
+
 	keyInfo.Gui=keyGui
-	
+
 	-- Logic
 	keyCache.CloseActivated=closeButton.Activated:Connect(function() keyInfo.Closed=true keyInfo:Destroy() end)
 	keyCache.FocusLost=keyInput.FocusLost:Connect(function(enter)
@@ -2839,11 +2864,11 @@ function Library:CreateKeySystem(keyInfo)
 			Status.TextColor3=SaveStatus.TextColor3
 		end
 	end)
-	
+
 	cleanDestroying=ConnectDestroying(keyGui,keyGui.Name,function()
 		keyInfo:Destroy()
 	end)
-	
+
 	return setmetatable({},{
 		__index=function(this,key)
 			local value=keyInfo[key]
@@ -2868,7 +2893,7 @@ function Library:CreateWindow(config)
 	Window.Size=config.Size or UDim2.new(0,230,0,40)
 	Window.Open=config.Open or true
 	Window.Destroying=config.Destroying or nil
-	
+
 	local gui=Create("ScreenGui",{
 		Name=Window.Name,
 		ResetOnSpawn=false
@@ -3009,16 +3034,16 @@ function Library:CreateWindow(config)
 	end)
 
 	local cleanDraggable=Library:MakeDraggable(titleBar,mainFrame)
-	
+
 	Window.Main=mainFrame
 	Window.Container=contentHolder
 	Window.Gui=gui
 	Window.Parent=true
-	
+
 	function Window:Destroy()
 		if not self.Parent then return end
 		self.Parent=nil
-        CallSafely(self.Destroying)
+		CallSafely(self.Destroying)
 		absoluteSizeChanged:Disconnect()
 		inputBegan:Disconnect()
 		cleanDraggable()
@@ -3030,7 +3055,7 @@ function Library:CreateWindow(config)
 			self.Gui.Name=self.OldName or self.GuiName.."-Old"
 		end
 	end
-	
+
 	ConnectDestroying(Window.Gui,Window.SaveName,function()
 		Window:Destroy()
 	end)
@@ -3054,7 +3079,7 @@ Services.UserInputService.InputBegan:Connect(function(input)
 				Library.ActivePopup:Close()
 			end
 		end
-		
+
 	end
 end)
 
