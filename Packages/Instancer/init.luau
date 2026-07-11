@@ -48,7 +48,11 @@ function Instancer.IsAs(instance,classNames)
 end
 
 -- Yield For
-function Instancer.YieldForChild(instance, match)
+function Instancer.YieldForChild(instance, match, callback)
+	if not callback or typeof(callback) ~= "function" then
+		callback = function() return false end
+	end
+	
 	local yieldThread = coroutine.running()
 	local connection = nil
 	local done = false
@@ -70,11 +74,25 @@ function Instancer.YieldForChild(instance, match)
 
 	task.defer(function()
 		if not connection.Connected or done then return end
-
-		local children = instance:GetChildren()
-		for _, child in ipairs(children) do
-			if done then break end
-			OnChildAdded(child)
+		while connection.Connected and not done do
+			task.wait(1)
+			local children = instance:GetChildren()
+			for _, child in ipairs(children) do
+				task.wait()
+				if done then break end
+				OnChildAdded(child)
+			end
+			if not done then
+				local success = callback()
+				if success and not done then
+					done = true
+					connection:Disconnect()
+					if coroutine.status(yieldThread) == "suspended" then
+						task.spawn(yieldThread, nil)
+					end
+					break
+				end
+			end
 		end
 	end)
 
