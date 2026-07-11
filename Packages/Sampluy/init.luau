@@ -1,6 +1,6 @@
 --[[
    ToraIsMe | Inspired from here
-   Crokier | Programming
+   Crokyreo | Programming
    Gemini AI | Just help and fix
 ]]
 
