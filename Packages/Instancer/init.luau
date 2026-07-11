@@ -47,27 +47,65 @@ function Instancer.IsAs(instance,classNames)
 	for i,v in ipairs(classNames) do if Instancer.IsAlive(instance) and instance:IsA(v) then return true end end return false
 end
 
-function Instancer.AddInstance(className,data)
-	local instance=nil
-	local success,message=pcall(function() instance=Instance.new(className) end)
-	if not success then
-		warn(`[Instancer] Error while Instance.new, got {className} and`,message)
-	end
-	if instance~=nil then
-		local parent=nil
-		if type(data)=="table" then
-			for k,v in pairs(data) do 
-				if k=="Parent" then parent=v continue end
-				pcall(function() instance[k]=v end) 
+-- Yield For
+function Instancer.YieldForChild(instance, match)
+	local yieldThread = coroutine.running()
+	local connection = nil
+	local done = false
+
+	local function OnChildAdded(child)
+		if child and child.Parent then
+			local success = match(child)
+			if success and not done then
+				done = true
+				connection:Disconnect()
+				if coroutine.status(yieldThread) == "suspended" then
+					task.spawn(yieldThread, child)
+				end
 			end
-		elseif typeof(data)=="Instance" then
-			parent=data
-		end
-		if parent~=nil then
-			instance.Parent=parent
 		end
 	end
-	return instance
+
+	connection = instance.ChildAdded:Connect(OnChildAdded)
+
+	task.defer(function()
+		if not connection.Connected or done then return end
+
+		local children = instance:GetChildren()
+		for _, child in ipairs(children) do
+			if done then break end
+			OnChildAdded(child)
+		end
+	end)
+
+	return coroutine.yield()
+end
+
+-- Find
+function Instancer.FindByPath(instance, array)
+	local function Search(current, index)
+		if not current then return nil end
+
+		if index > #array then
+			return current
+		end
+
+		local targetName = array[index]
+
+		for _, child in ipairs(current:GetChildren()) do
+			if child.Name == targetName then
+				local result = Search(child, index + 1)
+				
+				if result then
+					return result
+				end
+			end
+		end
+
+		return nil
+	end
+
+	return Search(instance, 1)
 end
 
 function Instancer.FindOrCreateChild(instance,name,className,data)
