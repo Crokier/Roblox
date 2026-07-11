@@ -324,7 +324,7 @@ local function GetComponents(Window)
 		options.MethodType=options.MethodType or "Default"
 		options.ClickThreshold=options.ClickThreshold or 0.5
 		options.ClickDuration=options.ClickDuration or 1
-		options.MaxClick=options.MaxClick or 3
+		options.MaxClick=options.MaxClick or 2
 		options.ClickCount=0
 		options.LastClickTime=0
 		options.ClickWaiting=false
