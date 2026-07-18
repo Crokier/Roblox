@@ -1,6 +1,7 @@
 local Services=setmetatable({},{__index=function(_,i) return cloneref and cloneref(game:GetService(i)) or game:GetService(i) end})
 
 local Players,RunService,TweenService=Services.Players,Services.RunService,nil
+local LocalPlayer = nil
 
 local PartProperties={"Name","Anchored","Locked","CanCollide","Transparency","Color","Material","Reflectance","CFrame","BackSurface","BottomSurface","FrontSurface","LeftSurface","RightSurface","TopSurface","Size"}
 
@@ -47,6 +48,50 @@ end
 
 function Instancer.IsAs(instance,classNames)
 	for i,v in ipairs(classNames) do if Instancer.IsAlive(instance) and instance:IsA(v) then return true end end return false
+end
+
+function Instancer.GetPlot(path,player,match)
+	local plots=Instancer.FindByPath(workspace,path)
+	if not plots then return nil end
+	
+	local userId,userName=player.UserId,player.Name
+	
+	if not match or typeof(match)~="function" then
+		match=function(plot)
+			local plotName=plot.Name
+			if plot:IsA("Folder") or plot:IsA("Model") then
+				local attributes=plot:GetAttributes()
+				if next(attributes) then 
+					for attributeName,attributeValue in pairs(attributes) do
+						if attributeValue==nil then continue end
+
+						local lowerAttributeName = string.lower(attributeName)
+						if lowerAttributeName=="owner" or lowerAttributeName == "ownerid" or lowerAttributeName=="owneruserid" or lowerAttributeName=="playerid" or lowerAttributeName=="playeruserid" and tonumber(attributeValue) and tostring(attributeValue)==tostring(userId) then
+							return true
+						end
+						if lowerAttributeName=="owner" or lowerAttributeName == "ownername" and tostring(attributeValue)==tostring(userName) then
+							return true
+						end
+					end
+				end
+				if plotName==userName or string.find(plotName,userName) then
+					return true
+				end
+				if plotName==userId or string.find(plotName,userId) then
+					return true
+				end
+			end
+		end
+	end
+	
+	for _,plot in ipairs(plots:GetChildren()) do
+		if not Instancer.IsAlive(plot) then continue end
+
+		local access=match(plot)
+		if access then return plot end
+	end
+
+	return nil
 end
 
 -- Yield For
@@ -115,30 +160,40 @@ function Instancer.FindByPath(instance, path)
 		error(`Invalid argument #2 (string or table expected, got {typeof(path)}) to Instancer.FindByPath`)
 		return nil
 	end
+	
+	if #array>1 then 
+		local function SearchInstance(current, index)
+			if not Instancer.IsAlive(current) then return nil end
 
-	local function SearchInstance(current, index)
-		if not current then return nil end
+			if index>#array then
+				return current
+			end
 
-		if index > #array then
-			return current
-		end
+			local targetName=array[index]
 
-		local targetName = array[index]
+			for _,child in ipairs(current:GetChildren()) do
+				if Instancer.IsAlive(child) and child.Name==targetName then
+					local result=SearchInstance(child,index+1)
 
-		for _, child in ipairs(current:GetChildren()) do
-			if child.Name == targetName then
-				local result = SearchInstance(child, index + 1)
-
-				if result then
-					return result
+					if result then
+						return result
+					end
 				end
 			end
+
+			return nil
 		end
 
-		return nil
+		return SearchInstance(instance,1)
+	else
+		for _,child in ipairs(instance:GetChildren()) do
+			if Instancer.IsAlive(child) and child.Name==path[1] then
+				return child
+			end
+		end
 	end
-
-	return SearchInstance(instance, 1)
+	
+	return nil
 end
 
 function Instancer.FindOrCreateChild(instance,name,className,data)
