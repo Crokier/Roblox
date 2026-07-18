@@ -147,48 +147,82 @@ function Instancer.YieldForChild(instance, match, callback)
 end
 
 -- Find
-function Instancer.FindByPath(instance, path)
-	local array={}
-
-	if type(path)=="string" then
+function Instancer.FindByPath(instance, path, match)
+	local array,totalArray={},nil
+	
+	local pathType=type(path)
+	if pathType=="string" then
 		for part in string.gmatch(path,"[^%.]+") do
 			table.insert(array,part)
 		end
-	elseif type(path)=="table" then
+	elseif pathType=="table" then
 		array=path
+	elseif pathType=="number" then
+		totalArray=path
 	else
-		error(`Invalid argument #2 (string or table expected, got {typeof(path)}) to Instancer.FindByPath`)
+		error(`Invalid argument #2 (string or number or table expected, got {typeof(path)}) to Instancer.FindByPath`)
 		return nil
 	end
 	
+	if totalArray and not match or typeof(match) ~= "function" then
+		error(`Invalid argument #3 (function expected, got {typeof(match)}) to Instancer.FindByPath`)
+	end
+	
 	if #array>1 then 
-		local function SearchInstance(current, index)
+		local function SearchInstance(current,index)
 			if not Instancer.IsAlive(current) then return nil end
+			
+			if not totalArray then
+				if index>#array then
+					return current
+				end
 
-			if index>#array then
-				return current
-			end
+				local targetName=array[index]
 
-			local targetName=array[index]
+				for _,child in ipairs(current:GetChildren()) do
+					if Instancer.IsAlive(child) and child.Name==targetName then
+						local result=SearchInstance(child,index+1)
 
-			for _,child in ipairs(current:GetChildren()) do
-				if Instancer.IsAlive(child) and child.Name==targetName then
-					local result=SearchInstance(child,index+1)
+						if result then
+							return result
+						end
+					end
+				end
+			else
+				if index>totalArray then
+					return current
+				end
+				for _,child in ipairs(current:GetChildren()) do
+					if Instancer.IsAlive(child) then
+						local newIndex=index+1
+						local access=match(child,index,newIndex)
+						if access then
+							local result=SearchInstance(child,newIndex)
 
-					if result then
-						return result
+							if result then
+								return result
+							end
+						end
 					end
 				end
 			end
-
+	
 			return nil
 		end
 
 		return SearchInstance(instance,1)
 	else
 		for _,child in ipairs(instance:GetChildren()) do
-			if Instancer.IsAlive(child) and child.Name==path[1] then
-				return child
+			if Instancer.IsAlive(child) then
+				local access=false
+				if not totalArray then
+					access=child.Name==path[1]
+				else
+					access=match(child,1,1)
+				end
+				if access then
+					return child
+				end
 			end
 		end
 	end
