@@ -1,4 +1,6 @@
-local Players,RunService=game:GetService("Players"),game:GetService("RunService")
+local Services=setmetatable({},{__index=function(_,i) return cloneref and cloneref(game:GetService(i)) or game:GetService(i) end})
+
+local Players,RunService,TweenService=Services.Players,Services.RunService,nil
 
 local PartProperties={"Name","Anchored","Locked","CanCollide","Transparency","Color","Material","Reflectance","CFrame","BackSurface","BottomSurface","FrontSurface","LeftSurface","RightSurface","TopSurface","Size"}
 
@@ -52,7 +54,7 @@ function Instancer.YieldForChild(instance, match, callback)
 	if not callback or typeof(callback) ~= "function" then
 		callback = function() return false end
 	end
-	
+
 	local yieldThread = coroutine.running()
 	local connection = nil
 	local done = false
@@ -100,8 +102,21 @@ function Instancer.YieldForChild(instance, match, callback)
 end
 
 -- Find
-function Instancer.FindByPath(instance, array)
-	local function Search(current, index)
+function Instancer.FindByPath(instance, path)
+	local array={}
+
+	if type(path)=="string" then
+		for part in string.gmatch(path,"[^%.]+") do
+			table.insert(array,part)
+		end
+	elseif type(path)=="table" then
+		array=path
+	else
+		error(`Invalid argument #2 (string or table expected, got {typeof(path)}) to Instancer.FindByPath`)
+		return nil
+	end
+
+	local function SearchInstance(current, index)
 		if not current then return nil end
 
 		if index > #array then
@@ -112,8 +127,8 @@ function Instancer.FindByPath(instance, array)
 
 		for _, child in ipairs(current:GetChildren()) do
 			if child.Name == targetName then
-				local result = Search(child, index + 1)
-				
+				local result = SearchInstance(child, index + 1)
+
 				if result then
 					return result
 				end
@@ -123,7 +138,7 @@ function Instancer.FindByPath(instance, array)
 		return nil
 	end
 
-	return Search(instance, 1)
+	return SearchInstance(instance, 1)
 end
 
 function Instancer.FindOrCreateChild(instance,name,className,data)
@@ -250,11 +265,9 @@ function Instancer.CopyInstance(className,instance,properties)
 	return newInstance
 end
 
-local TweenService = nil
-
 function Instancer.TeleportModel(mode, character, target, duration)
 	local hrp = character.PrimaryPart or character:FindFirstChild("HumanoidRootPart")
-	
+
 	local m = tostring(mode):lower()
 
 	if m == "1" or m == "cframe" then
@@ -276,11 +289,11 @@ function Instancer.TeleportModel(mode, character, target, duration)
 	elseif m == "9" or m == "translateby" then
 		character:TranslateBy(target.Position - hrp.Position)
 	elseif m == "10" or m == "tween" then
-        TweenService = TweenService or game:GetService("TweenService")
+		TweenService = TweenService or Services.TweenService
 		local tween = TweenService:Create(hrp, TweenInfo.new(duration or 0.01), {CFrame = target.CFrame})
 		tween:Play()
-    else
-        character:PivotTo(target.CFrame)
+	else
+		character:PivotTo(target.CFrame)
 	end
 end
 
@@ -375,7 +388,7 @@ function Instancer.GetCharacterInfo(instance,data)
 end
 
 function Instancer.GetPlayer(object)
-    if not object then return nil end
+	if not object then return nil end
 	local result,objectType=nil,typeof(object)
 	if objectType=="Instance" then
 		if object and object.Parent then
@@ -423,7 +436,6 @@ function Instancer.GetPlayer(object)
 			end
 		end
 	end
-	if callback and type(callback)=="function" and typeof(result)=="Instance" then pcall(callback,result) end
 	return result
 end
 
