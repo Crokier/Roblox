@@ -50,8 +50,8 @@ function Instancer.IsAs(instance,classNames)
 	for i,v in ipairs(classNames) do if Instancer.IsAlive(instance) and instance:IsA(v) then return true end end return false
 end
 
-function Instancer.GetPlot(selector,player,match)
-	local plots=workspace:QueryDescendants(selector)[1]
+function Instancer.GetPlot(path,player,match)
+	local plots=Instancer.FindByPath(workspace,path)
 	if not plots then return nil end
 
 	local userId,userName=player.UserId,player.Name
@@ -95,7 +95,7 @@ function Instancer.GetPlot(selector,player,match)
 end
 
 -- Yield For
-function Instancer.YieldForChild(instance, match, callback)
+function Instancer.YieldForChild(instance,match,callback)
 	if not callback or typeof(callback) ~= "function" then
 		callback = function() return false end
 	end
@@ -147,9 +147,8 @@ function Instancer.YieldForChild(instance, match, callback)
 end
 
 -- Find
---[[
-function Instancer.FindByPath(instance, path, match)
-	local array,totalArray,isNumber={},nil,false
+function Instancer.FindByPath(instance,path,match)
+	local array,totalArray={},0
 
 	local pathType=type(path)
 	if pathType=="string" then
@@ -160,13 +159,12 @@ function Instancer.FindByPath(instance, path, match)
 		array=path
 	elseif pathType=="number" then
 		totalArray=path
-		isNumber=true
 	else
 		error(`Invalid argument #2 (string or number or table expected, got {typeof(path)}) to Instancer.FindByPath`)
 		return nil
 	end
 
-	if isNumber and not match or typeof(match) ~= "function" then
+	if pathType=="number" and (not match or type(match) ~= "function") then
 		error(`Invalid argument #3 (function expected, got {typeof(match)}) to Instancer.FindByPath`)
 	end
 
@@ -174,7 +172,25 @@ function Instancer.FindByPath(instance, path, match)
 		local function SearchInstance(current,index)
 			if not Instancer.IsAlive(current) then return nil end
 
-			if not isNumber then
+			if pathType=="number" then
+				if index>totalArray then
+					return current
+				end
+				
+				for _,child in ipairs(current:GetChildren()) do
+					if Instancer.IsAlive(child) then
+						local newIndex=index+1
+						local access=match(child,index,newIndex)
+						if access then
+							local result=SearchInstance(child,newIndex)
+
+							if result then
+								return result
+							end
+						end
+					end
+				end
+			else
 				if index>#array then
 					return current
 				end
@@ -187,23 +203,6 @@ function Instancer.FindByPath(instance, path, match)
 
 						if result then
 							return result
-						end
-					end
-				end
-			else
-				if index>totalArray then
-					return current
-				end
-				for _,child in ipairs(current:GetChildren()) do
-					if Instancer.IsAlive(child) then
-						local newIndex=index+1
-						local access=match(child,index,newIndex)
-						if access then
-							local result=SearchInstance(child,newIndex)
-
-							if result then
-								return result
-							end
 						end
 					end
 				end
@@ -231,7 +230,7 @@ function Instancer.FindByPath(instance, path, match)
 
 	return nil
 end
-]]
+
 function Instancer.FindOrCreateChild(instance,name,className,data)
 	InvalidArgumentInstance(instance,1,"FindOrCreateChild")
 	InvalidArgumentString(name,2,"FindOrCreateChild")
