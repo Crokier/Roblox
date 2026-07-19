@@ -164,7 +164,7 @@ function Instancer.FindByPath(instance, path, match)
 		return nil
 	end
 	
-	if totalArray and not match or typeof(match) ~= "function" then
+	if not next(array) and totalArray and not match or typeof(match) ~= "function" then
 		error(`Invalid argument #3 (function expected, got {typeof(match)}) to Instancer.FindByPath`)
 	end
 	
