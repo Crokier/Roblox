@@ -176,7 +176,7 @@ function Instancer.FindByPath(instance,path,match)
 				if index>totalArray then
 					return current
 				end
-				
+
 				for _,child in ipairs(current:GetChildren()) do
 					if Instancer.IsAlive(child) then
 						local newIndex=index+1
@@ -216,10 +216,10 @@ function Instancer.FindByPath(instance,path,match)
 		for _,child in ipairs(instance:GetChildren()) do
 			if Instancer.IsAlive(child) then
 				local access=false
-				if not totalArray then
-					access=child.Name==path[1]
-				else
+				if pathType=="number" then
 					access=match(child,1,1)
+				else
+					access=child.Name==path[1]
 				end
 				if access then
 					return child
