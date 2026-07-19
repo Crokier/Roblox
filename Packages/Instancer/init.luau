@@ -148,7 +148,7 @@ end
 
 -- Find
 function Instancer.FindByPath(instance, path, match)
-	local array,totalArray={},nil
+	local array,totalArray,isNumber={},nil,false
 	
 	local pathType=type(path)
 	if pathType=="string" then
@@ -159,12 +159,13 @@ function Instancer.FindByPath(instance, path, match)
 		array=path
 	elseif pathType=="number" then
 		totalArray=path
+		isNumber=true
 	else
 		error(`Invalid argument #2 (string or number or table expected, got {typeof(path)}) to Instancer.FindByPath`)
 		return nil
 	end
 	
-	if not next(array) and totalArray and not match or typeof(match) ~= "function" then
+	if isNumber and not match or typeof(match) ~= "function" then
 		error(`Invalid argument #3 (function expected, got {typeof(match)}) to Instancer.FindByPath`)
 	end
 	
@@ -172,7 +173,7 @@ function Instancer.FindByPath(instance, path, match)
 		local function SearchInstance(current,index)
 			if not Instancer.IsAlive(current) then return nil end
 			
-			if not totalArray then
+			if not isNumber then
 				if index>#array then
 					return current
 				end
