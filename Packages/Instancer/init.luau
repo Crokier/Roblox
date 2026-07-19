@@ -50,12 +50,12 @@ function Instancer.IsAs(instance,classNames)
 	for i,v in ipairs(classNames) do if Instancer.IsAlive(instance) and instance:IsA(v) then return true end end return false
 end
 
-function Instancer.GetPlot(path,player,match)
-	local plots=Instancer.FindByPath(workspace,path)
+function Instancer.GetPlot(selector,player,match)
+	local plots=workspace:QueryDescendants(selector)[1]
 	if not plots then return nil end
-	
+
 	local userId,userName=player.UserId,player.Name
-	
+
 	if not match or typeof(match)~="function" then
 		match=function(plot)
 			local plotName=plot.Name
@@ -83,7 +83,7 @@ function Instancer.GetPlot(path,player,match)
 			end
 		end
 	end
-	
+
 	for _,plot in ipairs(plots:GetChildren()) do
 		if not Instancer.IsAlive(plot) then continue end
 
@@ -147,9 +147,10 @@ function Instancer.YieldForChild(instance, match, callback)
 end
 
 -- Find
+--[[
 function Instancer.FindByPath(instance, path, match)
 	local array,totalArray,isNumber={},nil,false
-	
+
 	local pathType=type(path)
 	if pathType=="string" then
 		for part in string.gmatch(path,"[^%.]+") do
@@ -164,15 +165,15 @@ function Instancer.FindByPath(instance, path, match)
 		error(`Invalid argument #2 (string or number or table expected, got {typeof(path)}) to Instancer.FindByPath`)
 		return nil
 	end
-	
+
 	if isNumber and not match or typeof(match) ~= "function" then
 		error(`Invalid argument #3 (function expected, got {typeof(match)}) to Instancer.FindByPath`)
 	end
-	
+
 	if #array>1 then 
 		local function SearchInstance(current,index)
 			if not Instancer.IsAlive(current) then return nil end
-			
+
 			if not isNumber then
 				if index>#array then
 					return current
@@ -207,7 +208,7 @@ function Instancer.FindByPath(instance, path, match)
 					end
 				end
 			end
-	
+
 			return nil
 		end
 
@@ -227,10 +228,10 @@ function Instancer.FindByPath(instance, path, match)
 			end
 		end
 	end
-	
+
 	return nil
 end
-
+]]
 function Instancer.FindOrCreateChild(instance,name,className,data)
 	InvalidArgumentInstance(instance,1,"FindOrCreateChild")
 	InvalidArgumentString(name,2,"FindOrCreateChild")
