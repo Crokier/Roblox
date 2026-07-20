@@ -23,6 +23,51 @@ local baseX,baseY=1024,768
 
 local Strs=loadstring(game:HttpGet("https://raw.githubusercontent.com/Crokier/Roblox/refs/heads/main/Packages/Strs/init.luau"))()
 
+-- Loads and executes a function hosted on a remote URL. Cancels the request if the requested URL takes too long to respond.
+-- Errors with the function are caught and logged to the output
+local function LoadWithTimeout(url,timeout)
+	assert(type(url)=="string","Expected string,got " .. type(url))
+	timeout=timeout or 5
+	local done,success,result=false,false,nil
+	local requestThread=task.spawn(function()
+		local fetchSuccess,fetchResult=pcall(game.HttpGet,game,url) -- game:HttpGet(url)
+		-- If the request fails the content can be empty,even if fetchSuccess is true
+		if not fetchSuccess or #fetchResult==0 then
+			if #fetchResult==0 then
+				fetchResult="Empty response" -- Set the error message
+			end
+			done,success,result=true,false,fetchResult
+			return
+		end
+		local content=fetchResult -- Fetched content
+		local executeSuccess,executResult=pcall(function()
+			return loadstring(content)()
+		end)
+		done,success,result=true,executeSuccess,executResult
+		done=true
+	end)
+	local timeoutThread=task.delay(timeout,function()
+		if not done then
+			done=true
+			warn("Request for " .. url .. " timed out after " .. tostring(timeout) .. " seconds")
+			task.cancel(requestThread)
+			result="Request timed out"
+		end
+	end)
+	-- Wait for completion or timeout
+	while not done do
+		task.wait()
+	end
+	-- Cancel timeout thread if still running when request completes
+	if coroutine.status(timeoutThread)~="dead" then
+		task.cancel(timeoutThread)
+	end
+	if not success then
+		warn("Failed to process " .. tostring(url) .. ": " .. tostring(result))
+	end
+	return success and result or nil
+end
+
 local function Round(num, bracket)
 	num = tonumber(num) or 0
 	bracket = math.abs(tonumber(bracket) or 1)
@@ -2470,7 +2515,7 @@ function Library:CreateKeySystem(keyInfo)
 		-- Set secret global variable to bypass main script protection
 		pcall(function() getgenv()[KeyCode]=true end)
 		-- Execute main script
-		if scriptInfo.Enabled and scriptInfo.Link then pcall(function() loadstring(game:HttpGet(scriptInfo.Link))() end) end
+		if scriptInfo.Enabled and scriptInfo.Link then LoadWithTimeout(scriptInfo.Link) end
 	end
 
 	if not FolderName or type(FolderName)~="string" then FolderName=UIFolder end
