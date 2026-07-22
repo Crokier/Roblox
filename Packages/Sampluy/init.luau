@@ -23,51 +23,6 @@ local baseX,baseY=1024,768
 
 local Strs=loadstring(game:HttpGet("https://raw.githubusercontent.com/Crokier/Roblox/refs/heads/main/Packages/Strs/init.luau"))()
 
--- Loads and executes a function hosted on a remote URL. Cancels the request if the requested URL takes too long to respond.
--- Errors with the function are caught and logged to the output
-local function LoadWithTimeout(url,timeout)
-	assert(type(url)=="string","Expected string,got " .. type(url))
-	timeout=timeout or 5
-	local done,success,result=false,false,nil
-	local requestThread=task.spawn(function()
-		local fetchSuccess,fetchResult=pcall(game.HttpGet,game,url) -- game:HttpGet(url)
-		-- If the request fails the content can be empty,even if fetchSuccess is true
-		if not fetchSuccess or #fetchResult==0 then
-			if #fetchResult==0 then
-				fetchResult="Empty response" -- Set the error message
-			end
-			done,success,result=true,false,fetchResult
-			return
-		end
-		local content=fetchResult -- Fetched content
-		local executeSuccess,executResult=pcall(function()
-			return loadstring(content)()
-		end)
-		done,success,result=true,executeSuccess,executResult
-		done=true
-	end)
-	local timeoutThread=task.delay(timeout,function()
-		if not done then
-			done=true
-			warn("Request for " .. url .. " timed out after " .. tostring(timeout) .. " seconds")
-			task.cancel(requestThread)
-			result="Request timed out"
-		end
-	end)
-	-- Wait for completion or timeout
-	while not done do
-		task.wait()
-	end
-	-- Cancel timeout thread if still running when request completes
-	if coroutine.status(timeoutThread)~="dead" then
-		task.cancel(timeoutThread)
-	end
-	if not success then
-		warn("Failed to process " .. tostring(url) .. ": " .. tostring(result))
-	end
-	return success and result or nil
-end
-
 local function Round(num, bracket)
 	num = tonumber(num) or 0
 	bracket = math.abs(tonumber(bracket) or 1)
@@ -1027,7 +982,7 @@ local function GetComponents(Window)
 					fill:TweenSize(UDim2.new(value/(self.Max-self.Min),0,1,0),"Out","Quad",0.1,true)
 				end
 				local newValue=Strs.ToNumber(value)
-				title.Text=self.Name .. ": " .. newValue
+				title.Text=self.Text .. ": " .. newValue
 				CallSafely(self.Callback,tonumber(newValue) or value)
 			end
 
@@ -1218,10 +1173,7 @@ local function GetComponents(Window)
 				Tween(handle,TweenInfo.new(0.2,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Size=UDim2.new(0,0,0,0),ImageColor3=Color3.fromRGB(60,60,60)})
 				options:Set(newValue)
 			end)
-
-
-
-
+			
 			function options:Set(value)
 				-- Pastikan semua nilai konfigurasi ada dan valid
 				local Increment = tonumber(self.Increment) or 1
@@ -1259,6 +1211,7 @@ local function GetComponents(Window)
 				inputBox.Text = newValue
 				CallSafely(self.Callback, tonumber(newValue) or value)
 			end
+			
 --[[
 			function options:Set(value)
 				value=Round(value,self.Increment)
@@ -1640,10 +1593,12 @@ local function GetComponents(Window)
 		options.MultipleOptions=options.MultipleOptions and true or false
 		options.Callback=Missing("function",options.Callback,function() end)
 		options.Open=false
+		options.SortOrder=options.SortOrder or "LayoutOrder"
 
 		if not options.Options or type(options.Options)~="table" or #options.Options<=0 then
 			options.Options={"Option 1","Option 2"}
 		end
+		
 		if options.Option then
 			if type(options.Option)=="string" then
 				options.Option={options.Option}
@@ -1742,9 +1697,11 @@ local function GetComponents(Window)
 			Parent=mainHolder
 		})
 
-		local layout=Create("UIListLayout",{Parent=content})
+		local layout=Create("UIListLayout",{SortOrder=options.SortOrder, Parent=content})
 		local optionLength=0
-
+		
+		options.List={}
+		
 		if options.MultipleOptions then
 			if #options.Option==1 then
 				selected.Text=options.Option[1]
@@ -1756,19 +1713,20 @@ local function GetComponents(Window)
 		else
 			selected.Text=options.Option[1] or "None"
 		end
-
+		
 		local layoutChanged=layout.Changed:Connect(function()
 			mainHolder.Size=UDim2.new(0,240,0,(optionLength>4 and (4*40) or layout.AbsoluteContentSize.Y)+12)
 			content.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+12)
 		end)
-
+		
 		function options:Add(option)
 			if option==nil then return end
 			optionLength=optionLength+1
 			if type(option)~="table" then option={option} end
 			for _,value in ipairs(option) do
 				value=tostring(value)
-				local droption:TextLabel=Create("TextLabel",{
+				
+				local droption=Create("TextLabel",{
 					Name=value,
 					ZIndex=3,
 					Size=UDim2.new(1,0,0,40),
@@ -1782,8 +1740,12 @@ local function GetComponents(Window)
 					TextXAlignment=Enum.TextXAlignment.Left,
 					Parent=content
 				})
+				
+				table.insert(self.List, droption)
+				droption.LayoutOrder=#self.List
+				
 				local inContact,clicking=false,false
-
+				
 				local inputeBegan=droption.InputBegan:Connect(function(input)
 					if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
 						clicking=true
@@ -1838,18 +1800,38 @@ local function GetComponents(Window)
 
 				ConnectDestroying(droption,nil,function()
 					cleanup()
+			
+					local foundIndex = table.find(self.List, droption)
+					if foundIndex then 
+						table.remove(self.List, foundIndex) 
+					end
+					
+					local oldListCount = #self.List
+					
+					if #self.List==oldListCount then
+						for rank,otherDroption in ipairs(self.List) do
+							if #self.List~=oldListCount then break end
+							
+							if otherDroption and otherDroption.Parent then
+								otherDroption.LayoutOrder=rank
+							end
+						end
+					end
 				end)
 			end
 		end
 
 		function options:Remove(value)
+			if value==nil or type(value)~="string" then return end
+			
 			for _,droption in ipairs(content:GetChildren()) do
-				if droption.ClassName=="TextLabel" and droption.Text=="	" .. value then
+				if droption.ClassName=="TextLabel" and droption.Text:find(value) then
 					droption:Destroy()
 					optionLength=optionLength-1
 					break
 				end
 			end
+			
 			if self.Value==value then
 				self:Set("None")
 			end
@@ -1914,10 +1896,8 @@ local function GetComponents(Window)
 				self.MainHolder.Visible=false
 			end
 		end
-
-		for _,value in ipairs(options.Options) do
-			options:Add(value)
-		end
+		
+		options:Add(options.Options)
 
 		local inputBegan=round.InputBegan:Connect(function(input)
 			if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
@@ -1977,7 +1957,7 @@ local function GetComponents(Window)
 				return options[i]
 			end,
 			__newindex=function(_,i,v)
-				if i~="Set" then
+				if i~="Set" and i~="List" then
 					options[i]=v
 				end
 				if i=="Visible" then
@@ -2515,7 +2495,7 @@ function Library:CreateKeySystem(keyInfo)
 		-- Set secret global variable to bypass main script protection
 		pcall(function() getgenv()[KeyCode]=true end)
 		-- Execute main script
-		if scriptInfo.Enabled and scriptInfo.Link then LoadWithTimeout(scriptInfo.Link) end
+		if scriptInfo.Enabled and scriptInfo.Link then pcall(function() loadstring(game:HttpGet(scriptInfo.Link))() end) end
 	end
 
 	if not FolderName or type(FolderName)~="string" then FolderName=UIFolder end
@@ -3124,7 +3104,6 @@ Services.UserInputService.InputBegan:Connect(function(input)
 				Library.ActivePopup:Close()
 			end
 		end
-
 	end
 end)
 
