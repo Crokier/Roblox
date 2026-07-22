@@ -36,12 +36,12 @@ local Button = Window:AddButton({
 ### Adding Toggle
 ```lua
 local Toggle = Window:AddToggle({
-	  Text = "Toggle",
-    Value = false,
-	  Flag = "toggle",
-	  Callback = function(value)
-      	print(value)
-  	end
+	Text = "Toggle",
+	Value = false,
+	Flag = "toggle",
+	Callback = function(value)
+		print(value)
+	end
 })
 ```
 
@@ -50,7 +50,7 @@ local Toggle = Window:AddToggle({
 ### Adding Label
 ```lua
 local Label = Window:AddLabel({
-	  Text = "Credits: None",
+	Text = "Credits: None",
 })
 ```
 
@@ -59,14 +59,14 @@ local Label = Window:AddLabel({
 ### Adding Slider
 ```lua
 local Slider = Window:AddSlider({
-	  Text = "Fov",
-    Value = 10,
-	  Range = {70,170},
-	  Increment = 0.1,
-    Flag = "slider",
-	  Callback = function(value)
-      	print("Fov:",value)
-    end
+	Text = "Fov",
+	Value = 10,
+	Range = {70,170},
+	Increment = 0.1,
+	Flag = "slider",
+	Callback = function(value)
+		print("Fov:",value)
+	end
 })
 ```
 
@@ -75,11 +75,11 @@ local Slider = Window:AddSlider({
 ### Adding Input
 ```lua
 local Input = Window:AddInput({
-	  Text = "Speed",
-    Value = "",
-	  Callback = function(value)
-		    print(value)
-    end
+	Text = "Speed",
+	Value = "",
+	Callback = function(value)
+		print(value)
+	end
 })
 ```
 
@@ -87,15 +87,16 @@ local Input = Window:AddInput({
 
 ### Adding Dropdown
 ```lua
-local Dropdown=Folder:AddDropdown({
-    Text = "Color",
-    Options = {"Red", "Green", "Blue"},
-	  Option = "Green" or {"Green", "Red"},
-	  MultipleOptions = false,
-  	Flag = "color_option",
-    Callback = function(option)
-        print("Selected color:", unpack(option))
-    end
+local Dropdown = Folder:AddDropdown({
+	Text = "Color",
+	Options = {"Red", "Green", "Blue"},
+	Option = "Green" or {"Green", "Red"},
+	MultipleOptions = false,
+	SortOrder = nil,
+	Flag = "color_option",
+	Callback = function(option)
+		print("Selected color:", unpack(option))
+	end
 })
 ```
 
@@ -121,12 +122,12 @@ local Selector = Window:AddSelector({
 local Folder = Window:AddFolder("Folder")
 
 Folder:AddToggle({
-	  Text = "Toggle",
-    Value = false,
-	  Flag = "toggle2",
-	  Callback = function(value)
-		    print(value)
-  	end
+	Text = "Toggle",
+	Value = false,
+	Flag = "toggle2",
+	Callback = function(value)
+		print(value)
+	end
 })
 ```
 
