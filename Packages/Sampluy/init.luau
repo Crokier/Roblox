@@ -21,7 +21,7 @@ local OFFSET=UDim2.new(0,100,0,50)
 local UIFolder="Sampluy"
 local baseX,baseY=1024,768
 
-local Strs=loadstring(game:HttpGet("https://raw.githubusercontent.com/Crokier/Roblox/refs/heads/main/Packages/Strs/init.luau"))()
+local Strs=loadstring(game:HttpGet("https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Strs/init.luau"))()
 
 local function Round(num, bracket)
 	num = tonumber(num) or 0
@@ -1594,7 +1594,7 @@ local function GetComponents(Window)
 		options.Callback=Missing("function",options.Callback,function() end)
 		options.Open=false
 		options.SortOrder=options.SortOrder or "LayoutOrder"
-
+		
 		if not options.Options or type(options.Options)~="table" or #options.Options<=0 then
 			options.Options={"Option 1","Option 2"}
 		end
@@ -1667,7 +1667,7 @@ local function GetComponents(Window)
 			Parent=round
 		})
 
-		local mainHolder=Create("ImageButton",{
+		local mainHolder=Create("ImageLabel",{
 			Name="List",
 			ZIndex=3,
 			Size=UDim2.new(0,main.AbsoluteSize.X,0,0),
@@ -1700,7 +1700,7 @@ local function GetComponents(Window)
 		local layout=Create("UIListLayout",{SortOrder=options.SortOrder, Parent=content})
 		local optionLength=0
 		
-		options.List={}
+		options.DroptionButtons={}
 		
 		if options.MultipleOptions then
 			if #options.Option==1 then
@@ -1718,122 +1718,131 @@ local function GetComponents(Window)
 			mainHolder.Size=UDim2.new(0,240,0,(optionLength>4 and (4*40) or layout.AbsoluteContentSize.Y)+12)
 			content.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+12)
 		end)
-		
+
 		function options:Add(option)
-			if option==nil then return end
-			optionLength=optionLength+1
-			if type(option)~="table" then option={option} end
-			for _,value in ipairs(option) do
-				value=tostring(value)
-				
-				local droption=Create("TextLabel",{
-					Name=value,
-					ZIndex=3,
-					Size=UDim2.new(1,0,0,40),
-					BackgroundColor3=SelectedTheme.DropdownSelected,
-					BorderSizePixel=0,
-					Text="    " .. value,
-					TextSize=14,
-					TextTransparency=self.Open and 0 or 1,
-					Font=Enum.Font.GothamBlack,
-					TextColor3=Color3.fromRGB(255,255,255),
-					TextXAlignment=Enum.TextXAlignment.Left,
-					Parent=content
-				})
-				
-				table.insert(self.List, droption)
-				droption.LayoutOrder=#self.List
-				
-				local inContact,clicking=false,false
-				
-				local inputeBegan=droption.InputBegan:Connect(function(input)
-					if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
-						clicking=true
-						if options.MultipleOptions then
-							local foundIndex=table.find(options.Option,value)
-							if foundIndex then
-								table.remove(options.Option,foundIndex)
-								Tween(droption,TweenInfo.new(0.3,Enum.EasingStyle.Exponential),{BackgroundColor3=SelectedTheme.DropdownSelected})
-							else
-								table.insert(options.Option,value) 
-								Tween(droption,TweenInfo.new(0.3,Enum.EasingStyle.Exponential),{BackgroundColor3=SelectedTheme.DropdownUnselected})
-							end
-							if #options.Option==1 then
-								selected.Text=options.Option[1]
-							elseif #options.Option==0 then
-								selected.Text="None"
-							else
-								selected.Text="Various"
-							end
-						else
-							table.clear(options.Option)
-							table.insert(options.Option,value)
-							selected.Text=value
-							options:Close()
-						end
-						CallSafely(options.Callback,options.Option)
-					end
-
-					if input.UserInputType==Enum.UserInputType.MouseMovement then
-						inContact=true
-						if not clicking then
-							Tween(droption,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{BackgroundColor3=SelectedTheme.DropdownUnselected})
-						end
-					end
-				end)
-
-				local inputEnded=droption.InputEnded:Connect(function(input)
-					if input.UserInputType==Enum.UserInputType.MouseMovement then
-						inContact=false
-						if not clicking then
-							local isSelected=table.find(options.Option,value)
-							local targetColor=isSelected and SelectedTheme.DropdownUnselected or SelectedTheme.DropdownSelected
-							Tween(droption,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{BackgroundColor3=targetColor})
-						end
-					end
-				end)
-
-				local cleanup=ConnectDestroying(Window.Gui,Window.SaveName,function()
-					inputeBegan:Disconnect() 
-					inputEnded:Disconnect() 
-				end)
-
-				ConnectDestroying(droption,nil,function()
-					cleanup()
+			if not option or typeof(option)~="string" then return end
 			
-					local foundIndex = table.find(self.List, droption)
-					if foundIndex then 
-						table.remove(self.List, foundIndex) 
+			optionLength=optionLength+1
+			
+			local droption=Create("TextLabel",{
+				Name=option,
+				ZIndex=3,
+				Size=UDim2.new(1,0,0,40),
+				BackgroundColor3=SelectedTheme.DropdownSelected,
+				BorderSizePixel=0,
+				Text="    " .. option,
+				TextSize=14,
+				TextTransparency=self.Open and 0 or 1,
+				Font=Enum.Font.GothamBlack,
+				TextColor3=Color3.fromRGB(255,255,255),
+				TextXAlignment=Enum.TextXAlignment.Left,
+				Parent=content
+			})
+
+			table.insert(self.DroptionButtons, droption)
+			droption.LayoutOrder=#self.DroptionButtons
+
+			local inContact,clicking=false,false
+
+			local inputeBegan=droption.InputBegan:Connect(function(input)
+				if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch and table.find(self.Options,option)~=nil then
+					clicking=true
+					if self.MultipleOptions then
+						local foundIndex=table.find(self.Option,option)
+						if foundIndex then
+							table.remove(self.Option,foundIndex)
+							Tween(droption,TweenInfo.new(0.3,Enum.EasingStyle.Exponential),{BackgroundColor3=SelectedTheme.DropdownSelected})
+						else
+							table.insert(self.Option,option) 
+							Tween(droption,TweenInfo.new(0.3,Enum.EasingStyle.Exponential),{BackgroundColor3=SelectedTheme.DropdownUnselected})
+						end
+						if #self.Option==1 then
+							selected.Text=self.Option[1]
+						elseif #self.Option==0 then
+							selected.Text="None"
+						else
+							selected.Text="Various"
+						end
+					else
+						table.clear(self.Option)
+						table.insert(self.Option,option)
+						selected.Text=option
+						self:Close()
 					end
-					
-					local oldListCount = #self.List
-					
-					if #self.List==oldListCount then
-						for rank,otherDroption in ipairs(self.List) do
-							if #self.List~=oldListCount then break end
-							
-							if otherDroption and otherDroption.Parent then
-								otherDroption.LayoutOrder=rank
-							end
+					CallSafely(self.Callback,self.Option)
+				end
+
+				if input.UserInputType==Enum.UserInputType.MouseMovement then
+					inContact=true
+					if not clicking then
+						Tween(droption,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{BackgroundColor3=SelectedTheme.DropdownUnselected})
+					end
+				end
+			end)
+
+			local inputEnded=droption.InputEnded:Connect(function(input)
+				if input.UserInputType==Enum.UserInputType.MouseMovement then
+					inContact=false
+					if not clicking then
+						local isSelected=table.find(self.Option,option)
+						local targetColor=isSelected and SelectedTheme.DropdownUnselected or SelectedTheme.DropdownSelected
+						Tween(droption,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{BackgroundColor3=targetColor})
+					end
+				end
+			end)
+
+			local cleanup=ConnectDestroying(Window.Gui,Window.SaveName,function()
+				inputeBegan:Disconnect() 
+				inputEnded:Disconnect() 
+			end)
+
+			ConnectDestroying(droption,nil,function()
+				cleanup()
+
+				local foundIndex = table.find(self.DroptionButtons, droption)
+				if foundIndex then 
+					table.remove(self.DroptionButtons, foundIndex) 
+				end
+
+				local oldListCount = #self.DroptionButtons
+
+				if #self.DroptionButtons==oldListCount then
+					for rank,otherDroption in ipairs(self.DroptionButtons) do
+						if #self.DroptionButtons~=oldListCount then break end
+
+						if otherDroption and otherDroption.Parent then
+							otherDroption.LayoutOrder=rank
 						end
 					end
-				end)
-			end
+				end
+			end)
 		end
 
-		function options:Remove(value)
-			if value==nil or type(value)~="string" then return end
+		function options:Remove(option)
+			if option==nil or type(option)~="string" then return end
 			
 			for _,droption in ipairs(content:GetChildren()) do
-				if droption.ClassName=="TextLabel" and droption.Text:find(value) then
-					droption:Destroy()
-					optionLength=optionLength-1
+				if droption and droption.Parent and droption.ClassName=="TextLabel" and droption.Text:find(option) then
+					droption.Visible=false
+					optionLength-=1
 					break
 				end
 			end
 			
-			if self.Value==value then
+			local optionsIndex=table.find(self.Options, option)
+			if optionsIndex then
+				table.remove(self.Options, optionsIndex)
+			end
+			
+			local optionIndex=table.find(self.Option, option)
+			if optionIndex then
+				table.remove(self.Option, optionIndex)
+			end
+			
+			if #self.Option==0 then
 				self:Set("None")
+			else
+				self:Set(self.Option)
 			end
 		end
 
@@ -1860,7 +1869,7 @@ local function GetComponents(Window)
 				end
 			else
 				selected.Text=tostring(option[1])
-				options:Close()
+				self:Close()
 				for _,droption in ipairs(content:GetChildren()) do
 					if droption.ClassName=="TextLabel" then
 						if not self.MultipleOptions then
@@ -1876,7 +1885,53 @@ local function GetComponents(Window)
 				end
 			end
 		end
+		
+		function options:Refresh()
+			local currentOptions = self.Options or {}
+			local droptionButtons = self.DroptionButtons or {}
 
+			-- 1. Sembunyikan semua tombol yang ada
+			for _, droption in ipairs(droptionButtons) do
+				if droption and droption.Parent then
+					droption.Visible = false
+				end
+			end
+
+			-- 2. Tampilkan tombol sesuai opsi yang ada
+			for index, option in ipairs(currentOptions) do
+				local droption = droptionButtons[index]
+				if droption and droption.Parent and typeof(option) == "string" then
+					droption.Text = "    " .. option
+					droption.Visible = true
+				end
+			end
+
+			-- 3. (FITUR BARU) Hapus opsi dari self.Option jika sudah tidak ada di currentOptions
+			if self.Option and type(self.Option) == "table" then
+				for index = #self.Option, 1, -1 do
+					local option = self.Option[index]
+					if option and not table.find(currentOptions, option) then
+						table.remove(self.Option, index)
+					end
+				end
+			end
+
+			-- 4. Buat tombol baru jika currentOptions lebih banyak dari tombol yang tersedia
+			if #currentOptions > #droptionButtons then
+				for index = #droptionButtons + 1, #currentOptions do
+					local option = currentOptions[index]
+					self:Add(option)
+				end
+			end
+
+			-- 5. Perbarui tampilan pilihan (Set value)
+			if not self.Option or #self.Option == 0 then
+				self:Set("None")
+			else
+				self:Set(self.Option)
+			end
+		end
+		
 		local inContact=false
 
 		function options:Close()
@@ -1897,8 +1952,10 @@ local function GetComponents(Window)
 			end
 		end
 		
-		options:Add(options.Options)
-
+		for _, option in ipairs(options.Options) do
+			options:Add(option)
+		end
+		
 		local inputBegan=round.InputBegan:Connect(function(input)
 			if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
 				if Library.ActivePopup then
@@ -1957,7 +2014,7 @@ local function GetComponents(Window)
 				return options[i]
 			end,
 			__newindex=function(_,i,v)
-				if i~="Set" and i~="List" then
+				if i~="Set" and i~="DroptionButtons" and i~="Option" then
 					options[i]=v
 				end
 				if i=="Visible" then
