@@ -54,7 +54,7 @@ function Utility.LoadWithTimeout(url,timeout)
 		task.cancel(timeoutThread)
 	end
 	if not success then
-		warn("Failed to process " .. tostring(url) .. ": " .. tostring(result))
+		warn("Failed to process " .. tostring(url) .. ": \n" .. tostring(result))
 	end
 	return success and result or nil
 end
