@@ -40,7 +40,7 @@ function Utility.LoadWithTimeout(url,timeout)
 	local timeoutThread=task.delay(timeout,function()
 		if not done then
 			done=true
-			warn("Request for " .. url .. " timed out after " .. tostring(timeout) .. " seconds")
+			warn("Request for " .. "This URL" .. " timed out after " .. tostring(timeout) .. " seconds")
 			task.cancel(requestThread)
 			result="Request timed out"
 		end
@@ -54,11 +54,10 @@ function Utility.LoadWithTimeout(url,timeout)
 		task.cancel(timeoutThread)
 	end
 	if not success then
-		warn("Failed to process " .. tostring(url) .. ": \n" .. tostring(result))
+		warn("Failed to process " .. "This URL" .. ": \n" .. tostring(result))
 	end
 	return success and result or nil
 end
-
 
 function Utility.Cleanup(object)
 	local objectType=typeof(object)
