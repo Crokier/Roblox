@@ -14,6 +14,7 @@ local Players=Services.Players
 local RunService=Services.RunService
 local UserInputService=Services.UserInputService
 local TweenService=Services.TweenService
+local TeleportService=nil
 local LocalPlayer=Players.LocalPlayer
 local Mouse=nil
 
@@ -22,6 +23,16 @@ local UIFolder="Sampluy"
 local baseX,baseY=1024,768
 
 local Strs=loadstring(game:HttpGet("https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Strs/init.luau"))()
+
+local function RejoinGame()
+	TeleportService=TeleportService or Services.TeleportService
+	
+	if #Players:GetPlayers() > 1 then
+		TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+	else
+		TeleportService:Teleport(game.PlaceId, LocalPlayer)
+	end
+end
 
 local function Round(num, bracket)
 	num = tonumber(num) or 0
@@ -2294,7 +2305,10 @@ function Library:CreateKeySystem(keyInfo)
 
 		-- [2] Anti-Bypass / Global Secret Variable
 		Secret = "1234", -- This makes the script ONLY run from the key script. Even if they copy the original obfuscated script to bypass the key, they won't be able to!
-
+		UseCheckExpired = false, -- TBH
+		CheckExpiredDuration= 1200, -- TBH
+		
+		
 		-- [3] Scripts & Links
 		ShowScript = false, -- If you don't want to use the script URL, you can set this to false to want to disable the script from running on the client.
 		ScriptURL = "", -- The raw URL of your main script.
@@ -2335,21 +2349,26 @@ function Library:CreateKeySystem(keyInfo)
 	-------------------------------------------------------------------------------
 
 	--! configuration
-	local FileName=keyInfo.FileName
-	local FolderName=keyInfo.FolderName
-	local ServiceId=keyInfo.ServiceId -- your service id,this is used to identify your service.
-	local PlatoSecret=keyInfo.PlatoSecret -- make sure to obfuscate this if you want to ensure security.
-	local UseNonce=keyInfo.UseNonce -- Hidden from Config to avoid user confusion,but active for security and use a nonce to prevent replay attacks and request tampering.
-	local KeyCode=keyInfo.Code or keyInfo.Secret
-	local GuiName=keyInfo.Name
-	local OldGuiName=keyInfo.OldName
-
+	local KeyOption={
+		FileName=keyInfo.FileName,
+		FolderName=keyInfo.FolderName,
+		ServiceId=keyInfo.ServiceId, -- your service id,this is used to identify your service.
+		PlatoSecret=keyInfo.PlatoSecret, -- make sure to obfuscate this if you want to ensure security.
+		UseNonce=keyInfo.UseNonce, -- Hidden from Config to avoid user confusion,but active for security and use a nonce to prevent replay attacks and request tampering.
+		KeyCode=keyInfo.Code or keyInfo.Secret,
+		GuiName=keyInfo.Name,
+		OldGuiName=keyInfo.OldName,
+		UseCheckExpired=keyInfo.UseCheckExpired or false,
+		CheckExpiredDuration=keyInfo.CheckExpiredDuration or 1200
+	}
+	if not KeyOption.FolderName or type(KeyOption.FolderName)~="string" then KeyOption.FolderName=UIFolder end
+	
 	--! functions
 	local fStringChar,fToString,fStringSub,fOsTime,fMathRandom,fMathFloor,fGetHwid=string.char,tostring,string.sub,os.time,math.random,math.floor,gethwid or function() return LocalPlayer.UserId end
 	local requestSending,cachedLink,cachedTime=false,"",0
 	local host="https://api.platoboost.com"
 	local verifyAccept,maxVerifyAccept=0,30
-
+	
 	-- Check server connectivity
 	local CheckConnectivity=function()
 		local response=RequestSafely({Url=host .. "/public/connectivity",Method="GET"})
@@ -2371,7 +2390,7 @@ function Library:CreateKeySystem(keyInfo)
 				Url=host.."/public/start",
 				Method="POST",
 				Body=lEncode({
-					service=ServiceId,
+					service=KeyOption.ServiceId,
 					identifier=lDigest(fGetHwid())
 				}),
 				Headers={
@@ -2399,20 +2418,20 @@ function Library:CreateKeySystem(keyInfo)
 
 	-- Redeem player's key
 	local RedeemKey=function(key)
-		if not ServiceId or type(ServiceId)~="number" or ServiceId<=0 then
-			local isKey=key==KeyCode
+		if not KeyOption.ServiceId or type(KeyOption.ServiceId)~="number" or KeyOption.ServiceId<=0 then
+			local isKey=key==KeyOption.KeyCode
 			return isKey,not isKey and "key is invalid." or nil
 		end
 
 		local textNonce=GenerateNonce()
-		local endpoint=host.."/public/redeem/".. fToString(ServiceId)
+		local endpoint=host.."/public/redeem/".. fToString(KeyOption.ServiceId)
 
 		local body={
 			identifier=lDigest(fGetHwid()),
 			key=key
 		}
 
-		if UseNonce then
+		if KeyOption.UseNonce then
 			body.nonce=textNonce
 		end
 
@@ -2429,45 +2448,46 @@ function Library:CreateKeySystem(keyInfo)
 			local decoded=lDecode(response.Body)
 			if decoded.success==true then
 				if decoded.data.valid==true then
-					if UseNonce then
-						if decoded.data.hash==lDigest("true" .. "-" .. textNonce .. "-" .. PlatoSecret) then
+					if KeyOption.UseNonce then
+						if decoded.data.hash==lDigest("true" .. "-" .. textNonce .. "-" .. KeyOption.PlatoSecret) then
 							return true
 						else
 							return false,"failed to verify integrity."
 						end    
 					else
-						return true;
+						return true
 					end
 				else
 					return false,"key is invalid."
 				end
 			else
 				if fStringSub(decoded.message,1,27)=="unique constraint violation" then
-					return false,"you already have an active key,please wait for it to expire before redeeming it."
+					return false,"you already have an active key, please wait for it to expire before redeeming it."
 				else
 					return false,decoded.message
 				end
 			end
 		elseif response.StatusCode==429 then
-			return false,"you are being rate limited,please wait 20 seconds and try again."
+			return false,"you are being rate limited, please wait 20 seconds and try again."
 		else
-			return false,"server returned an invalid status code,please try again later."
+			return false,"server returned an invalid status code, please try again later."
 		end
 	end
 
-	-- Verify key on input
-	local VerifyKey=function(key)
-		if not ServiceId or type(ServiceId)~="number" or ServiceId<=0 then
-			local isKey=key==KeyCode
+	-- Get status key
+	local GetKeyStatus=function(key)
+		if not KeyOption.ServiceId or type(KeyOption.ServiceId)~="number" or KeyOption.ServiceId<=0 then
+			local isKey=key==KeyOption.KeyCode
 			return isKey,not isKey and "key is invalid." or nil
 		end
 		if requestSending then return false end
 		requestSending=true
-
+		
+		-- https://api.platoboost.com/public/whitelist/24751?identifier=1&key=FREE_5b87660dfa621fb65ca16cb570788e1e
 		local textNonce=GenerateNonce()
-		local endpoint=host .. "/public/whitelist/" .. fToString(ServiceId) .. "?identifier=" .. lDigest(fGetHwid()) .. "&key=" .. key
+		local endpoint=host .. "/public/whitelist/" .. fToString(KeyOption.ServiceId) .. "?identifier=" .. lDigest(fGetHwid()) .. "&key=" .. key
 
-		if UseNonce then
+		if KeyOption.UseNonce then
 			endpoint=endpoint .. "&nonce=" .. textNonce
 		end
 
@@ -2482,8 +2502,8 @@ function Library:CreateKeySystem(keyInfo)
 			local decoded=lDecode(response.Body)
 			if decoded.success==true then
 				if decoded.data.valid==true then
-					if UseNonce then
-						if decoded.data.hash==lDigest("true" .. "-" .. textNonce .. "-" .. PlatoSecret) then
+					if KeyOption.UseNonce then
+						if decoded.data.hash==lDigest("true" .. "-" .. textNonce .. "-" .. KeyOption.PlatoSecret) then
 							return true
 						else
 							return false,"failed to verify integrity."
@@ -2493,7 +2513,7 @@ function Library:CreateKeySystem(keyInfo)
 					end
 				else
 					if fStringSub(key,1,4)=="KEY_" then
-						return RedeemKey(key)
+						return true
 					else
 						return false,"key is invalid."
 					end
@@ -2502,17 +2522,17 @@ function Library:CreateKeySystem(keyInfo)
 				return false,decoded.message
 			end
 		elseif response.StatusCode==429 then
-			return false,"you are being rate limited,please wait 20 seconds and try again."
+			return false,"you are being rate limited, please wait 20 seconds and try again."
 		else
-			return false,"server returned an invalid status code,please try again later."
+			return false,"server returned an invalid status code, please try again later."
 		end
 	end
 
 	local GetFlag=function(name)
 		local textNonce=GenerateNonce()
-		local endpoint=host.."/public/flag/".. fToString(ServiceId) .."?name="..name
+		local endpoint=host.."/public/flag/".. fToString(KeyOption.ServiceId) .."?name="..name
 
-		if UseNonce then
+		if KeyOption.UseNonce then
 			endpoint=endpoint .. "&nonce=" .. textNonce
 		end
 
@@ -2525,8 +2545,8 @@ function Library:CreateKeySystem(keyInfo)
 		if response.StatusCode==200 then
 			local decoded=lDecode(response.Body)
 			if decoded.success==true then
-				if UseNonce then
-					if decoded.data.hash==lDigest(fToString(decoded.data.value) .. "-" .. textNonce .. "-" .. PlatoSecret) then
+				if KeyOption.UseNonce then
+					if decoded.data.hash==lDigest(fToString(decoded.data.value) .. "-" .. textNonce .. "-" .. KeyOption.PlatoSecret) then
 						return decoded.data.value
 					else
 						return nil,"failed to verify integrity."
@@ -2541,7 +2561,29 @@ function Library:CreateKeySystem(keyInfo)
 			return nil,"server returned an invalid status code,please try again later."
 		end
 	end
+	
+	local HandleCheckExpired=function(key)
+		if KeyOption.UseCheckExpired then
+			task.spawn(function()
+				while KeyOption.UseCheckExpired and LocalPlayer.Parent ~= nil do
+					task.wait(KeyOption.CheckExpiredDuration)
+					print(`[{keyInfo.Title or ""}] Check Expired Active`)
+					
+					local isValid, errorMessage = GetKeyStatus(key)
 
+					if not isValid then
+						if errorMessage == "you are being rate limited, please wait 20 seconds and try again." then
+						elseif errorMessage == "server returned an invalid status code, please try again later." then
+						else
+							RejoinGame()
+							break
+						end
+					end
+				end
+			end)
+		end
+	end
+	
 	-------------------------------------------------------------------------------
 	--! GUI & MAIN SCRIPT EXECUTION
 	-------------------------------------------------------------------------------
@@ -2550,17 +2592,16 @@ function Library:CreateKeySystem(keyInfo)
 
 	local function LoadScript()
 		-- Set secret global variable to bypass main script protection
-		pcall(function() getgenv()[KeyCode]=true end)
+		pcall(function() getgenv()[KeyOption.KeyCode]=true end)
 		-- Execute main script
 		if scriptInfo.Enabled and scriptInfo.Link then pcall(function() loadstring(game:HttpGet(scriptInfo.Link))() end) end
 	end
 
-	if not FolderName or type(FolderName)~="string" then FolderName=UIFolder end
-	EnsureFolder(FolderName.."/Key System")
+	EnsureFolder(KeyOption.FolderName.."/Key System")
 
 	-- Auto Check Saved Key
-	if isfile and CallSafely(isfile,FolderName.."/Key System".."/"..FileName) and readfile then
-		local savedKey=CallSafely(readfile,FolderName.."/Key System".."/"..FileName)
+	if isfile and CallSafely(isfile,KeyOption.FolderName.."/Key System".."/"..KeyOption.FileName) and readfile then
+		local savedKey=CallSafely(readfile,KeyOption.FolderName.."/Key System".."/"..KeyOption.FileName)
 		if not Strs.IsEmpty(savedKey) then
 			local success=RedeemKey(savedKey)
 			if success then
@@ -2570,6 +2611,7 @@ function Library:CreateKeySystem(keyInfo)
 					if scriptInfo.Enabled and scriptInfo.Link then
 						FastWait(2)
 					end
+					HandleCheckExpired(savedKey)
 					LoadScript()
 					return keyInfo
 				end
@@ -2579,7 +2621,7 @@ function Library:CreateKeySystem(keyInfo)
 
 	-- Initialize Key System GUI
 	local keyGui=Create("ScreenGui",{
-		Name=GuiName,
+		Name=KeyOption.GuiName,
 		ResetOnSpawn=false
 	})
 
@@ -2829,9 +2871,9 @@ function Library:CreateKeySystem(keyInfo)
 	local protectGui=Library:GetProtectGui(keyGui)
 
 	for _,interface in ipairs(protectGui:GetChildren()) do
-		if interface.Name==GuiName and interface~=keyGui then
+		if interface.Name==KeyOption.GuiName and interface~=keyGui then
 			interface.Enabled=false
-			interface.Name=OldGuiName
+			interface.Name=KeyOption.OldGuiName
 		end
 	end
 
@@ -2861,12 +2903,13 @@ function Library:CreateKeySystem(keyInfo)
 		if success then
 			if not keyInfo.Pass then 
 				keyInfo.Pass=true
-				if writefile then CallSafely(writefile,FolderName.."/Key System".."/"..FileName,key) end
+				if writefile then CallSafely(writefile,KeyOption.FolderName.."/Key System".."/"..KeyOption.FileName,key) end
 				LastStatus="Success! Loading..."
 				Status.Text=LastStatus
 				Status.TextColor3=Color3.fromRGB(0,255,100)
 				FastWait(2)
 				keyInfo:Destroy()
+				HandleCheckExpired(key)
 				LoadScript()
 			end
 		else
@@ -2905,7 +2948,7 @@ function Library:CreateKeySystem(keyInfo)
 		if cleanDestroying then cleanDestroying() end
 		cleanResize()
 		cleanDraggable()
-		keyGui.Name=OldGuiName
+		keyGui.Name=KeyOption.OldGuiName
 		keyGui.Enabled=false
 		local k,v=next(keyCache)
 		while v do
@@ -2946,7 +2989,6 @@ function Library:CreateKeySystem(keyInfo)
 			Status.TextColor3=SaveStatus.TextColor3
 		end
 	end)
-
 	cleanDestroying=ConnectDestroying(keyGui,keyGui.Name,function()
 		keyInfo:Destroy()
 	end)
