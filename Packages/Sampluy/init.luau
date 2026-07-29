@@ -2273,6 +2273,7 @@ function Library:GetProtectGui(gui)
 	return parentGui or Services.CoreGui
 end
 
+
 function Library:CreateKeySystem(keyInfo)
 	keyInfo=Missing("table",keyInfo,{})
 	--[[
@@ -2307,8 +2308,8 @@ function Library:CreateKeySystem(keyInfo)
 		Secret = "1234", -- This makes the script ONLY run from the key script. Even if they copy the original obfuscated script to bypass the key, they won't be able to!
 		UseCheckExpired = false, -- TBH
 		CheckExpiredDuration= 1200, -- TBH
-		
-		
+
+
 		-- [3] Scripts & Links
 		ShowScript = false, -- If you don't want to use the script URL, you can set this to false to want to disable the script from running on the client.
 		ScriptURL = "", -- The raw URL of your main script.
@@ -2358,17 +2359,15 @@ function Library:CreateKeySystem(keyInfo)
 		KeyCode=keyInfo.Code or keyInfo.Secret,
 		GuiName=keyInfo.Name,
 		OldGuiName=keyInfo.OldName,
-		UseCheckExpired=keyInfo.UseCheckExpired or false,
-		CheckExpiredDuration=keyInfo.CheckExpiredDuration or 1200
 	}
 	if not KeyOption.FolderName or type(KeyOption.FolderName)~="string" then KeyOption.FolderName=UIFolder end
-	
+
 	--! functions
 	local fStringChar,fToString,fStringSub,fOsTime,fMathRandom,fMathFloor,fGetHwid=string.char,tostring,string.sub,os.time,math.random,math.floor,gethwid or function() return LocalPlayer.UserId end
 	local requestSending,cachedLink,cachedTime=false,"",0
 	local host="https://api.platoboost.com"
 	local verifyAccept,maxVerifyAccept=0,30
-	
+
 	-- Check server connectivity
 	local CheckConnectivity=function()
 		local response=RequestSafely({Url=host .. "/public/connectivity",Method="GET"})
@@ -2482,7 +2481,7 @@ function Library:CreateKeySystem(keyInfo)
 		end
 		if requestSending then return false end
 		requestSending=true
-		
+
 		-- https://api.platoboost.com/public/whitelist/24751?identifier=1&key=FREE_5b87660dfa621fb65ca16cb570788e1e
 		local textNonce=GenerateNonce()
 		local endpoint=host .. "/public/whitelist/" .. fToString(KeyOption.ServiceId) .. "?identifier=" .. lDigest(fGetHwid()) .. "&key=" .. key
@@ -2562,19 +2561,18 @@ function Library:CreateKeySystem(keyInfo)
 		end
 	end
 	
+	local CheckExpiredThread = nil
+	
 	local HandleCheckExpired=function(key)
-		if KeyOption.UseCheckExpired then
-			task.spawn(function()
-				while KeyOption.UseCheckExpired and LocalPlayer.Parent ~= nil do
-					task.wait(KeyOption.CheckExpiredDuration)
-					print(`[{keyInfo.Title or ""}] Check Expired Active`)
+		if keyInfo.UseCheckExpired then
+			CheckExpiredThread = task.spawn(function()
+				while keyInfo.UseCheckExpired and LocalPlayer.Parent ~= nil and keyInfo.Pass == true do
+					task.wait(keyInfo.CheckExpiredDuration)
 					
 					local isValid, errorMessage = GetKeyStatus(key)
 
 					if not isValid then
-						if errorMessage == "you are being rate limited, please wait 20 seconds and try again." then
-						elseif errorMessage == "server returned an invalid status code, please try again later." then
-						else
+						if errorMessage~="you are being rate limited, please wait 20 seconds and try again." and errorMessage~="server returned an invalid status code, please try again later." then
 							RejoinGame()
 							break
 						end
@@ -2583,7 +2581,7 @@ function Library:CreateKeySystem(keyInfo)
 			end)
 		end
 	end
-	
+
 	-------------------------------------------------------------------------------
 	--! GUI & MAIN SCRIPT EXECUTION
 	-------------------------------------------------------------------------------
@@ -2961,7 +2959,15 @@ function Library:CreateKeySystem(keyInfo)
 	keyInfo.Gui=keyGui
 
 	-- Logic
-	keyCache.CloseActivated=closeButton.Activated:Connect(function() keyInfo.Closed=true keyInfo:Destroy() end)
+	keyCache.CloseActivated=closeButton.Activated:Connect(function() 
+		task.delay(3,function()
+			if not keyInfo.Pass and CheckExpiredThread~=nil and coroutine.status(CheckExpiredThread) ~= "dead" then
+				task.cancel(CheckExpiredThread)
+			end
+		end)
+		keyInfo.Closed=true 
+		keyInfo:Destroy() 
+	end)
 	keyCache.FocusLost=keyInput.FocusLost:Connect(function(enter)
 		if not enter then return end
 		ApplyKey(keyInput.Text)
