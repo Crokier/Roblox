@@ -1,3 +1,5 @@
+-- DO NOT USE THIS, THIS MODULE IS BROKEN, USE OFFICIAL RAYFIELD INSTEAD.
+
 --[[
 	Rayfield Interface Suite
 	by Sirius
@@ -7,7 +9,7 @@
 	Max    | Programming
 	Damian | Programming
 	
-	Paazlis | Add Feture + Programming
+	Crokyreo | Add Feture + Programming + Designing
 	Gemini AI | Just help and fix
 ]]
 
