@@ -4,7 +4,6 @@ local Players,RunService,TweenService=Services.Players,Services.RunService,nil
 local LocalPlayer = nil
 
 local PartProperties={"Name","Anchored","Locked","CanCollide","Transparency","Color","Material","Reflectance","CFrame","BackSurface","BottomSurface","FrontSurface","LeftSurface","RightSurface","TopSurface","Size"}
-
 local function InvalidArgumentInstance(v,i,s)
 	assert(typeof(v)=="Instance",`Invalid argument #{i} (Instance expected, got {typeof(v)}) to Instancer.{s}`)
 end
