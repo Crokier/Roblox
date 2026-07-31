@@ -412,6 +412,57 @@ function Instancer.CopyInstanceWith(list,objectClasses,object,match)
 	end
 end
 
+function Instancer.GetHitRaycast(instance, rayInfo, match)
+    local part = nil
+
+    if instance:IsA("Model") then
+       part = instance.PrimaryPart or instance:FindFirstChild("HumanoidRooPart")
+    elseif instance:IsA("BasePart") then
+       part = instance
+    else
+       return nil, nil
+    end
+
+    rayInfo = rayInfo or {}
+
+    -- Setup Raycast: Titik awal di pemain, arah ke bawah sepanjang 100 stud
+	local rayOrigin = part.Position
+	local rayDirection = rayInfo.Direction or Vector3.new(0, -100, 0)
+
+	-- Abaikan karakter pemain agar raycast tidak mengenai diri sendiri
+
+    if not rayInfo.RaycastParams then
+	   rayInfo.RaycastParams = RaycastParams.new()
+	   rayInfo.RaycastParams.FilterDescendantsInstances = {instance}
+	   rayInfo.RaycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    end
+    local raycastParams = rayInfo.RaycastParams
+
+	-- Lakukan Raycast
+	local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+
+	if raycastResult then
+		local hit = raycastResult.Instance
+		if not hit then return nil, nil end
+
+        local success = false
+		local currentTarget = hit
+        local lastTarget = nil
+
+		while currentTarget ~= workspace do
+			task.wait()
+            lastTarget = currentTarget
+			success = match(currentTarget, lastTarget)
+            if success then return currentTarget, lastTarget end
+			currentTarget = currentTarget.Parent
+		end
+
+		return currentTarget, lastTarget
+	end
+
+    return nil, nil
+end
+
 function Instancer.SetChildrenParent(instance,parent)
 	InvalidArgumentInstance(instance,1,"SetChildrenParent")
 	for i,v in ipairs(instance:GetChildren()) do v.Parent=parent  end
