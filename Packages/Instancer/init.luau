@@ -411,55 +411,58 @@ function Instancer.CopyInstanceWith(list,objectClasses,object,match)
 	end
 end
 
-function Instancer.GetHitRaycast(instance, rayInfo, match)
-    local part = nil
+function Instancer.GetHitRaycast(instance, raycastInfo, match)
+	local part = nil
 
-    if instance:IsA("Model") then
-       part = instance.PrimaryPart or instance:FindFirstChild("HumanoidRooPart")
-    elseif instance:IsA("BasePart") then
-       part = instance
-    else
-       return nil, nil
-    end
+	if instance:IsA("Model") then
+		part = instance.PrimaryPart or instance:FindFirstChild("HumanoidRooPart")
+		if not part then
+			for _, child in ipairs(instance:GetChildren()) do
+				if child ~= nil and child.Parent ~= nil and child:IsA("BasePart") then
+					part = child
+					break
+				end
+			end
+		end
+	elseif instance:IsA("BasePart") then
+		part = instance
+	end
+	
+	if not part then return nil, nil end
+	
+	raycastInfo = raycastInfo or {}
 
-    rayInfo = rayInfo or {}
-
-    -- Setup Raycast: Titik awal di pemain, arah ke bawah sepanjang 100 stud
+	-- Set up Raycast: Start point at the instance, direction downwards for 100 studs
 	local rayOrigin = part.Position
-	local rayDirection = rayInfo.Direction or Vector3.new(0, -100, 0)
+	local rayDirection = raycastInfo.Direction or Vector3.new(0, -100, 0)
 
-	-- Abaikan karakter pemain agar raycast tidak mengenai diri sendiri
+	-- Ignore the instance so the raycast does not hit itself.
+	if not raycastInfo.RaycastParams then
+		raycastInfo.RaycastParams = RaycastParams.new()
+		raycastInfo.RaycastParams.FilterDescendantsInstances = {instance}
+		raycastInfo.RaycastParams.FilterType = Enum.RaycastFilterType.Exclude
+	end
+	local raycastParams = raycastInfo.RaycastParams
 
-    if not rayInfo.RaycastParams then
-	   rayInfo.RaycastParams = RaycastParams.new()
-	   rayInfo.RaycastParams.FilterDescendantsInstances = {instance}
-	   rayInfo.RaycastParams.FilterType = Enum.RaycastFilterType.Exclude
-    end
-    local raycastParams = rayInfo.RaycastParams
-
-	-- Lakukan Raycast
+	-- Perform Raycast
 	local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
 
 	if raycastResult then
 		local hit = raycastResult.Instance
-		if not hit then return nil, nil end
+		if hit then 
+			local current, last = hit, nil
 
-        local success = false
-		local currentTarget = hit
-        local lastTarget = nil
+			while current ~= workspace and not match(current, last) do
+				last = current
+				current = current.Parent
+				task.wait()
+			end
 
-		while currentTarget ~= workspace do
-			task.wait()
-            lastTarget = currentTarget
-			success = match(currentTarget, lastTarget)
-            if success then return currentTarget, lastTarget end
-			currentTarget = currentTarget.Parent
+			return current, last
 		end
-
-		return currentTarget, lastTarget
 	end
 
-    return nil, nil
+	return nil, nil
 end
 
 function Instancer.SetChildrenParent(instance,parent)
