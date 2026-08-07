@@ -79,6 +79,10 @@ function Strs.ToNumber(v,maxFloat)
 	return s
 end
 
+function Strs.Trim(s)
+	return string.gsub(s, "^%s*(.-)%s*$", "%1")
+end
+
 function Strs.ToPersentase(x:number,max:number?,maxFloat:number?,reverse:boolean?):string
 	if type(x)~="number" or x==0 then return "0%" end
 	if (x>=MathHuge or x<=-MathHuge) then return "∞%" end
