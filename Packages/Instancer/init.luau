@@ -1,15 +1,21 @@
 local Services=setmetatable({},{__index=function(_,i) return cloneref and cloneref(game:GetService(i)) or game:GetService(i) end})
 
 local Players,RunService,TweenService=Services.Players,Services.RunService,nil
-local LocalPlayer = nil
+local LocalPlayer=RunService:IsClient() and Players.LocalPlayer or nil
 
 local PartProperties={"Name","Anchored","Locked","CanCollide","Transparency","Color","Material","Reflectance","CFrame","BackSurface","BottomSurface","FrontSurface","LeftSurface","RightSurface","TopSurface","Size"}
+local AddNumberCallback,SpentNumberCallback=function(a,b) return a+b end,function(a,b) return a-b end
+
 local function InvalidArgumentInstance(v,i,s)
 	assert(typeof(v)=="Instance",`Invalid argument #{i} (Instance expected, got {typeof(v)}) to Instancer.{s}`)
 end
 
 local function InvalidArgumentFunction(v,i,s)
 	assert(type(v)=="function",`Invalid argument #{i} (function expected, got {typeof(v)}) to Instancer.{s}`)
+end
+
+local function InvalidArgumentNumber(v,i,s)
+	assert(type(v)=="number",`Invalid argument #{i} (number expected, got {typeof(v)}) to Instancer.{s}`)
 end
 
 local function InvalidArgumentString(v,i,s)
@@ -22,16 +28,17 @@ end
 
 local Instancer={}
 
+-- Check Function --
 function Instancer.IsAlive(instance)
 	if instance and instance.Parent then return true else return false end
 end
 
 function Instancer.IsCharacter(instance)
-	return Instancer.IsAlive(instance) and instance.ClassName=='Model' and instance:FindFirstChildOfClass('Humanoid')
+	return instance~=nil and instance.Parent~=nil and instance.ClassName=="Model" and instance:FindFirstChildOfClass("Humanoid")
 end
 
 function Instancer.IsDied(instance)
-	if Instancer.IsAlive(instance) then
+	if instance~=nil and instance.Parent~=nil then
 		local humanoid=instance:FindFirstChildOfClass("Humanoid")
 		if humanoid and humanoid.Health>0 and humanoid.MaxHealth>0 then
 			return false
@@ -93,6 +100,93 @@ function Instancer.GetPlot(path,player,match)
 	return nil
 end
 
+-- Attribute Function --
+function Instancer.AddAttribute(instance,attribute,value,callback)
+	InvalidArgumentInstance(instance,1)
+	InvalidArgumentString(attribute,2)
+	InvalidArgumentNumber(value,3)
+	callback=type(callback)=="function" and callback or AddNumberCallback
+	local current=instance:GetAttribute(attribute)
+	if type(current)=="number" then
+		local amount=callback(current,value)
+		instance:SetAttribute(attribute,amount)
+	else
+		instance:SetAttribute(attribute,value)
+	end
+end
+
+function Instancer.SpentAttribute(instance,attribute,value,callback)
+	InvalidArgumentInstance(instance,1)
+	InvalidArgumentString(attribute,2)
+	InvalidArgumentNumber(value,3)
+	callback=type(callback)=="function" and callback or SpentNumberCallback
+	local current=instance:GetAttribute(attribute)
+	if type(current)=="number" then
+		local amount=callback(current,value)
+		instance:SetAttribute(attribute,amount)
+	else
+		instance:SetAttribute(attribute,value)
+	end
+end
+
+-- Child Function --
+function Instancer.FindOrCreateChild(instance,name,className,data)
+	InvalidArgumentInstance(instance,1,"FindOrCreateChild")
+	InvalidArgumentString(name,2,"FindOrCreateChild")
+	InvalidArgumentString(className,3,"FindOrCreateChild")
+	data=type(data)=="table" and data or {}
+	local c=nil
+	for i,v in ipairs(instance:GetChildren()) do if v~=nil and v.Parent~=nil and v.Name==name and v:IsA(className) then c=v break end end
+	if not c then
+		c=Instance.new(className)
+		c.Name=name
+		local parent=instance
+		for k,v in pairs(data) do
+			if type(k)=="string" then
+				if k=="Parent" then
+					parent=v
+				else
+					pcall(function() c[k]=v end)
+				end
+			end
+		end
+		c.Parent=parent
+	end
+	return c
+end
+
+-- Wait For --
+function Instancer.WaitForChildOfClass(instance, className, timeout)
+	timeout = typeof(timeout) == "number" and timeout or 5
+
+	local existingChild = instance:FindFirstChildOfClass(className)
+	if existingChild then return existingChild end
+	
+	local currentThread = coroutine.running()
+	local connection = nil
+	local timeoutThread = nil
+
+	connection = instance.ChildAdded:Connect(function(child)
+		if child:IsA(className) then
+			if connection then connection:Disconnect() connection = nil end
+			if timeoutThread and coroutine.status(timeoutThread) ~= "dead" then task.cancel(timeoutThread) timeoutThread = nil end
+			task.spawn(currentThread, child)
+		end
+	end)
+
+	timeoutThread = task.delay(timeout, function()
+		if connection and connection.Connected then
+			connection:Disconnect()
+			connection= nil
+			warn(string.format("Infinite yield possible on 'Instancer.WaitForChildOfClass(%s, \"%s\")'", instance:GetFullName(), className))
+			task.spawn(currentThread, nil)
+			currentThread = nil
+		end
+	end)
+
+	return coroutine.yield()
+end
+
 -- Yield For
 function Instancer.YieldForChild(instance,match,callback)
 	if not callback or typeof(callback) ~= "function" then
@@ -145,8 +239,44 @@ function Instancer.YieldForChild(instance,match,callback)
 	return coroutine.yield()
 end
 
--- Find
+-- Other Function --
+function Instancer.SetCollisionGroup(instance,collisionGroup)
+	InvalidArgumentInstance(instance,1)
+	InvalidArgumentString(collisionGroup,2)
+	local descendants=instance:GetDescendants()
+	for i,v in ipairs(descendants) do  if v:IsA("BasePart") then v.CollisionGroup=collisionGroup end end
+end
+
+function Instancer.CreatePart(partInfo)
+	local data=type(partInfo)=="table" and partInfo or {}
+	local part=Instance.new("Part")
+	part.Name=data.Name or part.ClassName
+	part.Shape=data.Shape or Enum.PartType.Ball
+	if data.Radius then
+		part.Size=Vector3.new(data.Radius,data.Radius,data.Radius)
+	else
+		part.Size=data.Size or Vector3.new(1,1,1)
+	end
+	part.Position=data.Position or Vector3.new(0,0,0)
+	part.Anchored=data.Anchored or true
+	part.CanCollide=data.CanCollide or false
+	part.CanQuery=data.CanQuery or true
+	part.CanTouch=data.CanTouch or true
+	part.Transparency=data.Transparency or 1
+	part.Material=data.Material or Enum.Material.Neon
+	part.Color=data.Color or Color3.fromRGB(255,255,255)
+	if typeof(data.CFrame)=="CFrame" then
+		part.CFrame=data.CFrame
+	end
+	part.Parent=data.Parent or workspace
+	return part
+end
+
+
+-- Deprecated
 function Instancer.FindByPath(instance,path,match)
+	if true then error("Instancer.FindByPath is deprecated, use Instance:QueryDescendants instead") end
+
 	local array,totalArray={},0
 
 	local pathType=type(path)
@@ -228,31 +358,6 @@ function Instancer.FindByPath(instance,path,match)
 	end
 
 	return nil
-end
-
-function Instancer.FindOrCreateChild(instance,name,className,data)
-	InvalidArgumentInstance(instance,1,"FindOrCreateChild")
-	InvalidArgumentString(name,2,"FindOrCreateChild")
-	InvalidArgumentString(className,3,"FindOrCreateChild")
-	data=type(data)=="table" and data or {}
-	local c=nil
-	for i,v in ipairs(instance:GetChildren()) do if v.Name==name and v:IsA(className) then c=v break end end
-	if not c then
-		c=Instance.new(className)
-		c.Name=name
-		local parent=instance
-		for k,v in pairs(data) do
-			if type(k)=="string" then
-				if k=="Parent" then
-					parent=v
-				else
-					pcall(function() c[k]=v end)
-				end
-			end
-		end
-		c.Parent=parent
-	end
-	return c
 end
 
 function Instancer.CreateVariable(instance,variables,name)
@@ -411,60 +516,6 @@ function Instancer.CopyInstanceWith(list,objectClasses,object,match)
 	end
 end
 
-function Instancer.GetHitRaycast(instance, raycastInfo, match)
-	local part = nil
-
-	if instance:IsA("Model") then
-		part = instance.PrimaryPart or instance:FindFirstChild("HumanoidRooPart")
-		if not part then
-			for _, child in ipairs(instance:GetChildren()) do
-				if child ~= nil and child.Parent ~= nil and child:IsA("BasePart") then
-					part = child
-					break
-				end
-			end
-		end
-	elseif instance:IsA("BasePart") then
-		part = instance
-	end
-	
-	if not part then return nil, nil end
-	
-	raycastInfo = raycastInfo or {}
-
-	-- Set up Raycast: Start point at the instance, direction downwards for 100 studs
-	local rayOrigin = part.Position
-	local rayDirection = raycastInfo.Direction or Vector3.new(0, -100, 0)
-
-	-- Ignore the instance so the raycast does not hit itself.
-	if not raycastInfo.RaycastParams then
-		raycastInfo.RaycastParams = RaycastParams.new()
-		raycastInfo.RaycastParams.FilterDescendantsInstances = {instance}
-		raycastInfo.RaycastParams.FilterType = Enum.RaycastFilterType.Exclude
-	end
-	local raycastParams = raycastInfo.RaycastParams
-
-	-- Perform Raycast
-	local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-
-	if raycastResult then
-		local hit = raycastResult.Instance
-		if hit then 
-			local current, last = hit, nil
-
-			while current ~= workspace and not match(current, last) do
-				last = current
-				current = current.Parent
-				task.wait()
-			end
-
-			return current, last
-		end
-	end
-
-	return nil, nil
-end
-
 function Instancer.SetChildrenParent(instance,parent)
 	InvalidArgumentInstance(instance,1,"SetChildrenParent")
 	for i,v in ipairs(instance:GetChildren()) do v.Parent=parent  end
@@ -530,56 +581,127 @@ function Instancer.GetCharacterInfo(instance,data)
 	return characterInfo
 end
 
+-- Raycast Function --
+function Instancer.GetHitRaycast(instance, raycastInfo, match)
+	local part = nil
+
+	if instance:IsA("Model") then
+		part = instance.PrimaryPart or instance:FindFirstChild("HumanoidRooPart")
+		if not part then
+			for _, child in ipairs(instance:GetChildren()) do
+				if child ~= nil and child.Parent ~= nil and child:IsA("BasePart") then
+					part = child
+					break
+				end
+			end
+		end
+	elseif instance:IsA("BasePart") then
+		part = instance
+	end
+
+	if not part then return nil, nil end
+
+	raycastInfo = raycastInfo or {}
+
+	-- Set up Raycast: Start point at the instance, direction downwards for 100 studs
+	local rayOrigin = part.Position
+	local rayDirection = raycastInfo.Direction or Vector3.new(0, -100, 0)
+
+	-- Ignore the instance so the raycast does not hit itself.
+	if not raycastInfo.RaycastParams then
+		raycastInfo.RaycastParams = RaycastParams.new()
+		raycastInfo.RaycastParams.FilterDescendantsInstances = {instance}
+		raycastInfo.RaycastParams.FilterType = Enum.RaycastFilterType.Exclude
+	end
+	local raycastParams = raycastInfo.RaycastParams
+
+	-- Perform Raycast
+	local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+
+	if raycastResult then
+		local hit = raycastResult.Instance
+		if hit then 
+			local current, last = hit, nil
+
+			while current ~= workspace and not match(current, last) do
+				last = current
+				current = current.Parent
+				task.wait()
+			end
+
+			return current, last
+		end
+	end
+
+	return nil, nil
+end
+
+-- Player Function --
 function Instancer.GetPlayer(object)
 	if not object then return nil end
-	local result,objectType=nil,typeof(object)
+	local objectType,playerList=typeof(object),{}
 	if objectType=="Instance" then
-		if object and object.Parent then
-			if object.ClassName=="Model" then 
-				for i,v in ipairs(Players:GetPlayers()) do if v and v.Parent and (v.Character and v.Character.Parent) and v.Character==object then result=v break end end
-			elseif object.ClassName=="Player" then
-				result=object 
-			end
+		if not (object ~= nil and object.Parent ~= nil) then return nil end
+		if object.ClassName=="Player" and object:IsDescendantOf(Players) then return object end
+		local isModel=object.ClassName=="Model"
+		local playerList=Players:GetPlayers()
+		for index=#playerList,1,-1 do
+			local player=playerList[index]
+			if not (player~=nil and player.Parent~=nil) then continue end
+			local character=player.Character
+			if not (character~=nil and character.Parent~=nil) then continue end
+			if isModel and character==object then return player end
+			if not isModel and (object ~= nil and object.Parent ~= nil) and object:IsDescendantOf(character) then return player end
 		end
 	elseif objectType=="string" or objectType=="number" then
 		local inputNumber=tonumber(object)
 		if inputNumber then
-			for i,v in ipairs(Players:GetPlayers()) do if v and v.Parent and v.UserId==inputNumber then result=v break end end
+			local playerList=Players:GetPlayers()
+			for index=#playerList,1,-1 do
+				local player=playerList[index]
+				if player~=nil and player.Parent~=nil and player.UserId==inputNumber then 
+					return player 
+				end 
+			end
 		else
 			local s=tostring(object) or ""
 			local ls=string.lower(s)
 			if ls=="!me" then
-				if RunService:IsClient() and Players.LocalPlayer and Players.LocalPlayer.Parent then result=Players.LocalPlayer end
+				if (LocalPlayer~=nil and LocalPlayer.Parent~=nil) then return LocalPlayer end
 			elseif ls=="!random" then
 				local matches={}
 				if RunService:IsClient() then
-					for i,v in ipairs(Players:GetPlayers()) do 
-						if v.Parent and Players.LocalPlayer and Players.LocalPlayer.Parent and v.UserId~=Players.LocalPlayer.UserId then 
-							table.insert(matches,v) 
+					local playerList=Players:GetPlayers()
+					for index=#playerList,1,-1 do
+						local player=playerList[index]
+						if (player~=nil and player.Parent~=nil) and (LocalPlayer~=nil and LocalPlayer.Parent~=nil) and player~=LocalPlayer or player.UserId~=LocalPlayer.UserId then 
+							table.insert(matches,player)
 						end 
 					end
 				else
-					for i,v in ipairs(Players:GetPlayers()) do 
-						if v.Parent then 
-							table.insert(matches,v) 
-						end 
-					end
-				end
-				if #matches>=2 then result=matches[math.random(1,#matches)] end
-			else
-				for i=1,4 do
-					for j,v in ipairs(Players:GetPlayers()) do
-						if v and v.Parent then
-							local name=if i==1 then v.Name elseif i==2 then v.DisplayName elseif i==3 then string.lower(v.Name) else string.lower(v.DisplayName)
-							if string.find(name,s) then result=v break end
+					local playerList=Players:GetPlayers()
+					for index=#playerList,1,-1 do
+						local player=playerList[index]
+						if (player~=nil and player.Parent~=nil) then
+							table.insert(matches,player)
 						end
 					end
-					if typeof(result)=="Instance" then break end
+				end
+				if #matches>=2 then return matches[math.random(1,#matches)] end
+			else
+				for mode=1,4 do
+					local playerList=Players:GetPlayers()
+					for index=#playerList,1,-1 do
+						local player=playerList[index]
+						if not (player~=nil and player.Parent~=nil) then continue end
+						local key="" if mode==1 then key=player.Name elseif mode==2 then key=player.DisplayName elseif mode==3 then key=string.lower(player.Name) else key=string.lower(player.DisplayName) end
+						if string.find(key,s) then return player end
+					end
 				end
 			end
 		end
 	end
-	return result
+	return nil
 end
 
 return Instancer
