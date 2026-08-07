@@ -12,7 +12,7 @@ local Services=setmetatable({},{
 
 local Players=Services.Players
 local RunService=Services.RunService
-local UserInputService=Services.UserInputService
+local UserInputService:UserInputService=Services.UserInputService
 local TweenService=Services.TweenService
 local TeleportService=nil
 local LocalPlayer=Players.LocalPlayer
@@ -26,7 +26,7 @@ local Strs=loadstring(game:HttpGet("https://raw.githubusercontent.com/Crokier/Ro
 
 local function RejoinGame()
 	TeleportService=TeleportService or Services.TeleportService
-	
+
 	if #Players:GetPlayers() > 1 then
 		TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
 	else
@@ -100,6 +100,26 @@ local function FastWait(duration)
 	local start=tick()
 	while tick()-start<duration do RunService.RenderStepped:Wait() end
 	return start-duration
+end
+
+local function GetScreenType()
+	local size = workspace.CurrentCamera.ViewportSize
+	local width = size.X
+	local height = size.Y
+
+	if width >= 1920 and height >= 1080 then
+		if width >= 3840 then
+			return "4K"
+		else
+			return "1080p"
+		end
+	elseif width >= 1280 and height >= 720 then
+		return "720p"
+	elseif width>=1280 and height >= 500 then
+		return "1280x500"
+	else
+		return tostring(width).."x"..tostring(height)
+	end
 end
 
 local function ConnectDestroying(instance,saveName,func)
@@ -339,11 +359,11 @@ local function GetComponents(Window)
 		options.ClickCount=0
 		options.LastClickTime=0
 		options.ClickWaiting=false
-		
+
 		local ClickMethodTypes={
 			"Default","None","SingleClick","DoubleClick","MultiClick","AntiSpamClick","DebounceClick","1","2","3"
 		}
-		
+
 		local main=Create("Frame",{
 			Name=options.Type,
 			Size=UDim2.new(1,0,0,30),
@@ -471,7 +491,7 @@ local function GetComponents(Window)
 						local methodType=tostring(v)
 						if table.find(ClickMethodTypes, methodType) then
 							options.MethodType=methodType
-							
+
 							if methodType=="AntiSpamClick" or methodType=="DebounceClick" or methodType=="3" then
 								options.ClickWaiting=false
 							end
@@ -866,7 +886,7 @@ local function GetComponents(Window)
 			end
 		})
 	end
-
+	
 	function elements:AddSlider(...)
 		local args={...}
 		local options={}
@@ -915,14 +935,19 @@ local function GetComponents(Window)
 		local cleanFunc=nil
 		local main,title,handle,fill,track=nil,nil,nil,nil,nil
 		local sliding,inContact=false,false
-		local function updateFill(position)
-			options:Set(options.Min+((position.X-track.AbsolutePosition.X)/track.AbsoluteSize.X)*(options.Max-options.Min))
-		end
+	
 		local dragStart,dragContinue,dragEnd,inputBegan,inputEnded,focusLost=nil,nil,nil,nil,nil,nil
 		local uiDragDetector=Create("UIDragDetector", {
 			ResponseStyle=Enum.UIDragDetectorResponseStyle.CustomOffset,
 			DragStyle=Enum.UIDragDetectorDragStyle.TranslateLine
 		})
+		
+		
+		local function updateSlider(position)
+			local value = options.Min+((position.X-track.AbsolutePosition.X)/track.AbsoluteSize.X)*(options.Max-options.Min)
+			options:Set(value)
+		end
+		
 		if options.Version==0 then
 			main=Create("Frame",{
 				Name=options.Type,
@@ -1003,12 +1028,12 @@ local function GetComponents(Window)
 				sliding=true
 				Tween(fill,TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = options.FillColor3})
 				Tween(handle,TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(2.5, 0, 2.5, 0), ImageColor3 = options.FillColor3})
-				updateFill(inputPosition)
+				updateSlider(inputPosition)
 			end)
 
 			dragContinue=uiDragDetector.DragContinue:Connect(function(inputPosition)
 				if sliding then
-					updateFill(inputPosition)
+					updateSlider(inputPosition)
 				end
 			end)
 
@@ -1074,7 +1099,7 @@ local function GetComponents(Window)
 				SliceScale=0.02,
 				Parent=main
 			})
-
+			
 			fill=Create("ImageLabel",{
 				Name="Fill",
 				BackgroundTransparency=1,
@@ -1085,7 +1110,7 @@ local function GetComponents(Window)
 				SliceScale=0.02,
 				Parent=track
 			})
-
+			
 			handle=Create("ImageLabel",{
 				Name="Handle",
 				AnchorPoint=Vector2.new(0.5,0.5),
@@ -1099,7 +1124,7 @@ local function GetComponents(Window)
 				SliceScale=1,
 				Parent=track
 			})
-
+			
 			local inputFrame=Create("ImageLabel",{
 				Name="InputFrame",
 				Position=UDim2.new(1,-6,0,4),
@@ -1112,7 +1137,7 @@ local function GetComponents(Window)
 				SliceScale=0.02,
 				Parent=main
 			})
-
+			
 			local inputBox=Create("TextBox",{
 				Name="InputBox",
 				Size=UDim2.new(1,0,1,0),
@@ -1131,17 +1156,40 @@ local function GetComponents(Window)
 				fill.Position=UDim2.new((0-options.Min)/(options.Max-options.Min),0,0,0)
 				fill.Size=UDim2.new(options.Value/(options.Max-options.Min),0,1,0)
 			end
-
+			
+			function options:Set(value)
+				local min, max, increment = self.Min or 0, self.Max or 100, self.Increment or 1
+				
+				value=Round(value,increment)
+				value=math.clamp(value,min,max)
+				self.Value=value
+				
+				-- Mainkan handle dan fill
+				local ratio = (value-min)/(max-min)
+				handle:TweenPosition(UDim2.new(ratio,0,0.5,0),"Out","Quad",0.1,true)
+				if min>=0 then
+					fill:TweenSize(UDim2.new(ratio,0,1,0),"Out","Quad",0.1,true)
+				else
+					fill:TweenPosition(UDim2.new((0-min)/(max-min),0,0,0),"Out","Quad",0.1,true)
+					fill:TweenSize(UDim2.new(value/(max-min),0,1,0),"Out","Quad",0.1,true)
+				end
+				
+				-- Tampilkan nilai dengan aman
+				local newValue = Strs.ToNumber(value) or tostring(value) -- Jika konversi gagal, gunakan string nilai asli
+				inputBox.Text = newValue
+				CallSafely(self.Callback, tonumber(newValue) or value)
+			end
+			
 			dragStart=uiDragDetector.DragStart:Connect(function(inputPosition)
 				sliding=true
 				Tween(fill,TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {ImageColor3 = options.FillColor3})
 				Tween(handle,TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(3.5, 0, 3.5, 0), ImageColor3 = options.FillColor3})
-				updateFill(inputPosition)
+				updateSlider(inputPosition)
 			end)
 
 			dragContinue=uiDragDetector.DragContinue:Connect(function(inputPosition)
 				if sliding then
-					updateFill(inputPosition)
+					updateSlider(inputPosition)
 				end
 			end)
 
@@ -1150,7 +1198,7 @@ local function GetComponents(Window)
 				Tween(fill,TweenInfo.new(0.2,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{ImageColor3=Color3.fromRGB(60,60,60)})
 				Tween(handle,TweenInfo.new(0.2,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Size=UDim2.new(0,0,0,0),ImageColor3=Color3.fromRGB(60,60,60)})
 			end)
-
+			
 			inputBegan=main.InputBegan:connect(function(input)
 				if input.UserInputType==Enum.UserInputType.MouseMovement then
 					inContact=true
@@ -1160,7 +1208,7 @@ local function GetComponents(Window)
 					end
 				end
 			end)
-
+			
 			inputEnded=main.InputEnded:connect(function(input)
 				if input.UserInputType==Enum.UserInputType.MouseMovement then
 					inContact=false
@@ -1171,7 +1219,7 @@ local function GetComponents(Window)
 					end
 				end
 			end)
-
+			
 			focusLost=inputBox.FocusLost:connect(function(enter)
 				if not enter then return end
 				local newValue,inputText=options.Value,inputBox.Text
@@ -1185,64 +1233,6 @@ local function GetComponents(Window)
 				options:Set(newValue)
 			end)
 			
-			function options:Set(value)
-				-- Pastikan semua nilai konfigurasi ada dan valid
-				local Increment = tonumber(self.Increment) or 1
-				local Min = tonumber(self.Min) or 0
-				local Max = tonumber(self.Max) or 100
-
-				if Min > Max then
-					Min, Max = Max, Min
-				end
-
-				value = tonumber(value) or Min
-				value = Round(value, Increment)
-				value = math.clamp(value, Min, Max)
-				self.Value = value
-
-				local range = Max - Min
-				local ratio = range ~= 0 and (value - Min) / range or 0
-
-				handle:TweenPosition(UDim2.new(ratio, 0, 0.5, 0), "Out", "Quad", 0.1, true)
-
-				-- Animasi fill dengan penanganan yang benar untuk Min negatif
-				if Min >= 0 then
-					fill:TweenSize(UDim2.new(ratio, 0, 1, 0), "Out", "Quad", 0.1, true)
-				else
-					-- Hitung posisi dasar dan ukuran fill dengan perlindungan
-					local basePosRatio = range ~= 0 and (0 - Min) / range or 0
-					local fillSizeRatio = range ~= 0 and math.max(0, value / range) or 0 -- Jaga ukuran tidak negatif
-
-					fill:TweenPosition(UDim2.new(basePosRatio, 0, 0, 0), "Out", "Quad", 0.1, true)
-					fill:TweenSize(UDim2.new(fillSizeRatio, 0, 1, 0), "Out", "Quad", 0.1, true)
-				end
-
-				-- Tampilkan nilai dengan aman
-				local newValue = Strs.ToNumber(value) or tostring(value) -- Jika konversi gagal, gunakan string nilai asli
-				inputBox.Text = newValue
-				CallSafely(self.Callback, tonumber(newValue) or value)
-			end
-			
---[[
-			function options:Set(value)
-				value=Round(value,self.Increment)
-				value=math.clamp(value,self.Min,self.Max)
-				if self.Flag then
-					Library.Flags[self.Flag]=value
-				end
-				self.Value=value
-				handle:TweenPosition(UDim2.new((value - self.Min) / (self.Max - self.Min),0,0.5,0),"Out","Quad",0.1,true)
-				if self.Min>=0 then
-					fill:TweenSize(UDim2.new((value - self.Min) / (self.Max - self.Min),0,1,0),"Out","Quad",0.1,true)
-				else
-					fill:TweenPosition(UDim2.new((0 - self.Min) / (self.Max - self.Min),0,0,0),"Out","Quad",0.1,true)
-					fill:TweenSize(UDim2.new(value / (self.Max - self.Min),0,1,0),"Out","Quad",0.1,true)
-				end
-				local newValue=Strs.ToNumber(value)
-				inputBox.Text=newValue
-				CallSafely(self.Callback,tonumber(newValue) or value)
-			end
-			]]
 			cleanFunc=function()
 				dragStart:Disconnect()
 				dragContinue:Disconnect()
@@ -1252,8 +1242,10 @@ local function GetComponents(Window)
 				focusLost:Disconnect()
 			end
 		end
+		
 		uiDragDetector.BoundingUI=track
 		uiDragDetector.Parent=main
+		
 		if options.Flag then
 			Library.Flags[options.Flag]=options
 		end
@@ -1605,11 +1597,11 @@ local function GetComponents(Window)
 		options.Callback=Missing("function",options.Callback,function() end)
 		options.Open=false
 		options.SortOrder=options.SortOrder or "LayoutOrder"
-		
+
 		if not options.Options or type(options.Options)~="table" or #options.Options<=0 then
 			options.Options={"Option 1","Option 2"}
 		end
-		
+
 		if options.Option then
 			if type(options.Option)=="string" then
 				options.Option={options.Option}
@@ -1648,6 +1640,7 @@ local function GetComponents(Window)
 			BackgroundTransparency=1,
 			Text=options.Text,
 			TextSize=14,
+			TextScaled=true,
 			Font=Enum.Font.GothamBlack,
 			TextColor3=Color3.fromRGB(140, 140, 140),
 			TextXAlignment=Enum.TextXAlignment.Left,
@@ -1710,8 +1703,10 @@ local function GetComponents(Window)
 
 		local layout=Create("UIListLayout",{SortOrder=options.SortOrder, Parent=content})
 		local optionLength=0
-		
+
 		options.DroptionButtons={}
+		options.Actives={}
+		options.IsEmpty=false
 		
 		if options.MultipleOptions then
 			if #options.Option==1 then
@@ -1724,24 +1719,25 @@ local function GetComponents(Window)
 		else
 			selected.Text=options.Option[1] or "None"
 		end
+		options.IsEmpty=#options.Option<=0
 		
 		local layoutChanged=layout.Changed:Connect(function()
 			mainHolder.Size=UDim2.new(0,240,0,(optionLength>4 and (4*40) or layout.AbsoluteContentSize.Y)+12)
 			content.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+12)
 		end)
 
-		function options:Add(option)
-			if not option or typeof(option)~="string" then return end
-			
+		function options:Add(newOption)
+			if not newOption or typeof(newOption)~="string" then return end
+			if options.Actives[newOption] ~= nil then return end
+			options.Actives[newOption] = false
 			optionLength=optionLength+1
-			
 			local droption=Create("TextLabel",{
-				Name=option,
+				Name=tostring(#options.DroptionButtons),
 				ZIndex=3,
 				Size=UDim2.new(1,0,0,40),
 				BackgroundColor3=SelectedTheme.DropdownSelected,
 				BorderSizePixel=0,
-				Text="    " .. option,
+				Text="    " .. newOption,
 				TextSize=14,
 				TextTransparency=self.Open and 0 or 1,
 				Font=Enum.Font.GothamBlack,
@@ -1749,38 +1745,57 @@ local function GetComponents(Window)
 				TextXAlignment=Enum.TextXAlignment.Left,
 				Parent=content
 			})
-
-			table.insert(self.DroptionButtons, droption)
-			droption.LayoutOrder=#self.DroptionButtons
-
+			table.insert(options.DroptionButtons, droption)
+			droption.LayoutOrder=#options.DroptionButtons
+			if #options.Option>0 and table.find(options.Option,newOption)~=nil then
+				droption.BackgroundColor3=SelectedTheme.DropdownUnselected
+				options.Actives[newOption]=true
+			end
 			local inContact,clicking=false,false
-
+			local visibleChanged=droption:GetPropertyChangedSignal("Visible"):Connect(function()
+				if droption.Visible then
+					local currentOption=Strs.Trim(droption.Text)
+					if #options.Option>0 and not table.find(options.Option,currentOption) then
+						droption.BackgroundColor3=SelectedTheme.DropdownSelected
+						options.Actives[currentOption] = false
+					end
+					if options.Actives[currentOption] == nil then
+						options.Actives[currentOption] = false
+					end
+				end
+			end)
 			local inputeBegan=droption.InputBegan:Connect(function(input)
-				if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch and table.find(self.Options,option)~=nil then
+				if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
 					clicking=true
-					if self.MultipleOptions then
-						local foundIndex=table.find(self.Option,option)
+					local currentOption=Strs.Trim(droption.Text)
+					if options.MultipleOptions then
+						local foundIndex=table.find(options.Option,currentOption)
 						if foundIndex then
-							table.remove(self.Option,foundIndex)
+							table.remove(options.Option,foundIndex)
 							Tween(droption,TweenInfo.new(0.3,Enum.EasingStyle.Exponential),{BackgroundColor3=SelectedTheme.DropdownSelected})
+							options.Actives[currentOption]=false
 						else
-							table.insert(self.Option,option) 
+							table.insert(options.Option,currentOption) 
 							Tween(droption,TweenInfo.new(0.3,Enum.EasingStyle.Exponential),{BackgroundColor3=SelectedTheme.DropdownUnselected})
+							options.Actives[currentOption]=true
 						end
-						if #self.Option==1 then
-							selected.Text=self.Option[1]
-						elseif #self.Option==0 then
+						if #options.Option==1 then
+							selected.Text=options.Option[1]
+						elseif #options.Option==0 then
 							selected.Text="None"
 						else
 							selected.Text="Various"
 						end
+						options.IsEmpty=#options.Option<=0
 					else
-						table.clear(self.Option)
-						table.insert(self.Option,option)
-						selected.Text=option
-						self:Close()
+						options.Actives[currentOption]=true
+						table.clear(options.Option)
+						table.insert(options.Option,currentOption)
+						selected.Text=currentOption
+						options.IsEmpty=#options.Option<=0
+						options:Close()
 					end
-					CallSafely(self.Callback,self.Option)
+					CallSafely(options.Callback,options.Option)
 				end
 
 				if input.UserInputType==Enum.UserInputType.MouseMovement then
@@ -1795,7 +1810,8 @@ local function GetComponents(Window)
 				if input.UserInputType==Enum.UserInputType.MouseMovement then
 					inContact=false
 					if not clicking then
-						local isSelected=table.find(self.Option,option)
+						local currentOption=Strs.Trim(droption.Text)
+						local isSelected=table.find(self.Option,currentOption)
 						local targetColor=isSelected and SelectedTheme.DropdownUnselected or SelectedTheme.DropdownSelected
 						Tween(droption,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{BackgroundColor3=targetColor})
 					end
@@ -1803,13 +1819,14 @@ local function GetComponents(Window)
 			end)
 
 			local cleanup=ConnectDestroying(Window.Gui,Window.SaveName,function()
+				visibleChanged:Disconnect() 
 				inputeBegan:Disconnect() 
 				inputEnded:Disconnect() 
 			end)
 
 			ConnectDestroying(droption,nil,function()
 				cleanup()
-
+				
 				local foundIndex = table.find(self.DroptionButtons, droption)
 				if foundIndex then 
 					table.remove(self.DroptionButtons, foundIndex) 
@@ -1828,35 +1845,7 @@ local function GetComponents(Window)
 				end
 			end)
 		end
-
-		function options:Remove(option)
-			if option==nil or type(option)~="string" then return end
-			
-			for _,droption in ipairs(content:GetChildren()) do
-				if droption and droption.Parent and droption.ClassName=="TextLabel" and droption.Text:find(option) then
-					droption.Visible=false
-					optionLength-=1
-					break
-				end
-			end
-			
-			local optionsIndex=table.find(self.Options, option)
-			if optionsIndex then
-				table.remove(self.Options, optionsIndex)
-			end
-			
-			local optionIndex=table.find(self.Option, option)
-			if optionIndex then
-				table.remove(self.Option, optionIndex)
-			end
-			
-			if #self.Option==0 then
-				self:Set("None")
-			else
-				self:Set(self.Option)
-			end
-		end
-
+		
 		function options:Set(option)
 			if option==nil then option={} end
 			local optionType=type(option)
@@ -1865,26 +1854,26 @@ local function GetComponents(Window)
 			elseif optionType~="table" then
 				option={}
 			end
-			if not self.MultipleOptions then
+			if not options.MultipleOptions then
 				option={option[1]}
 			end
-			self.Option=option
-			CallSafely(self.Callback,option)
-			if self.MultipleOptions then
+			options.Option=option
+			CallSafely(options.Callback,option)
+			if options.MultipleOptions then
 				if #option==1 then
 					selected.Text=tostring(option[1])
-				elseif #self.Option==0 then
+				elseif #options.Option==0 then
 					selected.Text="None"
 				else
 					selected.Text="Various"
 				end
 			else
 				selected.Text=tostring(option[1])
-				self:Close()
+				options:Close()
 				for _,droption in ipairs(content:GetChildren()) do
 					if droption.ClassName=="TextLabel" then
-						if not self.MultipleOptions then
-							if not table.find(self.Option,droption.Name) then
+						if not options.MultipleOptions then
+							if not table.find(options.Option,droption.Name) then
 								droption.BackgroundColor3=SelectedTheme.DropdownSelected
 							else
 								droption.BackgroundColor3=SelectedTheme.DropdownUnselected
@@ -1896,10 +1885,10 @@ local function GetComponents(Window)
 				end
 			end
 		end
-		
+
 		function options:Refresh()
-			local currentOptions = self.Options or {}
-			local droptionButtons = self.DroptionButtons or {}
+			local currentOptions = options.Options
+			local droptionButtons = options.DroptionButtons
 
 			-- 1. Sembunyikan semua tombol yang ada
 			for _, droption in ipairs(droptionButtons) do
@@ -1907,22 +1896,23 @@ local function GetComponents(Window)
 					droption.Visible = false
 				end
 			end
-
+			
 			-- 2. Tampilkan tombol sesuai opsi yang ada
 			for index, option in ipairs(currentOptions) do
 				local droption = droptionButtons[index]
-				if droption and droption.Parent and typeof(option) == "string" then
-					droption.Text = "    " .. option
+				if droption and droption.Parent then
+					droption.Name = option
+					droption.Text = "    " .. tostring(option)
 					droption.Visible = true
 				end
 			end
 
 			-- 3. (FITUR BARU) Hapus opsi dari self.Option jika sudah tidak ada di currentOptions
-			if self.Option and type(self.Option) == "table" then
-				for index = #self.Option, 1, -1 do
-					local option = self.Option[index]
+			if options.Option and type(options.Option) == "table" then
+				for index = #options.Option, 1, -1 do
+					local option = options.Option[index]
 					if option and not table.find(currentOptions, option) then
-						table.remove(self.Option, index)
+						table.remove(options.Option, index)
 					end
 				end
 			end
@@ -1931,18 +1921,18 @@ local function GetComponents(Window)
 			if #currentOptions > #droptionButtons then
 				for index = #droptionButtons + 1, #currentOptions do
 					local option = currentOptions[index]
-					self:Add(option)
+					options:Add(option)
 				end
 			end
 
 			-- 5. Perbarui tampilan pilihan (Set value)
-			if not self.Option or #self.Option == 0 then
-				self:Set("None")
+			if not options.Option or #options.Option == 0 then
+				options:Set("None")
 			else
-				self:Set(self.Option)
+				options:Set(options.Option)
 			end
 		end
-		
+
 		local inContact=false
 
 		function options:Close()
@@ -1962,11 +1952,11 @@ local function GetComponents(Window)
 				self.MainHolder.Visible=false
 			end
 		end
-		
+
 		for _, option in ipairs(options.Options) do
 			options:Add(option)
 		end
-		
+
 		local inputBegan=round.InputBegan:Connect(function(input)
 			if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
 				if Library.ActivePopup then
@@ -2021,11 +2011,12 @@ local function GetComponents(Window)
 					["Visible"]=main.Visible,
 					["Length"]=optionLength
 				}
+				if i=="DroptionButtons" then return nil end
 				if DropdownReturns[i] then return DropdownReturns[i] end
 				return options[i]
 			end,
 			__newindex=function(_,i,v)
-				if i~="Set" and i~="DroptionButtons" and i~="Option" then
+				if i~="Set" and i~="DroptionButtons" and i~="Option" and i~="IsEmpty" and i~="Actives" then
 					options[i]=v
 				end
 				if i=="Visible" then
@@ -2264,7 +2255,7 @@ function Library:GetProtectGui(gui)
 	elseif get_hidden_gui then
 		get_hidden_gui(gui)
 	elseif gethui then
-		parentGui=gethui(gui) 
+		parentGui=gethui(gui)
 	else
 		LocalPlayer:Kick("Error: protect_gui function not found")
 		return nil
@@ -2272,7 +2263,6 @@ function Library:GetProtectGui(gui)
 
 	return parentGui or Services.CoreGui
 end
-
 
 function Library:CreateKeySystem(keyInfo)
 	keyInfo=Missing("table",keyInfo,{})
@@ -2560,15 +2550,15 @@ function Library:CreateKeySystem(keyInfo)
 			return nil,"server returned an invalid status code,please try again later."
 		end
 	end
-	
+
 	local CheckExpiredThread = nil
-	
+
 	local HandleCheckExpired=function(key)
 		if keyInfo.UseCheckExpired then
 			CheckExpiredThread = task.spawn(function()
 				while keyInfo.UseCheckExpired and LocalPlayer.Parent ~= nil and keyInfo.Pass == true do
 					task.wait(keyInfo.CheckExpiredDuration)
-					
+
 					local isValid, errorMessage = GetKeyStatus(key)
 
 					if not isValid then
@@ -3023,7 +3013,9 @@ function Library:CreateWindow(config)
 	Window.Size=config.Size or UDim2.new(0,230,0,40)
 	Window.Open=config.Open or true
 	Window.Destroying=config.Destroying or nil
-
+	Window.Style = config.Style or "Crokyreo"
+	Window.AutoMaxHeight = config.AutoMaxHeight or true
+	
 	local gui=Create("ScreenGui",{
 		Name=Window.Name,
 		ResetOnSpawn=false
@@ -3128,7 +3120,23 @@ function Library:CreateWindow(config)
 		SortOrder=Enum.SortOrder.LayoutOrder
 	})
 
+	local savedMaxHeight = Window.MaxHeight
+	
 	local function UpdateWindowSize(animated)
+		local screenType = GetScreenType()
+		
+		if Window.AutoMaxHeight or savedMaxHeight == 320 then
+			if screenType == "720p" or screenType == "1280x500" then
+				Window.MaxHeight = 450
+			elseif screenType == "1080p" then
+				Window.MaxHeight = 500
+			elseif screenType == "4K" then
+				Window.MaxHeight = 600
+			else
+				Window.MaxHeight = 320
+			end
+		end
+		
 		local contentHeight=contentHolder.AbsoluteSize.Y
 		local targetMainSize,targetScrollSize
 
@@ -3162,7 +3170,7 @@ function Library:CreateWindow(config)
 			UpdateWindowSize(true)
 		end
 	end)
-
+	
 	local cleanDraggable=Library:MakeDraggable(titleBar,mainFrame)
 
 	Window.Main=mainFrame
@@ -3174,6 +3182,7 @@ function Library:CreateWindow(config)
 		if not self.Parent then return end
 		self.Parent=nil
 		CallSafely(self.Destroying)
+		if screenViewportChanged then screenViewportChanged:Disconnect() end
 		absoluteSizeChanged:Disconnect()
 		inputBegan:Disconnect()
 		cleanDraggable()
