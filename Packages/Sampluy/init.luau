@@ -12,7 +12,7 @@ local Services=setmetatable({},{
 
 local Players=Services.Players
 local RunService=Services.RunService
-local UserInputService:UserInputService=Services.UserInputService
+local UserInputService=Services.UserInputService
 local TweenService=Services.TweenService
 local TeleportService=nil
 local LocalPlayer=Players.LocalPlayer
