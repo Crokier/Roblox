@@ -113,7 +113,7 @@ local function HandleSwipe()
 end
 
 local Window=UI:CreateWindow({
-	Name="Auto Input V12",
+	Name="Auto Input",
 	Destroying=function()
 		task.cancel(ClickThread)
 		for key, enabled in pairs(Enableds) do
@@ -128,7 +128,7 @@ local Status=Window:AddLabel({
 })
 
 Window:AddButton({
-	Name="Point",
+	Text="Point",
 	Callback=function(s)
 		task.delay(2,function()
 			ClickPoint=UserInputService:GetMouseLocation()
@@ -158,9 +158,10 @@ ClickThread=task.spawn(function()
 end)
 
 ClickInputFolder:AddSlider({
-	Name="Click Speed",
-	Range={0.001,100},
+	Text="Click Speed",
+	Range={0.01,100},
 	Value=ClickSpeed,
+	Increment=0.01,
 	Callback=function(speed)
 		if speed>0 then
 			ClickSpeed=speed
@@ -169,7 +170,7 @@ ClickInputFolder:AddSlider({
 })
 
 local ClickToggle=ClickInputFolder:AddToggle({
-	Name="Auto Click",
+	Text="Auto Click",
 	Value=false,
 	Callback=function(state)
 		Enableds.Click=state
@@ -177,7 +178,7 @@ local ClickToggle=ClickInputFolder:AddToggle({
 })
 
 ClickInputFolder:AddSlider({
-	Name="Hold Duration",
+	Text="Hold Duration",
 	Range={1,100},
 	Increment=0.01,
 	Value=HoldDuration,
@@ -189,7 +190,7 @@ ClickInputFolder:AddSlider({
 })
 
 ClickInputFolder:AddToggle({
-	Name="Hold Click",
+	Text="Hold Click",
 	Value=false,
 	Callback=function(state)
 		if state then
@@ -248,8 +249,13 @@ SwipeInputFolder:AddToggle({
 	end
 })
 
-Window:AddLabel("YouTube: Crokyreo")
-Window:AddLabel("Creator: stav")
+Window:AddLabel({
+	Text="YouTube: Crokyreo"
+})
+
+Window:AddLabel({
+	Text="Creator: stav"
+})
 
 task.delay(5, function()
 	ClickPoint=UserInputService:GetMouseLocation()
