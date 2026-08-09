@@ -155,9 +155,64 @@ function Instancer.FindOrCreateChild(instance,name,className,data)
 	return c
 end
 
+-- Try
+function Instancer.TryQueryDescendants(instance, selector, length, timeOut, match)
+	length = (length == nil or typeof(length) ~= "number") and 1 or length
+	timeOut = (timeOut == nil or typeof(timeOut) ~= "number") and 5 or timeOut
+	
+	local descendants = instance:QueryDescendants(selector)
+	if #descendants >= length then
+		return descendants
+	end
+
+	local currentThread = coroutine.running()
+	local timeoutThread = nil
+	local connection = nil
+	local runningThread = nil
+	local done = false
+
+	connection = instance.DescendantAdded:Connect(function(descendant)
+		descendants = instance:QueryDescendants(selector)
+		if #descendants >= length then
+			done = true
+			if connection then connection:Disconnect() connection = nil end
+			if timeoutThread and coroutine.status(timeoutThread) ~= "dead" then task.cancel(timeoutThread) timeoutThread = nil end
+			if runningThread and coroutine.status(runningThread) ~= "dead" then task.cancel(runningThread) runningThread = nil end
+			task.spawn(currentThread, descendants)
+			currentThread = nil
+		end
+	end)
+	
+	timeoutThread = task.delay(timeOut, function()
+		if connection and connection.Connected then
+			done = true
+			connection:Disconnect()
+			connection = nil
+			if runningThread and coroutine.status(runningThread) ~= "dead" then task.cancel(runningThread) runningThread = nil end
+			warn(string.format("Infinite yield possible on 'Instancer.TryQueryDescendants(%s, \"%s\", %s)'", instance:GetFullName(), selector, length))
+			descendants = instance:QueryDescendants(selector)
+			task.spawn(currentThread, descendants)
+			currentThread = nil
+		end
+	end)
+	
+	if match and typeof(match) == "function" then
+		runningThread = task.spawn(function()
+			repeat task.wait() until not match(descendants) or done == true
+			if connection then connection:Disconnect() connection = nil end
+			if timeoutThread and coroutine.status(timeoutThread) ~= "dead" then task.cancel(timeoutThread) timeoutThread = nil end
+			descendants = instance:QueryDescendants(selector)
+			task.spawn(currentThread, descendants)
+			currentThread = nil
+		end)
+	end
+	
+	return coroutine.yield()
+end
+
 -- Wait For --
-function Instancer.WaitForChildOfClass(instance, className, timeout)
-	timeout = typeof(timeout) == "number" and timeout or 5
+function Instancer.WaitForChildOfClass(instance, className, timeOut)
+	timeOut = (timeOut == nil or typeof(timeOut) ~= "number") and 5 or timeOut
 
 	local existingChild = instance:FindFirstChildOfClass(className)
 	if existingChild then return existingChild end
@@ -174,7 +229,7 @@ function Instancer.WaitForChildOfClass(instance, className, timeout)
 		end
 	end)
 
-	timeoutThread = task.delay(timeout, function()
+	timeoutThread = task.delay(timeOut, function()
 		if connection and connection.Connected then
 			connection:Disconnect()
 			connection= nil
