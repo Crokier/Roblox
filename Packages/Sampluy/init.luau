@@ -11,7 +11,7 @@ local Services=setmetatable({},{
 })
 
 local Players=Services.Players
-local RunService=Services.RunService
+local RunService:RunService=Services.RunService
 local UserInputService=Services.UserInputService
 local TweenService=Services.TweenService
 local TeleportService=nil
@@ -219,7 +219,8 @@ local Library={
 			PlayerPickerSelected=Color3.fromRGB(50,138,220)
 		},
 	},
-	ActivePopup=nil
+	ActivePopup=nil,
+	Notifications = nil
 }
 
 local SelectedTheme=Library.Themes.Default
@@ -2253,7 +2254,7 @@ function Library:GetProtectGui(gui)
 	if syn and syn.protect_gui then
 		syn.protect_gui(gui)
 	elseif get_hidden_gui then
-		get_hidden_gui(gui)
+		parentGui=get_hidden_gui(gui)
 	elseif gethui then
 		parentGui=gethui(gui)
 	else
@@ -3204,6 +3205,146 @@ function Library:CreateWindow(config)
 		Window[k]=v
 	end
 	return Window
+end
+
+function Library:Notify(data)
+	data = (data ~= nil and typeof(data) == "table") and data or {}
+	local title, description, duration, icon = data.Title or data.Text, data.Description or data.Context, data.Duration or data.Cooldown or 25, data.Icon or data.Image or "rbxassetid://0"
+	local protectGui = Library:GetProtectGui()
+	local notificationGui = Library.Notifications
+	if not notificationGui then
+		for _,interface in ipairs(protectGui:GetChildren()) do
+			if interface.Name=="ProtectNotification" and interface.ClassName == "ScreenGui" then
+				if not notificationGui then
+					for _,frame in ipairs(interface:GetChildren()) do
+						if frame.Name == "Notifications" and frame.ClassName == "Frame" then
+							local uiListLayout = frame:FindFirstChildOfClass("UIListLayout")
+							local uiPadding = frame:FindFirstChildOfClass("UIPadding")
+							if uiListLayout and uiPadding then
+								notificationGui = interface
+								break
+							end
+						end
+					end
+				end
+				if notificationGui then
+					break
+				end
+			end
+		end
+		Library.Notifications = notificationGui
+	end
+	local notificationFrame = nil
+	if not notificationGui then
+		notificationGui = Create("ScreenGui", {
+			Name = "ProtectNotification",
+			ResetOnSpawn = false,
+		})
+
+		notificationFrame=Create("Frame", {
+			Name = "Notifications",
+			Size=UDim2.new(0,320,1,0),
+			Position=UDim2.new(1,-340,0,0),
+			BackgroundTransparency=1,
+			Parent=notificationGui
+		})
+
+		Create("UIListLayout", {
+			SortOrder=Enum.SortOrder.LayoutOrder,
+			VerticalAlignment=Enum.VerticalAlignment.Bottom,
+			Padding=UDim.new(0,10),
+			Parent=notificationFrame
+		})
+
+		Create("UIPadding", {
+			PaddingBottom=UDim.new(0,20),
+			Parent=notificationFrame
+		})
+		
+		protectGui = Library:GetProtectGui(notificationGui)
+		notificationGui.Parent = protectGui
+	else
+		notificationFrame=notificationGui:FindFirstChild("Notifications")
+	end
+	local lIIIll=Instance.new("Frame")
+	lIIIll.Size=UDim2.new(1,0,0,80)
+	lIIIll.BackgroundTransparency=1;
+	lIIIll.Parent=notificationFrame;
+	local IlllII=Instance.new("Frame")
+	IlllII.Size=UDim2.new(1,0,1,0)
+	IlllII.Position=UDim2.new(1.2,0,0,0)
+	IlllII.BackgroundColor3=Color3.fromRGB(30,30,30)
+	IlllII.BorderSizePixel=0;
+	IlllII.Parent=lIIIll;
+	local lIlIlI=Instance.new("UICorner")
+	lIlIlI.CornerRadius=UDim.new(0,8)
+	lIlIlI.Parent=IlllII;
+	local IIlIIl=Instance.new("ImageLabel")
+	IIlIIl.Size=UDim2.new(0,60,0,60)
+	IIlIIl.Position=UDim2.new(0,10,0,10)
+	IIlIIl.BackgroundTransparency=1;
+	if icon ~= nil then
+		local iconId = tonumber(icon)
+		if iconId and iconId > 0 then 
+			IIlIIl.Image="rbxassetid://"..iconId 
+		elseif not iconId and typeof(icon) == "string" then
+			IIlIIl.Image=icon
+		end
+	else
+		IIlIIl.Image="rbxassetid://0"
+	end
+	IIlIIl.Parent=IlllII;
+	local IIllll=Instance.new("TextLabel")
+	IIllll.Size=UDim2.new(1,-110,0,20)
+	IIllll.Position=UDim2.new(0,80,0,10)
+	IIllll.BackgroundTransparency=1;
+	IIllll.Text=title;
+	IIllll.TextColor3=Color3.fromRGB(255,255,255)
+	IIllll.TextSize=16;
+	IIllll.Font=Enum.Font.GothamBold;
+	IIllll.TextXAlignment=Enum.TextXAlignment.Left;
+	IIllll.Parent=IlllII;
+	local IlIIlI=Instance.new("TextLabel")
+	IlIIlI.Size=UDim2.new(1,-90,0,40)
+	IlIIlI.Position=UDim2.new(0,80,0,30)
+	IlIIlI.BackgroundTransparency=1;
+	IlIIlI.Text=description;
+	IlIIlI.TextColor3=Color3.fromRGB(200,200,200)
+	IlIIlI.TextSize=14;
+	IlIIlI.Font=Enum.Font.Gotham;
+	IlIIlI.TextXAlignment=Enum.TextXAlignment.Left;
+	IlIIlI.TextWrapped=true;
+	IlIIlI.Parent=IlllII;
+	local lIlIll=Instance.new("TextButton")
+	lIlIll.Size=UDim2.new(0,24,0,24)
+	lIlIll.Position=UDim2.new(1,-30,0,8)
+	lIlIll.BackgroundTransparency=1;
+	lIlIll.Text="X";
+	lIlIll.TextColor3=Color3.fromRGB(255,80,80)
+	lIlIll.TextSize=18;
+	lIlIll.Font=Enum.Font.GothamBold;
+	lIlIll.Parent=IlllII;
+	local IIIlll=TweenService:Create(IlllII,TweenInfo.new(0.5,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),{Position=UDim2.new(0,0,0,0)})
+	IIIlll:Play()
+	local timeoutThread = nil
+	local function OnFinished()
+		lIlIll.Active=false;
+		if timeoutThread and coroutine.status(timeoutThread)~="dead" then
+			task.cancel(timeoutThread)
+			timeoutThread = nil
+		end
+		local IIlIII=TweenService:Create(IlllII,TweenInfo.new(0.4,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.new(1.2,0,0,0)})
+		IIlIII:Play()
+		IIlIII.Completed:Wait()
+		local lIllIl=TweenService:Create(lIIIll,TweenInfo.new(0.3,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Size=UDim2.new(1,0,0,0)})
+		lIllIl:Play()
+		lIllIl.Completed:Wait()
+		lIIIll:Destroy()
+	end
+	if duration>0 then
+		task.delay(duration, OnFinished)
+	end
+	lIlIll.MouseButton1Click:Connect(OnFinished)
 end
 
 Services.UserInputService.InputBegan:Connect(function(input)
