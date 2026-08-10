@@ -5,11 +5,12 @@ local MarketplaceService = Services.MarketplaceService
 local placeId = game.PlaceId
 local info = MarketplaceService:GetProductInfoAsync(placeId)
 
-if info then
+local function InspectInfo(info)
 	UI:Notify({
 		Title = "Info",
 		Description = info.Name,
-		Icon = info.IconImageAssetId
+		Icon = info.IconImageAssetId,
+		Duration = -1
 	})
 	local s = ""
 	for k,v in pairs(info) do
@@ -23,4 +24,13 @@ if info then
 		end
 	end
 	warn(s)
+end
+
+if info then
+	InspectInfo(info)
+	if info.TargetId and info.TargetId > 0 then
+		task.wait(2)
+		local newInfo = MarketplaceService:GetProductInfoAsync(info.TargetId)
+		InspectInfo(newInfo)
+	end
 end
