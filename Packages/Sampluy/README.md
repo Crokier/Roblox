@@ -187,12 +187,4 @@ if not KeySystem.Pass then return end
 KeySystem:Destroy() -- Destroy the key system after the user has successfully logged in
 ```
 
-
-
-### GetProtectGui Function
-```lua
-UI:GetProtectGui(ScreenGui)
-```
-
-
-### Credits: Crokyreo
+### Credits: Crokyreo, Tora IsMe, Pro AI, Rayfield, OYB Official
