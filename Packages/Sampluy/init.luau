@@ -2909,7 +2909,7 @@ function Library:CreateKeySystem(keyInfo)
 		end
 		Status.Text="Verifying..."
 		fastWait(1)
-		local success,message=RedeemKey(key)
+		local success,message=redeemKey(key)
 		if success then
 			if not keyInfo.Pass then 
 				keyInfo.Pass=true
