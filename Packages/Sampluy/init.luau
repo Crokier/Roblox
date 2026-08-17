@@ -2896,7 +2896,7 @@ function Library:CreateKeySystem(keyInfo)
 
 	local applyKey=function(key)
 		if keyInfo.Pass==true or keyInfo.Rejected==true or keyInfo.Closed==true or not keyInfo.Parent then return end
-		if Strs.IsEmpty(key) then 
+		if Strs.isEmpty(key) then 
 			LastStatus="Enter a key!"
 			Status.Text=LastStatus
 			Status.TextColor3=Color3.fromRGB(255,50,50)
