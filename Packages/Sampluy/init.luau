@@ -81,6 +81,12 @@ function Strs.isEmpty(s)
 	return true
 end
 
+-- Copy a string to clipboard. Returns whether a clipboard fn was available.
+local function copyToClipboard(s)
+	if not setClipboard then return false end
+	return pcall(setClipboard, s)
+end
+
 local function callSafely(func,...)
 	if func then 
 		local success,result=pcall(func,...) 
@@ -289,11 +295,11 @@ local function getComponents(Window)
 		function options:Set(text)
 			title.Text=tostring(text or "")
 		end
-		
+
 		function options:Get()
 			return options.Value
 		end
-		
+
 		if options.Visible~=nil then
 			main.Visible=options.Visible and true or false
 		end
@@ -315,7 +321,7 @@ local function getComponents(Window)
 		end
 
 		options.Instance=main
-		
+
 		return setmetatable({},{
 			__index=function(_,i)
 				if i=="Visible" then 
@@ -372,7 +378,7 @@ local function getComponents(Window)
 				end
 			end
 		end
-		
+
 		options.Type="Button"
 		options.Text=options.Text or options.Title or options.Name or options.Type
 		options.Callback=missing("function",options.Callback,function() end)
@@ -906,10 +912,10 @@ local function getComponents(Window)
 			end
 		})
 	end
-	
+
 	function elements:AddSlider(...)
 		local args={...}
-		
+
 		local options={}
 		for index,value in ipairs(args) do
 			if value~=nil then
@@ -930,12 +936,12 @@ local function getComponents(Window)
 				end
 			end
 		end
-		
+
 		options.Type="Slider"
 		options.Style = options.Style == nil and "1" or tostring(options.Style)
 		options.Text=options.Text or options.Title or options.Name or options.Type
 		options.Range=missing("table",options.Range,{0,100})
-		
+
 		if options.Range[1]==nil or type(options.Range[1])~="number" then
 			options.Range[1]=0
 		end
@@ -948,31 +954,31 @@ local function getComponents(Window)
 		if options.Max and type(options.Max)=="number" then
 			options.Range[2]=options.Max
 		end
-		
+
 		options.Min=options.Range[1]
 		options.Max=options.Range[2]
-		
+
 		options.Increment=missing("number",options.Increment,options.Min)
 		options.Value=missing("number",options.Value,options.Min)
 		options.FillColor3=options.FillColor3 or Color3.fromRGB(255,65,65)
 		options.Callback=missing("function",options.Callback,function() end)
 		options.SaveValue=options.Value
-		
+
 		local cleanFunc=nil
 		local main,title,handle,fill,track=nil,nil,nil,nil,nil
 		local sliding,inContact=false,false
-	
+
 		local dragStart,dragContinue,dragEnd,inputBegan,inputEnded,focusLost=nil,nil,nil,nil,nil,nil
 		local uiDragDetector=create("UIDragDetector", {
 			ResponseStyle=Enum.UIDragDetectorResponseStyle.CustomOffset,
 			DragStyle=Enum.UIDragDetectorDragStyle.TranslateLine
 		})
-		
+
 		local function updateSlider(position)
 			local value = options.Min+((position.X-track.AbsolutePosition.X)/track.AbsoluteSize.X)*(options.Max-options.Min)
 			options:Set(value)
 		end
-		
+
 		--[[
 		if options.Style=="0" then
 			main=create("Frame",{
@@ -1125,7 +1131,7 @@ local function getComponents(Window)
 			SliceScale=0.02,
 			Parent=main
 		})
-		
+
 		fill=create("ImageLabel",{
 			Name="Fill",
 			BackgroundTransparency=1,
@@ -1136,7 +1142,7 @@ local function getComponents(Window)
 			SliceScale=0.02,
 			Parent=track
 		})
-		
+
 		handle=create("ImageLabel",{
 			Name="Handle",
 			AnchorPoint=Vector2.new(0.5,0.5),
@@ -1150,7 +1156,7 @@ local function getComponents(Window)
 			SliceScale=1,
 			Parent=track
 		})
-		
+
 		local inputFrame=create("ImageLabel",{
 			Name="InputFrame",
 			Position=UDim2.new(1,-6,0,4),
@@ -1163,7 +1169,7 @@ local function getComponents(Window)
 			SliceScale=0.02,
 			Parent=main
 		})
-		
+
 		local inputBox=create("TextBox",{
 			Name="InputBox",
 			Size=UDim2.new(1,0,1,0),
@@ -1182,13 +1188,13 @@ local function getComponents(Window)
 			fill.Position=UDim2.new((0-options.Min)/(options.Max-options.Min),0,0,0)
 			fill.Size=UDim2.new(options.Value/(options.Max-options.Min),0,1,0)
 		end
-		
+
 
 		if options.Visible~=nil then
 			main.Visible=options.Visible and true or false
 		end
 
-		
+
 		function options:Set(value)
 			local min, max, increment, callback = options.Min or 0, options.Max or 100, options.Increment or 1, options.Callback
 			value=round(value,increment)
@@ -1206,7 +1212,7 @@ local function getComponents(Window)
 			inputBox.Text = newValue
 			callSafely(callback, tonumber(newValue) or value)
 		end
-		
+
 		dragStart=uiDragDetector.DragStart:Connect(function(inputPosition)
 			sliding=true
 			tween(fill,TweenCache.Default,{ImageColor3 = options.FillColor3})
@@ -1225,7 +1231,7 @@ local function getComponents(Window)
 			tween(fill,TweenCache.Default,{ImageColor3=Color3.fromRGB(60,60,60)})
 			tween(handle,TweenCache.Default,{Size=UDim2.new(0,0,0,0),ImageColor3=Color3.fromRGB(60,60,60)})
 		end)
-		
+
 		inputBegan=main.InputBegan:connect(function(input)
 			if input.UserInputType==Enum.UserInputType.MouseMovement then
 				inContact=true
@@ -1235,7 +1241,7 @@ local function getComponents(Window)
 				end
 			end
 		end)
-		
+
 		inputEnded=main.InputEnded:connect(function(input)
 			if input.UserInputType==Enum.UserInputType.MouseMovement then
 				inContact=false
@@ -1246,7 +1252,7 @@ local function getComponents(Window)
 				end
 			end
 		end)
-		
+
 		focusLost=inputBox.FocusLost:connect(function(enter)
 			if not enter then return end
 			local newValue,inputText=options.Value,inputBox.Text
@@ -1259,7 +1265,7 @@ local function getComponents(Window)
 			tween(handle,TweenCache.Default,{Size=UDim2.new(0,0,0,0),ImageColor3=Color3.fromRGB(60,60,60)})
 			options:Set(newValue)
 		end)
-		
+
 		cleanFunc=function()
 			dragStart:Disconnect()
 			dragContinue:Disconnect()
@@ -1268,16 +1274,16 @@ local function getComponents(Window)
 			inputEnded:Disconnect()
 			focusLost:Disconnect()
 		end
-		
+
 		--end
-		
+
 		uiDragDetector.BoundingUI=track
 		uiDragDetector.Parent=main
-		
+
 		if options.Flag then
 			Library.Flags[options.Flag]=options
 		end
-		
+
 		connectDestroying(Window.Gui,Window.SaveName,function()
 			dragStart:Disconnect()
 			dragContinue:Disconnect()
@@ -1288,7 +1294,7 @@ local function getComponents(Window)
 		end)
 
 		options.Instance=main
-		
+
 		return setmetatable({},{
 			__index=function(_,i)
 				if i=="Visible" then 
@@ -1741,7 +1747,7 @@ local function getComponents(Window)
 		options.DroptionButtons={}
 		options.Actives={}
 		options.IsEmpty=false
-		
+
 		if options.MultipleOptions then
 			if #options.Option==1 then
 				selected.Text=options.Option[1]
@@ -1755,7 +1761,7 @@ local function getComponents(Window)
 		end
 		options.IsEmpty=#options.Option<=0
 		options.Instance=main
-		
+
 		local layoutChanged=layout.Changed:Connect(function()
 			mainHolder.Size=UDim2.new(0,240,0,(optionLength>4 and (4*40) or layout.AbsoluteContentSize.Y)+12)
 			content.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+12)
@@ -1861,7 +1867,7 @@ local function getComponents(Window)
 
 			connectDestroying(droption,nil,function()
 				cleanup()
-				
+
 				local foundIndex = table.find(self.DroptionButtons, droption)
 				if foundIndex then 
 					table.remove(self.DroptionButtons, foundIndex) 
@@ -1880,7 +1886,7 @@ local function getComponents(Window)
 				end
 			end)
 		end
-		
+
 		function options:Set(option)
 			if option==nil then option={} end
 			local optionType=type(option)
@@ -1927,7 +1933,7 @@ local function getComponents(Window)
 					droption.Visible = false
 				end
 			end
-			
+
 			-- 2. Tampilkan tombol sesuai opsi yang ada
 			for index, option in ipairs(currentOptions) do
 				local droption = droptionButtons[index]
@@ -1983,15 +1989,15 @@ local function getComponents(Window)
 				options.MainHolder.Visible=false
 			end
 		end
-		
+
 		for _, option in ipairs(options.Options) do
 			options:Add(option)
 		end
-		
+
 		if options.Flag then
 			Library.Flags[options.Flag]=options
 		end
-		
+
 		local inputBegan=round.InputBegan:Connect(function(input)
 			if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
 				if Library.ActivePopup then
@@ -2153,7 +2159,7 @@ local function getComponents(Window)
 		if options.Visible~=nil then
 			main.Visible=options.Visible and true or false
 		end
-		
+
 		function options:Set(open)
 			if open then open=true else open=false end
 			self.Open=open
@@ -2580,9 +2586,7 @@ function Library:CreateKeySystem(keyInfo)
 			CheckExpiredThread = task.spawn(function()
 				while keyInfo.UseCheckExpired and LocalPlayer.Parent ~= nil and keyInfo.Pass == true do
 					task.wait(keyInfo.CheckExpiredDuration)
-
 					local isValid, errorMessage = getKeyStatus(key)
-
 					if not isValid then
 						if errorMessage~="you are being rate limited, please wait 20 seconds and try again." and errorMessage~="server returned an invalid status code, please try again later." then
 							rejoinGame()
@@ -2630,7 +2634,7 @@ function Library:CreateKeySystem(keyInfo)
 	end
 
 	-- Initialize Key System GUI
-	local keyGui=create("ScreenGui",{
+	local screenGui=create("ScreenGui",{
 		Name=KeyOption.GuiName,
 		ResetOnSpawn=false
 	})
@@ -2640,7 +2644,7 @@ function Library:CreateKeySystem(keyInfo)
 		Position=UDim2.new(0.5,-170,0.5,-210),
 		BackgroundColor3=Color3.fromRGB(25,26,31),
 		Active=true,
-		Parent=keyGui
+		Parent=screenGui
 	})
 
 	create("UICorner",{CornerRadius=UDim.new(0,15),Parent=mainFrame})
@@ -2739,8 +2743,9 @@ function Library:CreateKeySystem(keyInfo)
 			Parent=discordButton
 		})
 		keyCache.DiscordActivated=discordButton.MouseButton1Click:Connect(function()
-			setclipboard(discordInfo.Link)
-			if Status then 
+			copyToClipboard(discordInfo.Link)
+
+			if Status then
 				Status.Text="Discord Link Copied!"
 				Status.TextColor3=Color3.fromRGB(88,101,242)
 			end
@@ -2776,7 +2781,7 @@ function Library:CreateKeySystem(keyInfo)
 			Parent=instagramButton
 		})
 		keyCache.InstagramActivated=instagramButton.MouseButton1Click:Connect(function()
-			setclipboard(instagramInfo.Link)
+			copyToClipboard(instagramInfo.Link)
 			if Status then 
 				Status.Text="Instagram Link Copied!"
 				Status.TextColor3=Color3.fromRGB(225,48,108)
@@ -2810,7 +2815,7 @@ function Library:CreateKeySystem(keyInfo)
 			Parent=youtubeButton
 		})
 		keyCache.YoutubeActivated=youtubeButton.MouseButton1Click:Connect(function()
-			setclipboard(youtubeInfo.Link)
+			copyToClipboard(youtubeInfo.Link)
 			local Status=mainFrame:FindFirstChild("Status")
 			if Status then
 				Status.Text="YouTube Link Copied!"
@@ -2878,18 +2883,18 @@ function Library:CreateKeySystem(keyInfo)
 
 	local cleanDraggable=Library:MakeDraggable(mainFrame,mainFrame)
 
-	local protectGui=Library:GetProtectGui(keyGui)
+	local protectGui=Library:GetProtectGui(screenGui)
 
 	for _,interface in ipairs(protectGui:GetChildren()) do
-		if interface.Name==KeyOption.GuiName and interface~=keyGui then
+		if interface.Name==KeyOption.GuiName and interface~=screenGui then
 			interface.Enabled=false
 			interface.Name=KeyOption.OldGuiName
 		end
 	end
 
-	keyGui.Parent=protectGui
+	screenGui.Parent=protectGui
 
-	local cleanResize=Library:SetAutoResizeGui(keyGui,{BaseX=baseX,BaseY=baseY})
+	local cleanResize=Library:SetAutoResizeGui(screenGui,{BaseX=baseX,BaseY=baseY})
 
 	local SaveStatus={TextColor3=Status.TextColor3,Text=Status.Text}
 	local LastStatus=SaveStatus.Text
@@ -2958,8 +2963,8 @@ function Library:CreateKeySystem(keyInfo)
 		if cleanDestroying then cleanDestroying() end
 		cleanResize()
 		cleanDraggable()
-		keyGui.Name=KeyOption.OldGuiName
-		keyGui.Enabled=false
+		screenGui.Name=KeyOption.OldGuiName
+		screenGui.Enabled=false
 		local k,v=next(keyCache)
 		while v do
 			keyCache[k]=nil
@@ -2968,7 +2973,7 @@ function Library:CreateKeySystem(keyInfo)
 		end
 	end
 
-	keyInfo.Gui=keyGui
+	keyInfo.Gui=screenGui
 
 	-- Logic
 	keyCache.CloseActivated=closeButton.Activated:Connect(function() 
@@ -2991,7 +2996,7 @@ function Library:CreateKeySystem(keyInfo)
 		Status.Text="Getting Link..."
 		local success,response=cacheLink()
 		if success then
-			setclipboard(response)
+			copyToClipboard(response)
 			LastStatus="Link Copied!"
 			Status.Text=LastStatus
 			Status.TextColor3=Color3.fromRGB(0,170,255)
@@ -3007,8 +3012,8 @@ function Library:CreateKeySystem(keyInfo)
 			Status.TextColor3=SaveStatus.TextColor3
 		end
 	end)
-	
-	cleanDestroying=connectDestroying(keyGui,keyGui.Name,function()
+
+	cleanDestroying=connectDestroying(screenGui,screenGui.Name,function()
 		keyInfo:Destroy()
 	end)
 
@@ -3043,7 +3048,7 @@ function Library:CreateWindow(config)
 	Window.Style = config.Style or "Crokyreo"
 	Window.AutoMaxHeight = config.AutoMaxHeight or true
 	Window.TabIcon = config.TabIcon or "controller"
-	
+
 	local gui=create("ScreenGui",{
 		Name=Window.Name,
 		ResetOnSpawn=false
@@ -3149,10 +3154,10 @@ function Library:CreateWindow(config)
 	})
 
 	local savedMaxHeight = Window.MaxHeight
-	
+
 	local function updateWindowSize(animated)
 		local screenType = getScreenType()
-		
+
 		if Window.AutoMaxHeight or savedMaxHeight == 320 then
 			if screenType == "720p" or screenType == "1280x500" then
 				Window.MaxHeight = 450
@@ -3164,7 +3169,7 @@ function Library:CreateWindow(config)
 				Window.MaxHeight = 320
 			end
 		end
-		
+
 		local contentHeight=contentHolder.AbsoluteSize.Y
 		local targetMainSize,targetScrollSize
 
@@ -3198,7 +3203,7 @@ function Library:CreateWindow(config)
 			updateWindowSize(true)
 		end
 	end)
-	
+
 	local cleanDraggable=Library:MakeDraggable(titleBar,mainFrame)
 
 	Window.Main=mainFrame
@@ -3227,17 +3232,17 @@ function Library:CreateWindow(config)
 	connectDestroying(Window.Gui,Window.SaveName,function()
 		Window:Destroy()
 	end)
-	
+
 	function Window:CreateTab(options)
 		options=missing("table",options,{})
 		options.Icon=options.Icon or options.Image or ""
 	end
-	
+
 	local baseComponents=getComponents(Window)
 	for k,v in next,baseComponents do
 		Window[k]=v
 	end
-	
+
 	return Window
 end
 
@@ -3294,7 +3299,7 @@ function Library:Notify(data)
 			PaddingBottom=UDim.new(0,20),
 			Parent=notificationFrame
 		})
-		
+
 		protectGui = Library:GetProtectGui(notificationGui)
 		notificationGui.Parent = protectGui
 	else
