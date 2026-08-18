@@ -77,9 +77,18 @@ local Toggle = Window:AddToggle("Master Override", false, function(value)
 end)
 Toggle:Set(true)
 
+local Toggle2 = Window:AddToggle({
+	Style = "2",
+    Text = "Auto Smart",
+	Value = true, 
+    Callback = function(value)
+		print("Smart Enabled:", value)
+	end
+}
+Toggle2:Set(false)
+	
 -- Slider
 local Slider = Window:AddSlider({
-	["Version"] = 1,
 	Text = "Rate", 
 	Range = {0, 10} or {-10, 10}, 
 	Value = 0 or -5,
