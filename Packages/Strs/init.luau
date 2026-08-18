@@ -1,5 +1,4 @@
 local MathHuge,MathFloor,MathAbs,StringGsub,StringFormat,StringFind,StringMatch,StringLen,Huge=math.huge,math.floor,math.abs,string.gsub,string.format,string.find,string.match,string.len,math.huge
-local BoolData={["yes"]=true,["no"]=false,["true"]=true,["false"]=false,["active"]=true,["unactive"]=false,["start"]=true,["stop"]=false}
 
 local Strs={
 	['Icons']={
@@ -7,8 +6,12 @@ local Strs={
 		['Premium']=utf8.char(0xE001),
 		['Verified']=utf8.char(0xE000),
 	},
+	['Suffixes'] = {' ','K','M','B','T','Qd','Qn','Sx','Sp','Oc','No','De','UDe','DDe','TDe','QdDe','QnDe','SxDe','SpDe','OcDe','NoDe','Vg','UVg','DVg','TVg'},
+	['BoolData']={["yes"]=true,["no"]=false,["true"]=true,["false"]=false,["active"]=true,["unactive"]=false,["start"]=true,["stop"]=false},
+	['BuilderIcons'] = 'rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json'
 }
 
+-- Basic Function --
 function Strs.ToNaN(x:number,s:string?)
 	return x~=x and "NaN" or s
 end
@@ -38,14 +41,14 @@ function Strs.IsStrings(s1,s2)
 	for i,v in ipairs(s2) do if s1==v then return true end end return false
 end
 
-function Strs.IsOriginal(s)
-	s=string.lower(tostring(s)) 
+function Strs.IsOriginal(s:string):boolean
+	s=string.lower(s) 
 	for i,v in ipairs({"reset","default","original","origin"}) do if string.find(s,v) then return true end end
 	return false
 end
 
 function Strs.IsEmpty(s:any):boolean
-	if type(s)=="string" then
+	if s~=nil and type(s)=="string" then
 		if StringLen(s)==0 then return true end
 		local v=StringMatch(s,"^%s*$")
 		if v==nil then return false end
@@ -54,37 +57,12 @@ function Strs.IsEmpty(s:any):boolean
 	return true
 end
 
-function Strs.TryNumber(s,defautValue,originalValue)
-	if type(s)=="string" or type(s)=="number" then
-		if tonumber(s) then return tonumber(s) end
-		local ls=string.lower(s)
-		if ls=="reset" or ls=="default" or ls=="original" or ls=="origin" then return tonumber(originalValue) or tonumber(defautValue) end
-		if ls=="inf" or ls=="huge" or "infinite" then return math.huge end
-		if ls=="-inf" or ls=="-huge" or "-infinite" then return -math.huge end
-		return tonumber(defautValue)
-	end
-	return nil
-end
-
-function Strs.ToNumber(v,maxFloat)
-	local x=type(v)=="string" and tonumber(v) or v
-	if not x or type(x)~="number" then return "nil" end
-	if not maxFloat or type(maxFloat)~="number" or maxFloat<=0 then 
-		maxFloat=3
-	end
-	local xFloor=MathFloor(x)
-	if x==xFloor then return tostring(xFloor) end
-	local s=StringFormat(`%.{maxFloat}f`,x)
-	s=StringGsub(s,"%.?0+$","")
-	return s
-end
-
-function Strs.Trim(s)
+function Strs.Trim(s:string)
 	return string.gsub(s, "^%s*(.-)%s*$", "%1")
 end
 
 function Strs.ToPersentase(x:number,max:number?,maxFloat:number?,reverse:boolean?):string
-	if type(x)~="number" or x==0 then return "0%" end
+	if x==nil or type(x)~="number" or x==0 then return "0%" end
 	if (x>=MathHuge or x<=-MathHuge) then return "∞%" end
 	maxFloat=if type(maxFloat)=="number" and maxFloat>0 then maxFloat else 2
 	local percentage=MathFloor(x)*100
@@ -106,24 +84,54 @@ function Strs.ToPersentase(x:number,max:number?,maxFloat:number?,reverse:boolean
 	return s
 end
 
-local Suffixes={' ','K','M','B','T','Qd','Qn','Sx','Sp','Oc','No','De','UDe','DDe','TDe','QdDe','QnDe','SxDe','SpDe','OcDe','NoDe','Vg','UVg','DVg','TVg'}
+function Strs.ToBoolean(s:string)
+	return Strs.BoolData[string.lower(s)]
+end
 
-function Strs.FormatNumber(x:number):string
+-- Format Number Function --
+function Strs.TryNumber(s,defautValue,originalValue)
+	if s==nil then return nil end
+	if not (type(s)=="string" or type(s)=="number") then return nil end
+	local numberInput = tonumber(s)
+	if numberInput then return numberInput end
+	local ls=string.lower(s)
+	if ls=="reset" or ls=="default" or ls=="original" or ls=="origin" then return tonumber(originalValue) or tonumber(defautValue) end
+	if ls=="inf" or ls=="huge" or "infinite" then return math.huge end
+	if ls=="-inf" or ls=="-huge" or "-infinite" then return -math.huge end
+	return tonumber(defautValue)
+end
+
+function Strs.ToNumber(v,maxFloat)
+	local x=type(v)=="string" and tonumber(v) or v
+	if x == nil or type(x)~="number" then return "nil" end
+	if maxFloat == nil or type(maxFloat)~="number" or maxFloat<=0 then 
+		maxFloat=3
+	end
+	local xFloor=MathFloor(x)
+	if x==xFloor then return tostring(xFloor) end
+	local s=StringFormat(`%.{maxFloat}f`,x)
+	s=StringGsub(s,"%.?0+$","")
+	return s
+end
+
+function Strs.FormatNumber(x:number):string?
+	if x==nil then return nil end
 	local check=Strs.ToInf(x) or Strs.ToNaN(x)
 	if check then return check end
 	local isNegative=x<=0
-	x=MathAbs(x)
+	x=math.abs(x)
 	local s=tostring(x)
-	for i=1,#Suffixes do
+	for i=1,#Strs.Suffixes do
 		if x<10^(i*3) then
 			local v=x/(10^((i-1)*3)/100)
-			local result=tostring(math.floor(v)/100)..Suffixes[i]
+			local result=tostring(math.floor(v)/100)..Strs.Suffixes[i]
 			return isNegative and '-'..result or result
 		end
 	end
 	return isNegative and '-'..s or s
 end
 
+-- Format Time Function --
 function Strs.FormatTime(x:number):string
 	local checkString=Strs.ToInf(x) or Strs.ToNaN(x)
 	if checkString then return checkString end
@@ -173,10 +181,7 @@ function Strs.ToDHMS(x:number):string
 	return StringFormat('%02i:%02i:%02i:%02i',days,hours,minutes,seconds)
 end
 
-function Strs.ToBoolean(s)
-	if s and type(s)=="string" then return BoolData[string.lower(s)] or false end return false
-end
-
+-- Random Function --
 function Strs.Random()
 	local length=math.random(10,20)
 	local array={}
