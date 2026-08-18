@@ -561,7 +561,7 @@ local function getComponents(Window)
 			Parent=Window.Container
 		})
 
-		if options.Style=="1" then
+		if options.Style=="0" then
 			title=create("TextLabel",{
 				Name="Title",
 				ZIndex=2,
