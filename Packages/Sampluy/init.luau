@@ -81,12 +81,6 @@ function Strs.isEmpty(s)
 	return true
 end
 
--- Copy a string to clipboard. Returns whether a clipboard fn was available.
-local function copyToClipboard(s)
-	if not setClipboard then return false end
-	return pcall(setClipboard, s)
-end
-
 local function callSafely(func,...)
 	if func then 
 		local success,result=pcall(func,...) 
@@ -97,6 +91,12 @@ local function callSafely(func,...)
 			return result 
 		end 
 	end
+end
+
+-- Copy a string to clipboard. Returns whether a clipboard fn was available.
+local function copyToClipboard(s)
+	if not setclipboard then return false end
+	return pcall(setclipboard, s)
 end
 
 local function requestSafely(options)
@@ -547,7 +547,7 @@ local function getComponents(Window)
 			end
 		end
 		options.Type="Toggle"
-		options.Version=missing("number",options.Version,1)
+		options.Style=options.Style==nil and "1" or tostring(options.Style)
 		options.Text=options.Text or options.Title or options.Name or options.Type
 		options.Callback=missing("function",options.Callback,function() end)
 
@@ -561,7 +561,7 @@ local function getComponents(Window)
 			Parent=Window.Container
 		})
 
-		if options.Version==0 then
+		if options.Style=="1" then
 			title=create("TextLabel",{
 				Name="Title",
 				ZIndex=2,
@@ -592,8 +592,8 @@ local function getComponents(Window)
 				Parent=main
 			})
 
-			changeFunc=function(value,callback)
-				value=value and true or false
+            local function changeState()
+                value=value and true or false
 				if options.Value~=value then
 					options.Value=value
 					if options.Flag then
@@ -603,16 +603,16 @@ local function getComponents(Window)
 					tween(round,TweenCache.Default,{ImageColor3=value and Color3.fromRGB(60,200,60) or Color3.fromRGB(200,60,60)})
 					callSafely(callback,value)
 				end
-			end
-
+            end
+			
 			function options:Set(value)
-				changeFunc(value,options.Callback)
+				changeState(value,options.Callback)
 			end
 
 			function options:Replace(value)
-				changeFunc(value,nil)
+				changeState(value,nil)
 			end
-		elseif options.Version==2 then
+		elseif options.Style=="2" then
 			title=create("TextLabel",{
 				Name="Title",
 				ZIndex=2,
@@ -649,7 +649,8 @@ local function getComponents(Window)
 				Parent=indicator
 			})
 
-			changeFunc=function(value,callback)
+            
+			local function changeState(value,callback)
 				value=value and true or false
 				if options.Value~=value then
 					options.Value=value
@@ -664,11 +665,11 @@ local function getComponents(Window)
 			end
 
 			function options:Set(value)
-				changeFunc(value,options.Callback)
+				changeState(value,options.Callback)
 			end
 
 			function options:Replace(value)
-				changeFunc(value,nil)
+				changeState(value,nil)
 			end
 		else
 			title=create("TextLabel",{
@@ -729,7 +730,7 @@ local function getComponents(Window)
 				Parent=checkmarkHolder
 			})
 
-			changeFunc=function(value,callback)
+			local function changeState(value,callback)
 				value=value and true or false
 				if options.Value~=value then
 					options.Value=value
@@ -747,11 +748,11 @@ local function getComponents(Window)
 			end
 
 			function options:Set(value)
-				changeFunc(value,options.Callback)
+				changeState(value,options.Callback)
 			end
 
 			function options:Replace(value)
-				changeFunc(value,nil)
+				changeState(value,nil)
 			end
 		end
 
@@ -806,7 +807,6 @@ local function getComponents(Window)
 				elseif i=="Text" or i=="Title" then
 					title.Text=v
 				end
-
 			end
 		})
 	end
@@ -979,7 +979,6 @@ local function getComponents(Window)
 			options:Set(value)
 		end
 
-		--[[
 		if options.Style=="0" then
 			main=create("Frame",{
 				Name=options.Type,
@@ -1098,8 +1097,8 @@ local function getComponents(Window)
 			cleanFunc=function()
 
 			end
-		else]]
-		main=create("Frame",{
+		else
+	    main=create("Frame",{
 			Name=options.Type,
 			Size=UDim2.new(1,0,0,50),
 			BackgroundTransparency=1,
@@ -1275,7 +1274,7 @@ local function getComponents(Window)
 			focusLost:Disconnect()
 		end
 
-		--end
+		end
 
 		uiDragDetector.BoundingUI=track
 		uiDragDetector.Parent=main
