@@ -57,6 +57,7 @@ local Toggle = Window:AddToggle({
 ```lua
 local Label = Window:AddLabel({
 	Text = "Credits: None",
+    TextColor3 = nil
 })
 ```
 
@@ -66,8 +67,8 @@ local Label = Window:AddLabel({
 ```lua
 local Slider = Window:AddSlider({
 	Text = "Fov",
-	Value = 10,
-	Range = {70,170},
+	Range = {70,170} or {-70, 170},
+    Value = 10,
 	Increment = 0.1,
 	Flag = "slider",
 	Callback = function(value)
