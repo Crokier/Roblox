@@ -599,8 +599,8 @@ local function getComponents(Window)
 				if not initial and options.Value==value then return end
 				options.Value=value
 				--{ImageColor3=value and Color3.fromRGB(60,200,60) or Color3.fromRGB(200,60,60)})
-				tween(title,TweenCache.Default, {TextColor3=value and  options.SelectedColor3 or options.UnselectedColor3})
-				tween(round,TweenCache.Default, {ImageColor3=value and options.UnselectedColor3 or options.SelectedColor3})  
+				tween(title,TweenCache.Default, {TextColor3=not value and options.SelectedColor3 or options.UnselectedColor3})
+				tween(round,TweenCache.Default, {ImageColor3=not value and options.UnselectedColor3 or options.SelectedColor3})  
 				callSafely(callback,value)
 			end
 
