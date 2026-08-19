@@ -30,8 +30,8 @@ local Theme = {
 	SecondaryText = Color3.fromRGB(180,180,190),
 	InputText = Color3.fromRGB(235,235,235),
 	Round = Color3.fromRGB(40,40,40),
-	DropdownSelected=Color3.fromRGB(40,40,40),
-	DropdownUnselected=Color3.fromRGB(30,30,30)
+	Selected=Color3.fromRGB(40,40,40),
+	Unselected=Color3.fromRGB(30,30,30)
 }
 
 local EnumCache = {
@@ -293,11 +293,9 @@ local function getComponents(Window)
 		})
 
 		function options:Set(text)
-			title.Text=tostring(text or "")
-		end
-
-		function options:Get()
-			return options.Value
+			text=tostring(text or "")
+			options.Value=text
+			title.Text=text
 		end
 
 		if options.Visible~=nil then
@@ -427,7 +425,7 @@ local function getComponents(Window)
 			SliceScale=0.02,
 			Parent=main
 		})
-
+		
 		function options:Set(text)
 			options.Text=text
 			title.Text=text
@@ -550,9 +548,13 @@ local function getComponents(Window)
 		options.Style=options.Style==nil and "1" or tostring(options.Style)
 		options.Text=options.Text or options.Title or options.Name or options.Type
 		options.Callback=missing("function",options.Callback,function() end)
-        options.Value=options.Value~=nil and (options.Value and true or false) or false
-		local inContact,title,tickboxOutline=false,nil,nil
-
+		options.SelectedColor3=Color3.fromRGB(255,255,255)
+		options.UnselectedColor3=Color3.fromRGB(40,40,40)
+		options.OutlineSelectedColor3=Color3.fromRGB(140,140,140)
+		options.OutlineUnselectedColor3=Color3.fromRGB(100,100,100)
+		options.InnerUnselectedColor3=Color3.fromRGB(20,20,20)
+		
+		local inContact,title,tickboxOutline,changeValue=false,nil,nil,nil
 		local main=create("Frame",{
 			Name=options.Type,
 			BackgroundTransparency=1,
@@ -571,10 +573,9 @@ local function getComponents(Window)
 				BackgroundTransparency=1,
 				BorderSizePixel=0,
 				Text=options.Text,
-				TextColor3=Color3.fromRGB(255,255,255),
+				TextColor3=options.Value and options.SelectedColor3 or options.UnselectedColor3,
+				Font=Enum.Font.GothamBlack,
 				TextSize=12,
-                RichText=true,
-                FontFace=Font.new(Strs.BuilderIcons, Enum.FontWeight.Bold),
 				Parent=main
 			})
 
@@ -586,32 +587,31 @@ local function getComponents(Window)
 				BackgroundTransparency=1,
 				BorderSizePixel=0,
 				Image="rbxassetid://3570695787",
-				ImageColor3=Color3.fromRGB(40,40,40),
+				ImageColor3=options.Value and options.UnselectedColor3 or options.SelectedColor3,
 				ScaleType=Enum.ScaleType.Slice,
 				SliceCenter=Rect.new(100,100,100,100),
 				SliceScale=0.02,
 				Parent=main
 			})
 
-			local function changeState(value,callback)
+			changeValue=function(value,initial,callback)
 				value=value and true or false
-				if options.Value~=value then
-					options.Value=value
-                    local newText=string.format('%s <font family="%s"><b>%s</b></font>', options.Text, Strs.BuilderIcons, value and "check" or "x")
-					title.Text=newText
-					--tween(round,TweenCache.Default,{ImageColor3=value and Color3.fromRGB(60,200,60) or Color3.fromRGB(200,60,60)})
-					callSafely(callback,value)
-				end
+				if not initial and options.Value==value then return end
+				options.Value=value
+				--{ImageColor3=value and Color3.fromRGB(60,200,60) or Color3.fromRGB(200,60,60)})
+				tween(title,TweenCache.Default, {TextColor3=value and  options.SelectedColor3 or options.UnselectedColor3})
+				tween(round,TweenCache.Default, {ImageColor3=value and options.UnselectedColor3 or options.SelectedColor3})  
+				callSafely(callback,value)
 			end
 
 			function options:Set(value)
-				changeState(value,options.Callback)
+				changeValue(value,false,options.Callback)
 			end
 
 			function options:Replace(value)
-				changeState(value,nil)
+				changeValue(value,false,nil)
 			end
-		elseif options.Style=="2" then
+		--[[elseif options.Style=="2" then
 			title=create("TextLabel",{
 				Name="Title",
 				ZIndex=2,
@@ -621,7 +621,6 @@ local function getComponents(Window)
 				BackgroundTransparency=1,
 				BorderSizePixel=0,
 				Text=" "..options.Text,
-				TextColor3=Color3.fromRGB(255,255,255),
 				Font=Enum.Font.GothamBlack,
 				TextSize=12,
 				TextXAlignment=Enum.TextXAlignment.Left,
@@ -632,7 +631,6 @@ local function getComponents(Window)
 				Name="Indicator",
 				Size=UDim2.new(0,38,0,18),
 				Position=UDim2.new(1,-39,0.5,-9),
-				BackgroundColor3=options.Value and Color3.fromRGB(60,200,60) or Color3.fromRGB(75,75,85),
 				BorderSizePixel=0,
 				Parent=main
 			})
@@ -641,32 +639,29 @@ local function getComponents(Window)
 				Name="Title",
 				Size=UDim2.new(1,0,1,0),
 				BackgroundTransparency=1,
-				Text=options.Value and "ON" or "OFF",
-				TextColor3=Color3.fromRGB(255,255,255),
+				TextColor3=Theme.Text,
 				Font=Enum.Font.GothamBlack,
 				TextSize=9,
 				Parent=indicator
 			})
 
-
-			local function changeState(value,callback)
+			changeValue=function(value,initial,callback)
 				value=value and true or false
-				if options.Value~=value then
-					options.Value=value
-					local targetColor=value and Color3.fromRGB(60,200,60) or Color3.fromRGB(75,75,85)
-					tween(indicator,TweenCache.Default,{BackgroundColor3=targetColor})
-					indicatorText.Text=value and "ON" or "OFF"
-					callSafely(callback,value)
-				end
+				if not initial and options.Value==value then return end
+				options.Value=value
+				tween(indicator,TweenCache.Default,{BackgroundColor3=value and Color3.fromRGB(60,200,60) or Color3.fromRGB(75,75,85)})
+				indicatorText.Text=value and "ON" or "OFF"
+				callSafely(callback,value)
 			end
 
 			function options:Set(value)
-				changeState(value,options.Callback)
+				changeValue(value,false,options.Callback)
 			end
 
 			function options:Replace(value)
-				changeState(value,nil)
+				changeValue(value,false,nil)
 			end
+		]]
 		else
 			title=create("TextLabel",{
 				Name="Title",
@@ -690,7 +685,7 @@ local function getComponents(Window)
 				SizeConstraint=Enum.SizeConstraint.RelativeYY,
 				BackgroundTransparency=1,
 				Image="rbxassetid://3570695787",
-				ImageColor3=options.Value and Color3.fromRGB(255,255,255) or Color3.fromRGB(100,100,100),
+				ImageColor3=options.Value and options.SelectedColor3 or options.OutlineUnselectedColor3,
 				ScaleType=Enum.ScaleType.Slice,
 				SliceCenter=Rect.new(100,100,100,100),
 				SliceScale=0.02,
@@ -702,7 +697,7 @@ local function getComponents(Window)
 				Size=UDim2.new(1,-4,1,-4),
 				BackgroundTransparency=1,
 				Image="rbxassetid://3570695787",
-				ImageColor3=options.Value and Color3.fromRGB(255,255,255) or Color3.fromRGB(20,20,20),
+				ImageColor3=options.Value and options.SelectedColor3 or options.InnerUnselectedColor3,
 				ScaleType=Enum.ScaleType.Slice,
 				SliceCenter=Rect.new(100,100,100,100),
 				SliceScale=0.02,
@@ -726,29 +721,30 @@ local function getComponents(Window)
 				Parent=checkmarkHolder
 			})
 
-			local function changeState(value,callback)
+			changeValue=function(value,initial,callback)
 				value=value and true or false
-				if options.Value~=value then
-					options.Value=value
-					checkmarkHolder:TweenSize(value and UDim2.new(1,-8,1,-8) or UDim2.new(0,0,1,-8),"Out","Quad",0.2,true)
-					tween(tickboxInner,TweenCache.Default,{ImageColor3=value and Color3.fromRGB(255,255,255) or Color3.fromRGB(20,20,20)})
-					tween(tickboxOutline, value and TweenCache.Default or TweenCache.Other,{ImageColor3=value and Color3.fromRGB(255,255,255) or Color3.fromRGB(100,100,100)})
-					if not value then
-						tween(tickboxOutline,TweenInfo.new(inContact and 0.2 or 0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{ImageColor3=inContact and Color3.fromRGB(140,140,140) or Color3.fromRGB(100,100,100)})
-					end
-					callSafely(callback,value)
+				if not initial and options.Value==value then return end
+				options.Value=value
+				checkmarkHolder:TweenSize(value and UDim2.new(1,-8,1,-8) or UDim2.new(0,0,1,-8),"Out","Quad",0.2,true)
+				tween(tickboxInner,TweenCache.Default,{ImageColor3=value and options.SelectedColor3 or options.InnerUnselectedColor3})
+				tween(tickboxOutline, value and TweenCache.Default or TweenCache.Other,{ImageColor3=value and options.SelectedColor3 or options.OutlineUnselectedColor3})
+				if not value then
+					tween(tickboxOutline,TweenInfo.new(inContact and 0.2 or 0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{ImageColor3=inContact and options.OutlineSelectedColor3 or options.OutlineUnselectedColor3})
 				end
+				callSafely(callback,value)
 			end
 
 			function options:Set(value)
-				changeState(value,options.Callback)
+				changeValue(value,false,options.Callback)
 			end
 
 			function options:Replace(value)
-				changeState(value,nil)
+				changeValue(value,false,nil)
 			end
 		end
-
+		
+		changeValue(options.Value,true,nil)
+		
 		if options.Flag then
 			Library.Flags[options.Flag]=options
 		end
@@ -792,7 +788,7 @@ local function getComponents(Window)
 				return options[i]
 			end,
 			__newindex=function(_,i,v)
-				if i~="Set" then
+				if i~="Set" and i~="UnselectedColor3" and i~="SelectedColor3" and i~="OutlineSelectedColor3" and i~="OutlineUnselectedColor3" and i~="InnerUnselectedColor3" then
 					options[i]=v
 				end
 				if i=="Visible" then
@@ -807,73 +803,180 @@ local function getComponents(Window)
 	function elements:AddInput(options)
 		options=missing("table",options,{})
 		options.Type="Input"
-		options.Title=options.Text or options.Title or options.Name or options.Type
+		options.Style=options.Style==nil and "1" or tostring(options.Style)
+		options.Text=options.Text or options.Title or options.Name or options.Type
 		options.PlaceholderText=options.PlaceholderText or ""
-		options.NoEnter=options.NoEnter or false
+		options.NoEnter=options.NoEnter==nil and false and options.NoEnter
 		options.Value=options.Value or ""
 		options.Callback=missing("function",options.Callback,function() end)
+		
+		local main,title,inputBox=nil,nil,nil
+		
+		if options.Style=="0" then
+			main=create("Frame",{
+				Name=options.Type,
+				Size=UDim2.new(1,0,0,36),
+				BackgroundColor3=Color3.fromRGB(45,45,52),
+				BackgroundTransparency=0,
+				BorderSizePixel=0,
+				Parent=Window.Container
+			})
+			title=create("TextLabel",{
+				Name="Title",
+				Parent=main,
+				Size=UDim2.new(0.5,0,1,0),
+				BackgroundTransparency=1,
+				Text="   " .. options.Title,
+				TextColor3=Color3.fromRGB(255,255,255),
+				Font=Enum.Font.GothamBlack,
+				TextSize=12,
+				BorderSizePixel=0,
+				TextXAlignment=Enum.TextXAlignment.Left
+			})
 
-		local main=create("Frame",{
-			Name=options.Type,
-			Size=UDim2.new(1,0,0,36),
-			BackgroundColor3=Color3.fromRGB(45,45,52),
-			BackgroundTransparency=0,
-			BorderSizePixel=0,
-			Parent=Window.Container
-		})
+			local inputFrame=create("Frame",{
+				Name="InputFrame",
+				Parent=main,
+				Size=UDim2.new(0.5,-10,0,24),
+				Position=UDim2.new(0.5,0,0.5,-12),
+				BackgroundColor3=Color3.fromRGB(30,30,35),
+				BorderSizePixel=0
+			})
 
-		local title=create("TextLabel",{
-			Name="Title",
-			Parent=main,
-			Size=UDim2.new(0.5,0,1,0),
-			BackgroundTransparency=1,
-			Text="   " .. options.Title,
-			TextColor3=Color3.fromRGB(255,255,255),
-			Font=Enum.Font.GothamBlack,
-			TextSize=12,
-			BorderSizePixel=0,
-			TextXAlignment=Enum.TextXAlignment.Left
-		})
+			inputBox=create("TextBox",{
+				Name="InputBox",
+				Parent=inputFrame,
+				Size=UDim2.new(1,-10,1,0),
+				Position=UDim2.new(0,5,0,0),
+				BackgroundTransparency=1,	
+				PlaceholderText=options.PlaceholderText,
+				Text=tostring(options.Value),
+				TextColor3=Color3.fromRGB(200,200,200),
+				Font=Enum.Font.GothamBlack,
+				TextScaled=true,
+				TextXAlignment=Enum.TextXAlignment.Left,
+				ClearTextOnFocus=false
+			})
 
-		local inputFrame=create("Frame",{
-			Name="InputFrame",
-			Parent=main,
-			Size=UDim2.new(0.5,-10,0,24),
-			Position=UDim2.new(0.5,0,0.5,-12),
-			BackgroundColor3=Color3.fromRGB(30,30,35),
-			BorderSizePixel=0
-		})
+			function options:Set(text)
+				text=tostring(text)
+				options.Value=text
+				inputBox.Text=text
+				callSafely(options.Callback,text)
+			end
+			
+			inputBox.FocusLost:Connect(function(enter)
+				if not enter and not options.NoEnter then return end
+				local inputText=inputBox.Text
+				if options.RemoveTextAfterFocusLost or options.ClearOnFocus then inputBox.Text="" end
+				options:Set(inputText)
+			end)
+		else
+			main = create("Frame", {
+				Size = UDim2.new(1, 0, 0, 52),
+				BackgroundTransparency = 1,
+				Parent=Window.Container
+			})
 
-		local inputBox=create("TextBox",{
-			Name="InputBox",
-			Parent=inputFrame,
-			Size=UDim2.new(1,-10,1,0),
-			Position=UDim2.new(0,5,0,0),
-			BackgroundTransparency=1,	
-			PlaceholderText=options.PlaceholderText,
-			Text=tostring(options.Value),
-			TextColor3=Color3.fromRGB(200,200,200),
-			Font=Enum.Font.GothamBlack,
-			TextScaled=true,
-			TextXAlignment=Enum.TextXAlignment.Left,
-			ClearTextOnFocus=false
-		})
+			local outline = create("ImageLabel", {
+				Position = UDim2.new(0, 6, 0, 4),
+				Size = UDim2.new(1, -12, 1, -10),
+				BackgroundTransparency = 1,
+				Image = "rbxassetid://3570695787",
+				ImageColor3 = Color3.fromRGB(60, 60, 60),
+				ScaleType = Enum.ScaleType.Slice,
+				SliceCenter = Rect.new(100, 100, 100, 100),
+				SliceScale = 0.02,
+				Parent = main
+			})
 
-		function options:Set(text)
-			text=tostring(text)
-			self.Value=text
-			inputBox.Text=text
+			local round = create("ImageLabel", {
+				Position = UDim2.new(0, 8, 0, 6),
+				Size = UDim2.new(1, -16, 1, -14),
+				BackgroundTransparency = 1,
+				Image = "rbxassetid://3570695787",
+				ImageColor3 = Color3.fromRGB(20, 20, 20),
+				ScaleType = Enum.ScaleType.Slice,
+				SliceCenter = Rect.new(100, 100, 100, 100),
+				SliceScale = 0.01,
+				Parent = main
+			})
+
+			title = create("TextLabel", {
+				Position = UDim2.new(0, 12, 0, 8),
+				Size = UDim2.new(1, -24, 0, 14),
+				BackgroundTransparency = 1,
+				Text = options.Text,
+				TextSize = 14,
+				Font = Enum.Font.GothamBlack,
+				TextColor3 = Color3.fromRGB(100, 100, 100),
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Parent = main
+			})
+
+			inputBox = create("TextBox", {
+				Position = UDim2.new(0, 12, 0, 20),
+				Size = UDim2.new(1, -24, 0, 24),
+				BackgroundTransparency = 1,
+				Text = options.Value,
+				TextSize = 18,
+				Font = Enum.Font.GothamBlack,
+				TextColor3 = Color3.fromRGB(255, 255, 255),
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextWrapped = true,
+				Parent = main
+			})
+
+			local inContact, focused = false, false
+			
+			function options:Set(value)
+				options.Value=tostring(value)
+				callSafely(options.Callback,value)
+			end
+
+			main.InputBegan:connect(function(input)
+				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+					if not focused then inputBox:CaptureFocus() end
+				end
+				
+				if input.UserInputType == Enum.UserInputType.MouseMovement then
+					inContact = true
+					if not focused then
+						tween(outline,TweenCache.Other,{ImageColor3=Color3.fromRGB(100,100,100)})
+					end
+				end
+			end)
+
+			main.InputEnded:connect(function(input)
+				if input.UserInputType == Enum.UserInputType.MouseMovement then
+					inContact = false
+					if not focused then
+						tween(outline,TweenCache.Other,{ImageColor3=Color3.fromRGB(60,60,60)})
+					end
+				end
+			end)
+
+			inputBox.Focused:connect(function()
+				focused=true
+				tween(outline,TweenCache.Default,{ImageColor3=Color3.fromRGB(255,255,255)})
+			end)
+
+			inputBox.FocusLost:connect(function(enter)
+				focused = false
+				tween(outline,TweenCache.Default,{ImageColor3=Color3.fromRGB(60,60,60)})
+				if not enter and not options.NoEnter then return end
+				local inputText=inputBox.Text
+				if options.RemoveTextAfterFocusLost or options.ClearOnFocus then inputBox.Text="" end
+				options:Set(inputText)
+			end)
 		end
-
-		local focusLost=inputBox.FocusLost:Connect(function(enter)
-			if not enter and not options.NoEnter then return end
-			local inputText=inputBox.Text
-			if options.RemoveTextAfterFocusLost or options.ClearOnFocus then inputBox.Text="" end
-			callSafely(options.Callback,inputText)
-		end)
-
+		
+		if options.Flag then
+			Library.Flags[options.Flag]=options
+		end
+		
 		connectDestroying(Window.Gui,Window.SaveName,function()
-			focusLost:Disconnect()
+			
 		end)
 
 		if options.Visible~=nil then
@@ -1768,7 +1871,7 @@ local function getComponents(Window)
 				Name=tostring(#options.DroptionButtons),
 				ZIndex=3,
 				Size=UDim2.new(1,0,0,40),
-				BackgroundColor3=Theme.DropdownSelected,
+				BackgroundColor3=Theme.Selected,
 				BorderSizePixel=0,
 				Text="    " .. newOption,
 				TextSize=14,
@@ -1781,7 +1884,7 @@ local function getComponents(Window)
 			table.insert(options.DroptionButtons, droption)
 			droption.LayoutOrder=#options.DroptionButtons
 			if #options.Option>0 and table.find(options.Option,newOption)~=nil then
-				droption.BackgroundColor3=Theme.DropdownUnselected
+				droption.BackgroundColor3=Theme.Unselected
 				options.Actives[newOption]=true
 			end
 			local inContact,clicking=false,false
@@ -1789,7 +1892,7 @@ local function getComponents(Window)
 				if droption.Visible then
 					local currentOption=Strs.trim(droption.Text)
 					if #options.Option>0 and not table.find(options.Option,currentOption) then
-						droption.BackgroundColor3=Theme.DropdownSelected
+						droption.BackgroundColor3=Theme.Selected
 						options.Actives[currentOption] = false
 					end
 					if options.Actives[currentOption] == nil then
@@ -1805,11 +1908,11 @@ local function getComponents(Window)
 						local foundIndex=table.find(options.Option,currentOption)
 						if foundIndex then
 							table.remove(options.Option,foundIndex)
-							tween(droption,TweenInfo.new(0.3,Enum.EasingStyle.Exponential),{BackgroundColor3=Theme.DropdownSelected})
+							tween(droption,TweenInfo.new(0.3,Enum.EasingStyle.Exponential),{BackgroundColor3=Theme.Selected})
 							options.Actives[currentOption]=false
 						else
 							table.insert(options.Option,currentOption) 
-							tween(droption,TweenInfo.new(0.3,Enum.EasingStyle.Exponential),{BackgroundColor3=Theme.DropdownUnselected})
+							tween(droption,TweenInfo.new(0.3,Enum.EasingStyle.Exponential),{BackgroundColor3=Theme.Unselected})
 							options.Actives[currentOption]=true
 						end
 						if #options.Option==1 then
@@ -1834,7 +1937,7 @@ local function getComponents(Window)
 				if input.UserInputType==Enum.UserInputType.MouseMovement then
 					inContact=true
 					if not clicking then
-						tween(droption,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{BackgroundColor3=Theme.DropdownUnselected})
+						tween(droption,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{BackgroundColor3=Theme.Unselected})
 					end
 				end
 			end)
@@ -1845,7 +1948,7 @@ local function getComponents(Window)
 					if not clicking then
 						local currentOption=Strs.trim(droption.Text)
 						local isSelected=table.find(self.Option,currentOption)
-						local targetColor=isSelected and Theme.DropdownUnselected or Theme.DropdownSelected
+						local targetColor=isSelected and Theme.Unselected or Theme.Selected
 						tween(droption,TweenInfo.new(0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{BackgroundColor3=targetColor})
 					end
 				end
@@ -1906,7 +2009,7 @@ local function getComponents(Window)
 				for _,droption in ipairs(content:GetChildren()) do
 					if droption.ClassName=="TextLabel" then
 						if not options.MultipleOptions then
-							droption.BackgroundColor3=table.find(options.Option,droption.Name) ~= nil and Theme.DropdownUnselected or Theme.DropdownSelected
+							droption.BackgroundColor3=table.find(options.Option,droption.Name) ~= nil and Theme.Unselected or Theme.Selected
 						else
 							break
 						end
@@ -2280,7 +2383,9 @@ function Library:GetProtectGui(gui)
 	pcall(function() if syn and syn.protect_gui then syn.protect_gui(gui) end end)
 	if get_hidden_gui then return get_hidden_gui() or Services.CoreGui end
 	if gethui then return gethui() or Services.CoreGui end
-	--LocalPlayer:Kick("Error: protect_gui function not found")
+	if not cloneref then
+		LocalPlayer:Kick("Error: protect_gui function not found")
+	end
 	return Services.CoreGui
 end
 
