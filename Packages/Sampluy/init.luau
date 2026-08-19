@@ -574,7 +574,7 @@ local function getComponents(Window)
 				TextColor3=Color3.fromRGB(255,255,255),
 				TextSize=12,
                 RichText=true,
-                FontFace=Font.new(Strs.BuilderIcons, Enum.FontWeight.Bold)
+                FontFace=Font.new(Strs.BuilderIcons, Enum.FontWeight.Bold),
 				Parent=main
 			})
 
