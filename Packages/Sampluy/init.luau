@@ -572,9 +572,9 @@ local function getComponents(Window)
 				BorderSizePixel=0,
 				Text=options.Text,
 				TextColor3=Color3.fromRGB(255,255,255),
-				Font=Enum.Font.GothamBlack,
 				TextSize=12,
                 RichText=true,
+                FontFace=Font.new(Strs.BuilderIcons, Enum.FontWeight.Bold)
 				Parent=main
 			})
 
@@ -597,8 +597,9 @@ local function getComponents(Window)
 				value=value and true or false
 				if options.Value~=value then
 					options.Value=value
-					title.Text=options.Text .." <font family=".. Strs.BuilderIcons .."><b>".. (value and "check" or "x") .."</b></font>"
-					tween(round,TweenCache.Default,{ImageColor3=value and Color3.fromRGB(60,200,60) or Color3.fromRGB(200,60,60)})
+                    local newText=string.format('%s <font family="%s"><b>%s</b></font>', options.Text, Strs.BuilderIcons, value and "check" or "x")
+					title.Text=newText
+					--tween(round,TweenCache.Default,{ImageColor3=value and Color3.fromRGB(60,200,60) or Color3.fromRGB(200,60,60)})
 					callSafely(callback,value)
 				end
 			end
