@@ -72,23 +72,29 @@ Button = Window:AddButton({
 Button:Set("Hide")
 
 -- Toggle
-local Toggle = Window:AddToggle("Master Override", false, function(value)
-	print("Master Override:", value)
-end)
-Toggle:Set(true)
+local Toggle1 = Window:AddToggle({
+	Style = nil or "1",
+	Text = "Master Override",
+	Value = true, 
+	Callback = function(value)
+		print("Master Override:", value)
+	end
+})
+Toggle1:Set(true)
 
 local Toggle2 = Window:AddToggle({
-	Style = "2",
-    Text = "Auto Smart",
+	Style = "0",
+	Text = "Master Override",
 	Value = true, 
-    Callback = function(value)
-		print("Smart Enabled:", value)
+	Callback = function(value)
+		print("Master Override:", value)
 	end
-}
+})
 Toggle2:Set(false)
-	
+
 -- Slider
 local Slider = Window:AddSlider({
+	["Version"] = 1,
 	Text = "Rate", 
 	Range = {0, 10} or {-10, 10}, 
 	Value = 0 or -5,
