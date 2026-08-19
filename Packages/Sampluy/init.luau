@@ -550,8 +550,8 @@ local function getComponents(Window)
 		options.Style=options.Style==nil and "1" or tostring(options.Style)
 		options.Text=options.Text or options.Title or options.Name or options.Type
 		options.Callback=missing("function",options.Callback,function() end)
-
-		local inContact,title,tickboxOutline,changeFunc=false,nil,nil,nil
+        options.Value=options.Value~=nil and (options.Value and true or false) or false
+		local inContact,title,tickboxOutline=false,nil,nil
 
 		local main=create("Frame",{
 			Name=options.Type,
@@ -574,6 +574,7 @@ local function getComponents(Window)
 				TextColor3=Color3.fromRGB(255,255,255),
 				Font=Enum.Font.GothamBlack,
 				TextSize=12,
+                RichText=true,
 				Parent=main
 			})
 
@@ -596,10 +597,7 @@ local function getComponents(Window)
 				value=value and true or false
 				if options.Value~=value then
 					options.Value=value
-					if options.Flag then
-						Library.Flags[options.Flag]=value
-					end
-					title.Text=options.Name .. ": " .. (value and "ON" or "OFF")
+					title.Text=options.Text .." <font family=".. Strs.BuilderIcons .."><b>".. (value and "check" or "x") .."</b></font>"
 					tween(round,TweenCache.Default,{ImageColor3=value and Color3.fromRGB(60,200,60) or Color3.fromRGB(200,60,60)})
 					callSafely(callback,value)
 				end
@@ -654,9 +652,6 @@ local function getComponents(Window)
 				value=value and true or false
 				if options.Value~=value then
 					options.Value=value
-					if options.Flag then
-						Library.Flags[options.Flag]=value
-					end
 					local targetColor=value and Color3.fromRGB(60,200,60) or Color3.fromRGB(75,75,85)
 					tween(indicator,TweenCache.Default,{BackgroundColor3=targetColor})
 					indicatorText.Text=value and "ON" or "OFF"
@@ -734,9 +729,6 @@ local function getComponents(Window)
 				value=value and true or false
 				if options.Value~=value then
 					options.Value=value
-					if options.Flag then
-						Library.Flags[options.Flag]=value
-					end
 					checkmarkHolder:TweenSize(value and UDim2.new(1,-8,1,-8) or UDim2.new(0,0,1,-8),"Out","Quad",0.2,true)
 					tween(tickboxInner,TweenCache.Default,{ImageColor3=value and Color3.fromRGB(255,255,255) or Color3.fromRGB(20,20,20)})
 					tween(tickboxOutline, value and TweenCache.Default or TweenCache.Other,{ImageColor3=value and Color3.fromRGB(255,255,255) or Color3.fromRGB(100,100,100)})
