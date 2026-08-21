@@ -599,8 +599,8 @@ local function getComponents(Window)
 				if not initial and options.Value==value then return end
 				options.Value=value
 				--{ImageColor3=value and Color3.fromRGB(60,200,60) or Color3.fromRGB(200,60,60)})
-				tween(title,TweenCache.Default, {TextColor3=not value and options.SelectedColor3 or options.UnselectedColor3})
-				tween(round,TweenCache.Default, {ImageColor3=not value and options.UnselectedColor3 or options.SelectedColor3})  
+				tween(title,TweenCache.Default, {TextColor3=value and  options.SelectedColor3 or options.UnselectedColor3})
+				tween(round,TweenCache.Default, {ImageColor3=value and options.UnselectedColor3 or options.SelectedColor3})  
 				callSafely(callback,value)
 			end
 
@@ -1650,7 +1650,12 @@ local function getComponents(Window)
 				tween(tickboxOutline,TweenInfo.new(inContact and 0.2 or 0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{ImageColor3=inContact and Color3.fromRGB(140,140,140) or Color3.fromRGB(100,100,100)})
 			end
 		end
-
+		
+		options.ClickCount=0
+		options.LastClickTime = 0
+		options.ClickThreshold=options.ClickThreshold or 0.5
+		options.MaxClick=options.MaxClick or 2
+		
 		local selectClick=nil
 
 		local inputBegan=tickboxOutline.InputBegan:Connect(function(input)
@@ -1664,15 +1669,17 @@ local function getComponents(Window)
 					fastWait(0.2)
 					local mouse=LocalPlayer:GetMouse()
 					selectClick=mouse.Button1Down:Connect(function()
-						if options.Active then
-							options.Active = false
-							local Target=mouse.Target
-							if (Target and Target.Parent) then 
-								options:Set(Target)
-							end
-							if options.Active == false and selectClick then
-								task.wait(0.1)
-								options.Active = true
+						local currentClickTime=os.clock()
+						if (currentClickTime-options.LastClickTime)>options.ClickThreshold then
+							options.ClickCount=0
+						end
+						options.ClickCount=options.ClickCount+1
+						options.LastClickTime=currentClickTime
+						if options.ClickCount>=options.MaxClick then
+							options.ClickCount=0
+							local newTarget=mouse.Target
+							if (newTarget and newTarget.Parent) then 
+								options:Set(newTarget)
 							end
 						end
 					end)
