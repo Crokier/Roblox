@@ -1567,7 +1567,7 @@ local function getComponents(Window)
 		local titleLabel=nil
 
 		if text then
-			titleLabel=getComponents(Window):AddLabel({Text=text})
+			titleLabel=getComponents(Window):AddLabel({Text=text,TextColor3=Color3.fromRGB(255,255,255)})
 		end
 
 		local main=create("Frame",{
