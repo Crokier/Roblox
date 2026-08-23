@@ -1,4 +1,4 @@
-local MathHuge,MathFloor,MathAbs,StringGsub,StringFormat,StringFind,StringMatch,StringLen,Huge=math.huge,math.floor,math.abs,string.gsub,string.format,string.find,string.match,string.len,math.huge
+local InfNumber=math.huge
 
 local Strs={
 	['Icons']={
@@ -12,19 +12,21 @@ local Strs={
 }
 
 -- Basic Function --
+-- Example: '0/0' > 'NaN' | '1' > ''
 function Strs.ToNaN(x:number,s:string?)
 	return x~=x and "NaN" or s
 end
 
+-- Example: '-inf' > '∞' | 'inf' > '∞'
 function Strs.ToInf(x:number,s:string?)
-	return (x>=Huge or x<=-Huge) and '∞' or s
+	return (x>=InfNumber or x<=-InfNumber) and '∞' or s
 end
 
 function Strs.GetLines(s:string):()->(string)
 	local lastBreak=0
 	local function NextLine()
 		if lastBreak==#s then return nil end
-		local line,nextBreak=nil,StringFind(s,"\n",lastBreak+1)	
+		local line,nextBreak=nil,string.find(s,"\n",lastBreak+1)	
 		if nextBreak then
 			line=s:sub(lastBreak+1,nextBreak-1)
 			lastBreak=nextBreak
@@ -41,33 +43,38 @@ function Strs.IsStrings(s1,s2)
 	for i,v in ipairs(s2) do if s1==v then return true end end return false
 end
 
+-- Example: 'reset' > true | '1' > false
 function Strs.IsOriginal(s:string):boolean
 	s=string.lower(s) 
 	for i,v in ipairs({"reset","default","original","origin"}) do if string.find(s,v) then return true end end
 	return false
 end
 
+-- Example: '  ' > true | nil > true | not string type > true
 function Strs.IsEmpty(s:any):boolean
 	if s~=nil and type(s)=="string" then
-		if StringLen(s)==0 then return true end
-		local v=StringMatch(s,"^%s*$")
+		if string.len(s)==0 then return true end
+		local v=string.match(s,"^%s*$")
 		if v==nil then return false end
 		return true
 	end
 	return true
 end
 
-function Strs.Trim(s:string)
-	return string.gsub(s, "^%s*(.-)%s*$", "%1")
+-- Example: '    upper      ' > 'upper'
+function Strs.Trim(s:string):string
+	if s==nil or type(s)~="string" then return "" end
+	return string.gsub(s, "^%s*(.-)%s*$", "%1") or string.match(s,"^%s*(.-)%s*$") or ""
 end
 
+-- Example: 67.2345 > 67.23% | inf > ∞%
 function Strs.ToPersentase(x:number,max:number?,maxFloat:number?,reverse:boolean?):string
 	if x==nil or type(x)~="number" or x==0 then return "0%" end
-	if (x>=MathHuge or x<=-MathHuge) then return "∞%" end
+	if (x>=InfNumber or x<=-InfNumber) then return "∞%" end
 	maxFloat=if type(maxFloat)=="number" and maxFloat>0 then maxFloat else 2
-	local percentage=MathFloor(x)*100
+	local percentage=math.floor(x)*100
 	if not reverse then
-		if max then percentage=MathFloor(x/max)*100 end
+		if max then percentage=math.floor(x/max)*100 end
 	else
 		if max then
 			percentage=(1/max)*x
@@ -78,7 +85,7 @@ function Strs.ToPersentase(x:number,max:number?,maxFloat:number?,reverse:boolean
 			end
 		end
 	end
-	local s=StringFormat(`%.{maxFloat}f`,percentage)
+	local s=string.format(`%.{maxFloat}f`,percentage)
 	s=s.."%"
 	if max and x>=max then s="100%" end
 	return s
@@ -86,6 +93,15 @@ end
 
 function Strs.ToBoolean(s:string)
 	return Strs.BoolData[string.lower(s)]
+end
+
+-- Deprecated
+-- Example: '    upper      ' > 'upper' > "UPPER"
+function Strs.Normalize(s:string):string
+	if true then error("Strs.Normalize is deprecated, use Strs.Trim instead") end
+	if s==nil or type(s)~="string" then return "" end
+	local ns = string.match(s,"^%s*(.-)%s*$")
+	return string.upper(ns) or ""
 end
 
 -- Format Number Function --
@@ -107,10 +123,10 @@ function Strs.ToNumber(v,maxFloat)
 	if maxFloat == nil or type(maxFloat)~="number" or maxFloat<=0 then 
 		maxFloat=3
 	end
-	local xFloor=MathFloor(x)
+	local xFloor=math.floor(x)
 	if x==xFloor then return tostring(xFloor) end
-	local s=StringFormat(`%.{maxFloat}f`,x)
-	s=StringGsub(s,"%.?0+$","")
+	local s=string.format(`%.{maxFloat}f`,x)
+	s=string.gsub(s,"%.?0+$","")
 	return s
 end
 
@@ -135,50 +151,50 @@ end
 function Strs.FormatTime(x:number):string
 	local checkString=Strs.ToInf(x) or Strs.ToNaN(x)
 	if checkString then return checkString end
-	x=MathFloor(x)
+	x=math.floor(x)
 	local seconds=x%60
-	local minutes=MathFloor(x/60)%60
-	local hours=MathFloor(x/60^2)
-	local days=MathFloor(x/86400)
+	local minutes=math.floor(x/60)%60
+	local hours=math.floor(x/60^2)
+	local days=math.floor(x/86400)
 	if x<60 then
-		return StringFormat('%02i',seconds)
+		return string.format('%02i',seconds)
 	elseif x < 3600 then
-		return StringFormat('%02i:%02i',minutes,seconds)
+		return string.format('%02i:%02i',minutes,seconds)
 	elseif x < 86400 then
-		return StringFormat('%02i:%02i:%02i',hours,minutes,seconds)
+		return string.format('%02i:%02i:%02i',hours,minutes,seconds)
 	else
-		return StringFormat('%02i:%02i:%02i:%02i',days,hours,minutes,seconds)
+		return string.format('%02i:%02i:%02i:%02i',days,hours,minutes,seconds)
 	end
 end
 
 function Strs.ToMS(x:number):string
 	local check=Strs.ToInf(x) or Strs.ToNaN(x)
 	if check then return check end
-	x=MathFloor(x)
+	x=math.floor(x)
 	local seconds=x%60
-	local minutes=MathFloor(x/60)%60
-	return StringFormat('%02i:%02i',minutes,seconds)
+	local minutes=math.floor(x/60)%60
+	return string.format('%02i:%02i',minutes,seconds)
 end
 
 function Strs.ToHMS(x:number):string
 	local check=Strs.ToInf(x) or Strs.ToNaN(x)
 	if check then return check end
-	x=MathFloor(x)
+	x=math.floor(x)
 	local seconds=x%60
-	local minutes=MathFloor(x/60)%60
-	local hours=MathFloor(x/60^2)
-	return StringFormat('%02i:%02i:%02i',hours,minutes,seconds)
+	local minutes=math.floor(x/60)%60
+	local hours=math.floor(x/60^2)
+	return string.format('%02i:%02i:%02i',hours,minutes,seconds)
 end
 
 function Strs.ToDHMS(x:number):string
 	local check=Strs.ToInf(x) or Strs.ToNaN(x)
 	if check then return check end
-	x=MathFloor(x)
+	x=math.floor(x)
 	local seconds=x%60
-	local minutes=MathFloor(x/60)%60
-	local hours=MathFloor(x/60^2)
-	local days=MathFloor(x/86400)
-	return StringFormat('%02i:%02i:%02i:%02i',days,hours,minutes,seconds)
+	local minutes=math.floor(x/60)%60
+	local hours=math.floor(x/60^2)
+	local days=math.floor(x/86400)
+	return  string.format('%02i:%02i:%02i:%02i',days,hours,minutes,seconds)
 end
 
 -- Random Function --
