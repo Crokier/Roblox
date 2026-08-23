@@ -129,6 +129,7 @@ local Status=Window:AddLabel({
 
 Window:AddButton({
 	Text="Point",
+	MethodType="DebounceClick",
 	Callback=function(s)
 		task.delay(2,function()
 			ClickPoint=UserInputService:GetMouseLocation()
