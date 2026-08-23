@@ -38,15 +38,15 @@ local function FastWait(duration)
 end
 
 local function SendClick(x,y)
-	VirtualInputManager:SendMouseButtonEvent(x,y,0,true,GetLayerCollector(),0)
+	VirtualInputManager:SendMouseButtonEvent(x,y,0,true,game,0)
 	FastWait()
-	VirtualInputManager:SendMouseButtonEvent(x,y,0,false,GetLayerCollector(),0)
+	VirtualInputManager:SendMouseButtonEvent(x,y,0,false,game,0)
 end
 
 local function SendHoldClick(x, y, duration)
-	VirtualInputManager:SendMouseButtonEvent(x,y,0,true,GetLayerCollector(),0)
+	VirtualInputManager:SendMouseButtonEvent(x,y,0,true,game,0)
 	task.wait(duration)
-	VirtualInputManager:SendMouseButtonEvent(x,y,0,false,GetLayerCollector(),0)
+	VirtualInputManager:SendMouseButtonEvent(x,y,0,false,game,0)
 end
 
 local function SendSwipe(swipeInfo)
@@ -99,7 +99,7 @@ local function HandleSwipe()
 		SwipeInfo.CurrentX = startX
 		SwipeInfo.Direction = 1
 		SwipeInfo.CurrentAngle = 0
-		
+
 		Threads.Swipe = task.spawn(function()
 			while Enableds.Swipe do
 				SwipeInfo.X, SwipeInfo.Y = ClickPoint.X, ClickPoint.Y
@@ -250,11 +250,13 @@ SwipeInputFolder:AddToggle({
 })
 
 Window:AddLabel({
-	Text="YouTube: Crokyreo"
+	Text="YouTube: Crokyreo",
+	TextColor3=Color3.fromRGB(255,255,255)
 })
 
 Window:AddLabel({
-	Text="Creator: stav"
+	Text="Creator: stav",
+	TextColor3=Color3.fromRGB(255,255,255)
 })
 
 task.delay(5, function()
