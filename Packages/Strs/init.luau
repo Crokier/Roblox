@@ -95,10 +95,8 @@ function Strs.ToBoolean(s:string)
 	return Strs.BoolData[string.lower(s)]
 end
 
--- Deprecated
 -- Example: '    upper      ' > 'upper' > "UPPER"
 function Strs.Normalize(s:string):string
-	if true then error("Strs.Normalize is deprecated, use Strs.Trim instead") end
 	if s==nil or type(s)~="string" then return "" end
 	local ns = string.match(s,"^%s*(.-)%s*$")
 	return string.upper(ns) or ""
