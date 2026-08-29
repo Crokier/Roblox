@@ -33,47 +33,53 @@ local EmptyFunction=function() end
 
 local function ObserveChild(instance:Instance,callback:(child:Instance)->(()->()),noInitial:boolean?):()->()
 	local childAddedConnection:RBXScriptConnection
-	local childRemovedConnection:RBXScriptConnection
 	local childCache:{[Instance]:()->()}={}
-
-	local function OnChildAdded(child:Instance?)
-		task.defer(function()
-			if childAddedConnection.Connected and child and child.Parent then
-				local cleanup=callback(child)
-				if type(cleanup)~="function" then return end
-				if childAddedConnection.Connected and child and child.Parent then
-					childCache[child]=cleanup
-				else
-					task.spawn(cleanup)
-				end
-			end
-		end)
+	
+	local function OnChildRemoved(child:Instance)
+		local childInfo=childCache[child]
+		if childInfo==nil then return end
+		childCache[child]=nil
+		childInfo.AncestryChanged:Disconnect()
+		local cleanup=childInfo.Cleanup
+		if cleanup==nil or type(cleanup)~="function" then return end
+		task.spawn(cleanup,child)
 	end
 
-	local function OnChildRemoved(child:Instance)
-		local cleanup=childCache[child]
-		childCache[child]=nil
-		if type(cleanup)~="function" then return end
-		task.spawn(cleanup)
+	local function OnChildAdded(child:Instance?)
+		if childAddedConnection.Connected and child~=nil and child.Parent~=nil then
+			local cleanup=callback(child)
+			if cleanup~=nil and type(cleanup)=="function" then
+				if childAddedConnection.Connected and child~=nil and child.Parent~=nil then
+					local childInfo={["Cleanup"]=cleanup}
+					childInfo.AncestryChanged=child.AncestryChanged:Connect(function(_,parent)
+						if not (parent~=nil and child:IsDescendantOf(instance)) then
+							OnChildRemoved(child)
+						end
+					end)
+					childCache[child]=childInfo
+				else
+					task.spawn(cleanup,child)
+				end
+			end
+		end
 	end
 
 	-- Listen for changes:
 	childAddedConnection=instance.ChildAdded:Connect(OnChildAdded)
-	childRemovedConnection=instance.ChildRemoved:Connect(OnChildRemoved)
-
+	
 	-- Initial:
 	task.defer(function()
 		if not childAddedConnection.Connected or noInitial then return end
 		local children=instance:GetChildren()
 		for i,child in ipairs(children) do
-			OnChildAdded(child)
+			if not childAddedConnection.Connected then break end
+			task.defer(OnChildAdded,child)
 		end
 	end)
 
 	-- Cleanup:
 	return function()
 		childAddedConnection:Disconnect()
-		childRemovedConnection:Disconnect()
 		local child=next(childCache)
 		while child do
 			OnChildRemoved(child)
@@ -84,47 +90,53 @@ end
 
 local function ObserveDescendant(instance:Instance,callback:(descendant:Instance)->(()->()),noInitial:boolean?):()->()
 	local descendantAddedConnection:RBXScriptConnection
-	local descendantRemovedConnection:RBXScriptConnection
 	local descendantCache:{[Instance]:()->()}={}
-
-	local function OnDescendantAdded(descendant:Instance?)
-		task.defer(function()
-			if descendantAddedConnection.Connected and descendant and descendant.Parent then
-				local cleanup=callback(descendant)
-				if type(cleanup)~="function" then return end
-				if descendantAddedConnection.Connected and descendant and descendant.Parent then
-					descendantCache[descendant]=cleanup
-				else
-					task.spawn(cleanup)
-				end
-			end
-		end)
+	
+	local function OnDescendantRemoving(descendant:Instance)
+		local descendantInfo=descendantCache[descendant]
+		if descendantInfo==nil then return end
+		descendantCache[descendant]=nil
+		descendantInfo.AncestryChanged:Disconnect()
+		local cleanup=descendantInfo.Cleanup
+		if cleanup==nil or type(cleanup)~="function" then return end
+		task.spawn(cleanup,descendant)
 	end
 
-	local function OnDescendantRemoving(descendant:Instance)
-		local cleanup=descendantCache[descendant]
-		descendantCache[descendant]=nil
-		if type(cleanup)~="function" then return end
-		task.spawn(cleanup)
+	local function OnDescendantAdded(descendant:Instance?)
+		if descendantAddedConnection.Connected and descendant~=nil and descendant.Parent~=nil then
+			local cleanup=callback(descendant)
+			if cleanup~=nil and type(cleanup)=="function" then
+				if descendantAddedConnection.Connected and descendant~=nil and descendant.Parent~=nil then
+					local descendantInfo={["Cleanup"]=cleanup}
+					descendantInfo.AncestryChanged=descendant.AncestryChanged:Connect(function(_,parent)
+						if not (parent~=nil and descendant:IsDescendantOf(instance)) then
+							OnDescendantRemoving(descendant)
+						end
+					end)
+					descendantCache[descendant]=descendantInfo
+				else
+					task.spawn(cleanup,descendant)
+				end
+			end
+		end
 	end
 
 	-- Listen for changes:
 	descendantAddedConnection=instance.DescendantAdded:Connect(OnDescendantAdded)
-	descendantRemovedConnection=instance.DescendantRemoving:Connect(OnDescendantRemoving)
-
+	
 	-- Initial:
 	task.defer(function()
 		if not descendantAddedConnection.Connected or noInitial then return end
 		local descendants=instance:GetDescendants()
 		for i,descendant in ipairs(descendants) do
-			OnDescendantAdded(descendant)
+			if not descendantAddedConnection.Connected then break end
+			task.defer(OnDescendantAdded,descendant)
 		end
 	end)
 
 	-- Cleanup:
 	return function()
 		descendantAddedConnection:Disconnect()
-		descendantRemovedConnection:Disconnect()
 		local descendant=next(descendantCache)
 		while descendant do
 			OnDescendantRemoving(descendant)
@@ -135,50 +147,56 @@ end
 
 local function ObservePlayer(callback:(player:Player)->(()->()),noInitial:boolean?):()->()
 	local playerAddedConnection:RBXScriptConnection
-	local playerRemovedConnection:RBXScriptConnection
-	local playerCache:{[Instance]:()->()}={}
+	local playerCache:{[Player]:()->()}={}
 
-	local function OnPlayerAdded(player:Player?)
-		task.defer(function()
-			if playerAddedConnection.Connected and player and player.Parent then
-				local cleanup=callback(player)
-				if type(cleanup)~="function" then return end
-				if playerAddedConnection.Connected and player and player.Parent then
-					playerCache[player]=cleanup
-				else
-					task.spawn(cleanup)
-				end
-			end
-		end)
+	local function OnPlayerRemoved(player:Player)
+		local playerInfo=playerCache[player]
+		if playerInfo==nil then return end
+		playerCache[player]=nil
+		playerInfo.AncestryChanged:Disconnect()
+		local cleanup=playerInfo.Cleanup
+		if cleanup==nil or type(cleanup)~="function" then return end
+		task.spawn(cleanup,player)
 	end
 
-	local function OnPlayerRemoving(player:Player)
-		local cleanup=playerCache[player]
-		playerCache[player]=nil
-		if type(cleanup)~="function" then return end
-		task.spawn(cleanup)
+	local function OnPlayerAdded(player:Player?)
+		if playerAddedConnection.Connected and player~=nil and player.Parent~=nil then
+			local cleanup=callback(player)
+			if cleanup~=nil and type(cleanup)=="function" then 
+				if playerAddedConnection.Connected and player~=nil and player.Parent~=nil then
+					local playerInfo={["Cleanup"]=cleanup}
+					playerInfo.AncestryChanged=player.AncestryChanged:Connect(function(_,parent)
+						if not (parent~=nil and player:IsDescendantOf(Players)) then
+							OnPlayerRemoved(player)
+						end
+					end)
+					playerCache[player]=playerInfo
+				else
+					task.spawn(cleanup,player)
+				end
+			end
+		end
 	end
 
 	-- Listen for changes:
 	playerAddedConnection=Players.PlayerAdded:Connect(OnPlayerAdded)
-	playerRemovedConnection=Players.PlayerRemoving:Connect(OnPlayerRemoving)
 
 	-- Initial:
 	task.defer(function()
 		if not playerAddedConnection.Connected or noInitial then return end
 		local plrs=Players:GetPlayers()
 		for i,player in ipairs(plrs) do
-			OnPlayerAdded(player)
+			if not playerAddedConnection.Connected then break end
+			task.defer(OnPlayerAdded,player)
 		end
 	end)
 
 	-- Cleanup:
 	return function()
 		playerAddedConnection:Disconnect()
-		playerRemovedConnection:Disconnect()
 		local player=next(playerCache)
 		while player do
-			OnPlayerRemoving(player::Player)
+			OnPlayerAdded(player)
 			player=next(playerCache)
 		end
 	end
@@ -303,6 +321,64 @@ local function ObserveProperty(instance:Instance,property:string,callback:(value
 	end
 end
 
+local function ObserveAllProperty(instance:Instance,properties:{string},callback:(name:string,property:PropertyValue)->()->(),noInitial:boolean?):()->()
+	local propertyCleans={}
+	local propertyDebounces={}
+	for _, property in ipairs(properties) do
+		if propertyDebounces[property] then continue end
+		propertyDebounces[property]=true
+		
+		local cleanup:(()->())?=nil
+		local propertyChangedConnection:RBXScriptConnection
+		local changedId=0
+
+		local function OnPropertyChanged()
+			if cleanup~=nil then
+				task.spawn(cleanup)
+				cleanup=nil
+			end
+			changedId+=1
+			local id=changedId
+			local value=(instance::any)[property]
+			task.spawn(function()
+				local clean=callback(property,value)
+				if type(clean)=="function" then
+					if id==changedId and propertyChangedConnection.Connected then
+						cleanup=clean
+					else
+						task.spawn(clean)
+					end
+				end
+			end)
+		end
+
+		-- Listen for changes:
+		propertyChangedConnection=instance:GetPropertyChangedSignal(property):Connect(OnPropertyChanged)
+
+		-- Initial:
+		task.defer(function()
+			if not propertyChangedConnection.Connected or noInitial then return end
+			OnPropertyChanged()
+		end)
+
+		-- Cleanup:
+		table.insert(propertyCleans,function()
+			propertyDebounces[property]=false
+			propertyChangedConnection:Disconnect()
+			if cleanup~=nil then
+				task.spawn(cleanup)
+				cleanup=nil
+			end
+		end)
+	end
+	return function()
+		while #propertyCleans>0 do
+			local cleanup=table.remove(propertyCleans)
+			task.spawn(cleanup)
+		end
+	end
+end
+
 local function ObserveTag(tag:string,callback:(instance:Instance)->(()->()),ancestors:{Instance}?,noInitial:boolean?):()->()
 	local instances:{[Instance]:InstanceStatus|()->()}={}
 	local ancestryCache:{[Instance]:RBXScriptConnection}={}
@@ -351,9 +427,9 @@ local function ObserveTag(tag:string,callback:(instance:Instance)->(()->()),ance
 		end
 	end
 
-	local function OnInstanceAdded(instance:Instance)
+	local function OnInstanceAdded(instance:Instance?)
 		task.defer(function()
-			if instanceAddedConnection.Connected and instance.Parent and not instances[instance] then 
+			if instanceAddedConnection.Connected and instance~=nil and instance.Parent~=nil and not instances[instance] then 
 				instances[instance]="__dead__"
 				ancestryCache[instance]=instance.AncestryChanged:Connect(function()
 					OnAncestryChanged(instance)
@@ -382,6 +458,7 @@ local function ObserveTag(tag:string,callback:(instance:Instance)->(()->()),ance
 		if not instanceAddedConnection.Connected or noInitial then return end
 		local tagged=CollectionService:GetTagged(tag)
 		for i,instance in ipairs(tagged) do
+			if not instanceAddedConnection.Connected then break end
 			task.defer(OnInstanceAdded,instance)
 		end
 	end)
@@ -394,6 +471,116 @@ local function ObserveTag(tag:string,callback:(instance:Instance)->(()->()),ance
 		while instance do
 			OnInstanceRemoved(instance)
 			instance=next(instances)
+		end
+	end
+end
+
+local function ObserveAllTag(tags:{string},callback:(tag:string,instance:Instance)->(()->()),ancestors:{Instance}?,noInitial:boolean?):()->()
+	local tagCleans={}
+	local tagDebounces={}
+	for _, tag in ipairs(tags) do
+		if tagDebounces[tag] then continue end
+		tagDebounces[tag]=true
+
+		local instances:{[Instance]:InstanceStatus|()->()}={}
+		local ancestryCache:{[Instance]:RBXScriptConnection}={}
+		local instanceAddedConnection:RBXScriptConnection
+		local instanceRemovedConnection:RBXScriptConnection
+
+		local function IsGoodAncestor(instance:Instance)
+			if not ancestors then return true end
+			for i,ancestor in ancestors do
+				if instance:IsDescendantOf(ancestor) then
+					return true
+				end
+			end
+			return false
+		end
+
+		local function AttemptStartup(instance:Instance)
+			instances[instance]="__inflight__"
+			task.defer(function()
+				if instances[instance]~="__inflight__" then return end
+				local cleanup=callback(tag,instance)
+				if type(cleanup)~="function" then return end
+				if instances[instance]~="__inflight__" then
+					task.spawn(cleanup)
+				else
+					instances[instance]=cleanup
+				end
+			end)
+		end
+
+		local function AttemptCleanup(instance:Instance)
+			local cleanup=instances[instance]
+			instances[instance]="__dead__"
+			if typeof(cleanup)=="function" then
+				task.spawn(cleanup)
+			end
+		end
+
+		local function OnAncestryChanged(instance:Instance)
+			if IsGoodAncestor(instance) then
+				if instances[instance]=="__dead__" then
+					AttemptStartup(instance)
+				end
+			else
+				AttemptCleanup(instance)
+			end
+		end
+
+		local function OnInstanceAdded(instance:Instance?)
+			task.defer(function()
+				if instanceAddedConnection.Connected and instance~=nil and instance.Parent~=nil and not instances[instance] then 
+					instances[instance]="__dead__"
+					ancestryCache[instance]=instance.AncestryChanged:Connect(function()
+						OnAncestryChanged(instance)
+					end)
+					OnAncestryChanged(instance)
+				end
+			end)
+		end
+
+		local function OnInstanceRemoved(instance:Instance)
+			AttemptCleanup(instance)
+			local ancestry=ancestryCache[instance]
+			if ancestry then
+				ancestry:Disconnect()
+				ancestryCache[instance]=nil
+			end
+			instances[instance]=nil
+		end
+
+		-- Listen for changes:
+		instanceAddedConnection=CollectionService:GetInstanceAddedSignal(tag):Connect(OnInstanceAdded)
+		instanceRemovedConnection=CollectionService:GetInstanceRemovedSignal(tag):Connect(OnInstanceRemoved)
+
+		-- Initial:
+		task.defer(function()
+			if not instanceAddedConnection.Connected or noInitial then return end
+			local tagged=CollectionService:GetTagged(tag)
+			for i,instance in ipairs(tagged) do
+				if not instanceAddedConnection.Connected then break end
+				task.defer(OnInstanceAdded,instance)
+			end
+		end)
+
+		-- Cleanup:
+		table.insert(tagCleans,function()
+			tagDebounces[tag]=false
+			instanceAddedConnection:Disconnect()
+			instanceRemovedConnection:Disconnect()
+			local instance=next(instances)
+			while instance do
+				OnInstanceRemoved(instance)
+				instance=next(instances)
+			end
+		end)
+	end
+	return function()
+		while #tagCleans>0 do
+			local cleanup=table.remove(tagCleans)
+			task.spawn(cleanup)
 		end
 	end
 end
@@ -444,48 +631,79 @@ local function ObserveAttribute(instance:Instance,name:string,callback:(value:At
 	end
 end
 
-local function ObserveClamp(x:any,min:any,max:any,uses:any)
-	if not x then return min end
-	if type(x)=="string" then x=tonumber(x) end
-	if type(x)~="number" then return min end
-	if not min then min=0 end
-	if type(min)=="string" then 
-		min=tonumber(min)
+local function ObserveAllAttribute(instance:Instance,names:{string},callback:(name:string,value:AttributeValue)->(()->()),noInitial:boolean?):()->()
+	local attributeCleans={}
+	local attributeDebounces={}
+	for _, name in ipairs(names) do
+		if attributeDebounces[name] then continue end
+		attributeDebounces[name]=true
+
+		local cleanup:(()->())?=nil
+		local attributeChangedConnection:RBXScriptConnection
+		local changedId=0
+
+		local function OnAttributeChanged()
+			if cleanup~=nil then
+				task.spawn(cleanup)
+				cleanup=nil
+			end
+			changedId+=1
+			local id=changedId
+			local value:AttributeValue=instance:GetAttribute(name)
+			if value~=nil then
+				task.spawn(function()
+					local clean=callback(name,value)
+					if type(clean)=="function" then
+						if id==changedId and attributeChangedConnection.Connected then
+							cleanup=clean
+						else
+							task.spawn(clean)
+						end
+					end
+				end)
+			end
+		end
+
+		-- Listen for changes:
+		attributeChangedConnection=instance:GetAttributeChangedSignal(name):Connect(OnAttributeChanged)
+
+		-- Initial:
+		task.defer(function()
+			if not attributeChangedConnection.Connected or noInitial then return end
+			OnAttributeChanged()
+		end)
+
+		-- Cleanup:
+		table.insert(attributeCleans,function()
+			attributeDebounces[name]=false
+			attributeChangedConnection:Disconnect()
+			if cleanup~=nil then
+				task.spawn(cleanup)
+				cleanup=nil
+			end
+		end)
 	end
-	if type(min)~="number" then min=0 end
-	if not max then max=math.huge end
-	if type(max)=="string" then 
-		if max=="inf" or max=="huge" then max=math.huge else max=tonumber(max) end
+	return function()
+		while #attributeCleans>0 do
+			local cleanup=table.remove(attributeCleans)
+			task.spawn(cleanup)
+		end
 	end
-	if type(max)~="number" then max=math.huge end
-	if x>=max then return max end
-	if uses~=nil and type(uses)=="table" then
-		local useNegative=uses[1] or uses["Negative"]
-		if useNegative and x<=0 then return min end
-		local useNaN=uses[2] or uses["NaN"]
-		if useNaN and x~=x then return min end
-		local useFloor=uses[3] or uses["Floor"]
-		if useFloor and math.floor(x)~=x then return math.clamp(math.floor(x),min,max) end
-	else
-		if x<=0 or x~=x or math.floor(x)~=x then return min end
-	end
-	return x
 end
 
-local function ObserveDead(character:Instance,callback:()->()->(),useValue:boolean?)
-	if not (character~=nil and character.Parent~=nil) then callback("Removed") return EmptyFunction end
+local function ObserveDead(instance:Instance,callback:()->()->(),useValue:boolean?)
+	if not (instance~=nil and instance.Parent~=nil) then callback() return EmptyFunction end
 
 	local dead=false
 
 	local function OnDead()
 		if dead then return end
 		dead=true
-
 		callback()
 	end
 
 	local cleanupHumanoid:()->()?=nil
-	local humanoid:Humanoid?=character:FindFirstChildOfClass("Humanoid")
+	local humanoid:Humanoid?=instance:FindFirstChildOfClass("Humanoid")
 	if humanoid~=nil then
 		if humanoid.Health<=0 or humanoid.MaxHealth<=0 then
 			OnDead()
@@ -517,12 +735,12 @@ local function ObserveDead(character:Instance,callback:()->()->(),useValue:boole
 
 	local healthConnection:RBXScriptConnection
 	if useValue then
-		local health:number?=character:GetAttribute("Health")
+		local health:number?=instance:GetAttribute("Health")
 		if health~=nil and health<=0 then
 			OnDead()
 		else
-			healthConnection=character:GetAttributeChangedSignal("Health"):Connect(function()
-				local health:number?=character:GetAttribute("Health")
+			healthConnection=instance:GetAttributeChangedSignal("Health"):Connect(function()
+				local health:number?=instance:GetAttribute("Health")
 				if health~=nil and health<=0 and healthConnection.Connected then
 					healthConnection:Disconnect()
 					OnDead()
@@ -533,7 +751,7 @@ local function ObserveDead(character:Instance,callback:()->()->(),useValue:boole
 
 	-- Detect character parent == nil
 	local ancestryChangedConnection:RBXScriptConnection
-	ancestryChangedConnection=character.AncestryChanged:Connect(function(_,parent)
+	ancestryChangedConnection=instance.AncestryChanged:Connect(function(_,parent)
 		if not parent and ancestryChangedConnection.Connected then
 			ancestryChangedConnection:Disconnect()
 			OnDead()
@@ -541,9 +759,9 @@ local function ObserveDead(character:Instance,callback:()->()->(),useValue:boole
 	end)
 
 	return function()
-		if ancestryChangedConnection.Connected then ancestryChangedConnection:Disconnect() end
+		ancestryChangedConnection:Disconnect()
 		if cleanupHumanoid then cleanupHumanoid() cleanupHumanoid=nil end
-		if healthConnection and healthConnection.Connected then healthConnection:Disconnect() end
+		if healthConnection then healthConnection:Disconnect() end
 	end
 end
 
@@ -554,9 +772,11 @@ Observe.ObserveDescendant=ObserveDescendant
 Observe.ObservePlayer=ObservePlayer
 Observe.ObserveCharacter=ObserveCharacter
 Observe.ObserveProperty=ObserveProperty
+Observe.ObserveAllProperty=ObserveAllProperty
 Observe.ObserveTag=ObserveTag
+Observe.ObserveAllTag=ObserveAllTag
 Observe.ObserveAttribute=ObserveAttribute
-Observe.ObserveClamp=ObserveClamp
+Observe.ObserveAllAttribute=ObserveAllAttribute
 Observe.ObserveDead=ObserveDead
 
 return Observe
