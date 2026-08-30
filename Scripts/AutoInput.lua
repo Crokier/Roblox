@@ -11,13 +11,14 @@ local VirtualInputManager=Services.VirtualInputManager
 local LocalPlayer=Players.LocalPlayer
 local PlayerGui=LocalPlayer:FindFirstChildOfClass("PlayerGui")
 
-local SaveEnableds,Enableds,Threads={},{["Click"]=false,["HoldClick"]=false},{}
+local SaveEnableds,Enableds,Threads={},{["Click"]=false,["HoldClick"]=false,["Keyboard"]=false,["ProcessKeyboard"]=false},{}
 
 local HoldDuration=2
 local ClickSpeed=0.01
 local ClickThread=nil
 local ClickPoint=UserInputService:GetMouseLocation()
-local LayerCollectorType="Default"
+local KeyActives={}
+local KeyCodeEnums={}
 
 local SwipeInfo = {
 	X = ClickPoint.X,
@@ -86,6 +87,13 @@ local function SendSwipe(swipeInfo)
 	end
 end
 
+local function SendKey(keyCode)
+	local process = Enableds.ProcessKeyboard
+	VirtualInputManager:SendKeyEvent(true, keyCode, process, game)
+	task.wait(0.05)
+	VirtualInputManager:SendKeyEvent(false, keyCode, process, game)
+end
+
 local function HandleSwipe()
 	if Threads.Swipe and coroutine.status(Threads.Swipe)~="dead" then task.cancel(Threads.Swipe) Threads.Swipe=nil end
 	if Enableds.Swipe then
@@ -110,6 +118,21 @@ local function HandleSwipe()
 	else
 		VirtualInputManager:SendMouseButtonEvent(math.round(ClickPoint.X), math.round(ClickPoint.Y), 0, false, game, 1)
 	end
+end
+
+local function HandleKeyboard()
+	if not Enableds.Keyboard then return end
+	
+	task.spawn(function()
+		while Enableds.Keyboard do
+			for key,active in pairs(KeyActives) do
+				if not Enableds.Keyboard then break end
+				if not active then continue end
+				SendKey(KeyCodeEnums[key])
+			end
+			task.wait()
+		end
+	end)
 end
 
 local Window=UI:CreateWindow({
@@ -247,6 +270,49 @@ SwipeInputFolder:AddToggle({
 	Callback = function(value)
 		Enableds.Swipe = value
 		HandleSwipe()
+	end
+})
+
+local KeyboardInputFolder=Window:AddFolder({
+	Text="Keyboard Input",
+	Open=false
+})
+
+local KeyCodeList = {}
+
+for _, keyCode in ipairs(Enum.KeyCode:GetEnumItems()) do
+	local name = keyCode.Name
+	table.insert(KeyCodeList, name)
+	KeyActives[name] = false
+	KeyCodeEnums[name] = keyCode
+end
+
+KeyboardInputFolder:AddDropdown({
+	Text = "KeyCode",
+	Options = KeyCodeList,
+	Option = nil,
+	MultipleOptions = true,
+	Callback = function(option)
+		for _, key in ipairs(KeyCodeList) do
+			KeyActives[key] = table.find(option, key) ~= nil
+		end
+	end
+})
+
+KeyboardInputFolder:AddToggle({
+	Text = "Process",
+	Value = false,
+	Callback = function(value)
+		Enableds.ProcessKeyboard = value
+	end
+})
+
+
+KeyboardInputFolder:AddToggle({
+	Text = "Auto Keyboard",
+	Value = false,
+	Callback = function(value)
+		Enableds.Keyboard = value
 	end
 })
 
