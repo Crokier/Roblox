@@ -311,6 +311,7 @@ KeyboardInputFolder:AddToggle({
 	Value = false,
 	Callback = function(value)
 		Enableds.Keyboard = value
+		HandleKeyboard()
 	end
 })
 
