@@ -11,7 +11,7 @@ local VirtualInputManager=Services.VirtualInputManager
 local LocalPlayer=Players.LocalPlayer
 local PlayerGui=LocalPlayer:FindFirstChildOfClass("PlayerGui")
 
-local SaveEnableds,Enableds,Threads={},{["Click"]=false,["HoldClick"]=false,["Keyboard"]=false,["ProcessKeyboard"]=false},{}
+local SaveEnableds,Enableds,Threads={},{["Click"]=false,["HoldClick"]=false,["Keyboard"]=false},{}
 
 local HoldDuration=2
 local ClickSpeed=0.01
@@ -88,10 +88,17 @@ local function SendSwipe(swipeInfo)
 end
 
 local function SendKey(keyCode)
-	local process = Enableds.ProcessKeyboard
-	VirtualInputManager:SendKeyEvent(true, keyCode, process, game)
+	if keypress then
+		keypress(keyCode)
+	else
+		VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+	end
 	task.wait(0.05)
-	VirtualInputManager:SendKeyEvent(false, keyCode, process, game)
+	if keyrelease then
+		keyrelease(keyCode)
+	else
+		VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+	end
 end
 
 local function HandleSwipe()
@@ -298,15 +305,6 @@ KeyboardInputFolder:AddDropdown({
 		end
 	end
 })
-
-KeyboardInputFolder:AddToggle({
-	Text = "Process",
-	Value = false,
-	Callback = function(value)
-		Enableds.ProcessKeyboard = value
-	end
-})
-
 
 KeyboardInputFolder:AddToggle({
 	Text = "Auto Keyboard",
