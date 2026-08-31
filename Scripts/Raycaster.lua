@@ -394,7 +394,7 @@ Window:AddToggle({
 					local detected = result.Detected
 					result.Color = detected and RaycastInfo.Color2 or RaycastInfo.Color1
 					if Enableds.UsePart then
-		               DrawPart(name, origin, direction, result.Color)
+		               DrawPart(name, origin, result.Direction, result.Color)
 					end
 					local toggle=VisualToggles[name]
 					if toggle then
