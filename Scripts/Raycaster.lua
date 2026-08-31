@@ -170,14 +170,6 @@ local function Directionalcast(origin, baseCFrame, info)
 	info = info or {}
 	
 	local raycastParams = info.RaycastParams
-	
-	--local rootPart = character:FindFirstChild("HumanoidRootPart")
-	--if not rootPart then return {} end
-
-	--local origin = cframe.Position
-	--local baseCFrame = rootPart.CFrame
-	
-	--raycastParams.FilterDescendantsInstances = {character}
 
 	local results = {}
 
@@ -187,6 +179,8 @@ local function Directionalcast(origin, baseCFrame, info)
 		sweepOffset = math.sin(os.clock() * (info.SweepSpeed or 2.5)) * (info.SweepRange or 25)
 	end
 
+	local caught = false
+	
 	for name, baseAngle in pairs(info.TargetAngles) do
 		-- Sudut target aktual + ayunan pemindai
 		local targetAngle = baseAngle + sweepOffset
@@ -199,43 +193,31 @@ local function Directionalcast(origin, baseCFrame, info)
 		local angleRotation = CFrame.Angles(0, math.rad(info.CurrentAngles[name]), 0)
 		local directionVector = (baseCFrame * angleRotation).LookVector * info.Distance
 
-		-- Raycast
+		-- Perform Raycast
 		local raycastResult = workspace:Raycast(origin, directionVector, raycastParams)
 		
-		-- Tentukan Warna & Panjang Sinar
-		local detected = false -- saat tidak kena objek
-		local direction = directionVector
+		local result = {
+			["Direction"] = directionVector,
+			["Dectected"] = false
+		}
 		
 		if raycastResult then
-			local hit = {
+			result = {
 				["Distance"] = raycastResult.Distance,
 				["Position"] = raycastResult.Position,
 				["Normal"] = raycastResult.Normal,
 				["Material"] = raycastResult.Material,
-				["Instance"] = raycastResult.Instance
+				["Instance"] = raycastResult.Instance,
+				["Direction"] = raycastResult.Position - origin,
+				["Dectected"] = true
 			}
-			
-			detected = true
-			direction = raycastResult.Position - origin
-			
-			hit.Direction = direction
-			hit.Dectected = detected
-			
-			results[name] = hit
+			caught = true 
 		end
-		
-		if info.UseVisualPart then
-			local rayColor = info.Color1 or Color3.fromRGB(255, 0, 0)
-			if detected then
-				rayColor = info.Color2 or Color3.fromRGB(0, 255, 0)
-			end
-			DrawPart(name, origin, direction, rayColor)
-		end
+
+		results[name] = result
 	end
 	
-	if not next(results) then return nil end
-	
-	return results
+	return results, caught
 end
 
 local Window=UI:CreateWindow({
@@ -310,12 +292,38 @@ RaycastFolder:AddSlider({
 	end
 })
 
+local SweepSpeedSlider,SweepRangeSlider=nil,nil
+
 RaycastFolder:AddToggle({
 	Text="Use Sweep",
 	Value=true,
 	Flag="sweep_enabled",
 	Callback=function(value)
 		RaycastInfo.UseSweep=value
+		SweepSpeedSlider.Visible=value
+		SweepRangeSlider.Visible=value
+	end
+})
+
+SweepSpeedSlider=RaycastFolder:AddSlider({
+	Text="Sweep Speed",
+	Range={1,25},
+	Value=2.5,
+	Increment=1,
+	Flag="sweep_speed",
+	Callback=function(value)
+		RaycastInfo.SweepSpeed=value
+	end
+})
+
+SweepRangeSlider=RaycastFolder:AddSlider({
+	Text="Sweep Range",
+	Range={1,100},
+	Value=25,
+	Increment=1,
+	Flag="sweep_range",
+	Callback=function(value)
+		RaycastInfo.SweepRange=value
 	end
 })
 
@@ -381,14 +389,13 @@ Window:AddToggle({
 				RaycastInfo.RaycastParams.FilterDescendantsInstances={model}
 				RaycastInfo.DeltaTime=deltaTime
 				local origin=bodyPart.Position
-				RaycastInfo.UseVisualPart=Enableds.UsePart
-				local results=Directionalcast(origin,bodyPart.CFrame,RaycastInfo)
-				VisualToggles["Caught"]:Replace(results~=nil and true or false)
-				local list = results or RaycastInfo.TargetAngles
-				for name, hit in pairs(list) do
-					local detected = false
-					if results ~= nil then
-						detected = hit.Detected
+				local results,caught=Directionalcast(origin,bodyPart.CFrame,RaycastInfo)
+				VisualToggles["Caught"]:Replace(caught)
+				for name, result in pairs(results) do
+					local detected = result.Detected
+					result.Color = detected and info.Color2 or info.Color1
+					if Enableds.UsePart then
+		               DrawPart(name, origin, direction, result.Color)
 					end
 					local toggle=VisualToggles[name]
 					if toggle then
