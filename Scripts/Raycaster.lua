@@ -393,7 +393,7 @@ Window:AddToggle({
 				VisualToggles["Caught"]:Replace(caught)
 				for name, result in pairs(results) do
 					local detected = result.Detected
-					result.Color = detected and info.Color2 or info.Color1
+					result.Color = detected and RaycastInfo.Color2 or RaycastInfo.Color1
 					if Enableds.UsePart then
 		               DrawPart(name, origin, direction, result.Color)
 					end
