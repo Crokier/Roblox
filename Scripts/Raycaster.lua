@@ -32,8 +32,8 @@ local BaseTargetAngles = {
 	["Front"]         = 0,
 	["LeftFront"]     = 30,
 	["RightFront"]    = -30,
-	["LeftMid"]       = 60,
-	["RightMid"]      = -60,
+	["LeftFrontMid"]       = 60,
+	["RightFrontMid"]      = -60,
 	["Left"]          = 90,
 	["Right"]         = -90,
 }
