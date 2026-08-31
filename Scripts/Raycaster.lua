@@ -128,6 +128,44 @@ local function Downcast(origin, height, params, total)
 	return nil
 end
 
+local function IsCaughtcast(plrModel, npcModel, raycastInfo)
+	if not (plrModel and npcModel) then return false end
+
+	local rootRoot = plrModel.PrimaryPart or plrModel:FindFirstChild("HumanoidRootPart")
+	local npcHead = npcModel:FindFirstChild("Head")
+
+	if not (rootRoot and npcHead) then return false end
+	local maxDistance = raycastInfo.MaxDistance or 1000
+
+	local npcLookVector = npcHead.CFrame.LookVector * maxDistance
+	local toPlayerVector = (rootRoot.Position - npcHead.Position)
+	local distance = toPlayerVector.Magnitude
+	local directionToPlayer = toPlayerVector.Unit
+
+	local dotProduct = npcLookVector:Dot(directionToPlayer)
+	local maxAngle = raycastInfo.MaxAngle or 0
+
+	if dotProduct >= maxAngle and  distance <= maxDistance then
+		if not raycastInfo.RaycastParams then
+			raycastInfo.RaycastParams = RaycastParams.new()
+			raycastInfo.RaycastParams.FilterType = Enum.RaycastFilterType.Exclude
+		end
+
+		local raycastResult = workspace:Raycast(npcHead.Position, directionToPlayer * maxDistance, raycastInfo.RaycastParams)
+
+		if raycastResult then
+			local hit = raycastResult.Instance
+			if hit then
+				return hit:IsDescendantOf(plrModel)
+			end
+		end
+
+		return true
+	end
+
+	return false
+end
+
 local function Directionalcast(origin, baseCFrame, info)
 	info = info or {}
 	
