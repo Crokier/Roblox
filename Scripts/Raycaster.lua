@@ -334,7 +334,7 @@ RaycastFolder:AddSelect({
 		if instance and instance:IsA("Model") and instance:FindFirstChildOfClass("Humanoid") then
 			RaycastInfo.Target=instance
 		end
-	end,
+	end
 })
 
 RaycastFolder:AddToggle({
@@ -357,7 +357,7 @@ UsePartOrUIButton=RaycastFolder:AddButton({
 		if not lastUsePart then 
 		   for _, part in pairs(VisualParts) do
 			  if lastUsePart~=Enableds.UsePart then break end
-			  if part and part.Parent then part.Transparency = 1 end
+			  part.Transparency = lastUsePart and 0.5 or 1
 		   end
 	   end
    end
