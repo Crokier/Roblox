@@ -11,7 +11,6 @@ local PlayerGui=LocalPlayer:FindFirstChildOfClass("PlayerGui")
 local Character=LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
 local Enableds,Connections={["Raycast"]=false,["UsePart"]=false,["UseTarget"]=false},{}
-
 local RaycastInfo={
 	-- Jarak jangkauan raycast
 	Distance=50, 
