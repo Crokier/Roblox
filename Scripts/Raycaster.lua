@@ -8,148 +8,361 @@ local VirtualInputManager=Services.VirtualInputManager
 
 local LocalPlayer=Players.LocalPlayer
 local PlayerGui=LocalPlayer:FindFirstChildOfClass("PlayerGui")
+local Character=LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
-local Enableds={["Raycast"]=false}
+local Enableds,Connections={["Raycast"]=false,["UsePart"]=false,["UseTarget"]=false},{}
 
 local RaycastInfo={
-  Distance=50, -- Jarak jangkauan raycast
-  Speed=14, -- Kecepatan interpolasi sudut (makin tinggi makin responsif & mulus)
-  UseSweep=true, -- Set 'true' agar sinar mengayun memindai area terus-menerus tanpa celah
-  SweepSpeed = 2.5, -- Kecepatan ayunan radar
-  SweepRange=25 -- Jangkauan ayunan derajat (+25° ke kanan, -25° ke kiri)
+	-- Jarak jangkauan raycast
+	Distance=50, 
+	-- Kecepatan interpolasi sudut (makin tinggi makin responsif & mulus)
+	Speed=14, 
+	-- Mengubah ke 'true' agar sinar mengayun memindai area terus-menerus tanpa celah
+	UseSweep=true,
+	-- Kecepatan ayunan radar
+	SweepSpeed = 2.5, 
+	-- Jangkauan ayunan derajat (+25° ke kanan, -25° ke kiri)
+	SweepRange=25,
+	
+	-- Ignore this
+	["TargetAngles"]={},
+	["CurrentAngles"]={},
+	["RaycastParams"]=RaycastParams.new(),
+	["DeltaTime"]=0,
+	["Color2"]=Color3.fromRGB(0,255,0),
+	["Color1"]=Color3.fromRGB(255,0,0),
+	["Target"]=nil,
+	["HitIndex"]=0,
 }
 
-local Window=UI:CreateWindow({
-	Name="Raycaster",
-	Destroying=function()
-		task.cancel(ClickThread)
-		for key, enabled in pairs(Enableds) do
-			Enableds[key]=false
-		end
-	end
-})
+RaycastInfo.RaycastParams.FilterType=Enum.RaycastFilterType.Exclude
 
--- ==================== KONFIGURASI ====================
-local DISTANCE = 50             
-local SMOOTH_SPEED = 14         
-local USE_CONTINUOUS_SWEEP = true
-
--- Konfigurasi Ayunan Radar (Derajat mendaki menggunakan Gelombang Sinus)
-local SWEEP_SPEED = 2.5         
-local SWEEP_RANGE = 25          
-
--- Sudut Dasar Sinar (Dibuat lebih rapat agar menutup celah/gap)
-local baseTargetAngles = {
+local BaseTargetAngles = {
 	["Front"]         = 0,
-	["Left Front"]    = 30,
-	["Right Front"]   = -30,
-	["Left Mid"]      = 60,
-	["Right Mid"]     = -60,
+	["LeftFront"]     = 30,
+	["RightFront"]    = -30,
+	["LeftMid"]       = 60,
+	["RightMid"]      = -60,
 	["Left"]          = 90,
 	["Right"]         = -90,
 }
 
--- Tracking State
-local currentAngles = {}
-for name in pairs(baseTargetAngles) do
-	currentAngles[name] = 0
+local VisualToggles = {}
+local VisualParts = {}
+
+local CurrentAngles = {}
+for name in pairs(BaseTargetAngles) do
+	CurrentAngles[name] = 0
 end
 
-local visualParts = {}
-local raycastParams = RaycastParams.new()
-raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+RaycastInfo.TargetAngles=BaseTargetAngles
+RaycastInfo.CurrentAngles=CurrentAngles
 
--- Helper function untuk menggambar sinar visual
-local function drawVisualRay(name, origin, directionVector, color)
-	local visualPart = visualParts[name]
-	
+Connections.CharacterAdded = LocalPlayer.CharacterAdded:Connect(function(newCharacter)
+	Character = newCharacter
+end)
+
+local function DrawPart(name, origin, direction, color)
+	local visualPart = VisualParts[name]
+
 	if not visualPart or not visualPart:IsDescendantOf(workspace) then
-		visualPart = Instance.new("Part")
+		local rootPart = Character.PrimaryPart or Character:FindFirstChild("HumanoidRootPart")
+		if not rootPart then return end
+		visualPart = cloneref and cloneref(rootPart:Clone()) or rootPart:Clone()
 		visualPart.Name = "RayVisual_" .. name
+		visualPart.Transparency = 0.5
 		visualPart.Material = Enum.Material.Neon
 		visualPart.Anchored = true
 		visualPart.CanCollide = false
 		visualPart.CanQuery = false
 		visualPart.CanTouch = false
-		visualPart.Parent = workspace
-		visualParts[name] = visualPart
+		visualPart.Parent = Character
+		VisualParts[name] = visualPart
 	end
-	
-	local length = directionVector.Magnitude
+
+	local length = direction.Magnitude
 	if length < 0.001 then length = 0.001 end
-	
-	local midPoint = origin + (directionVector / 2)
-	visualPart.Color = color
+
+	local midPoint = origin + (direction / 2)
+	visualPart.Color = color or Color3.fromRGB(255, 255, 255)
 	visualPart.Size = Vector3.new(0.12, 0.12, length)
-	visualPart.CFrame = CFrame.lookAt(midPoint, origin + directionVector)
+	visualPart.CFrame = CFrame.lookAt(midPoint, origin + direction)
 end
 
--- Core Function dengan Interpolasi Derajat Mulus
-local function castSmoothDirectionalRays(character, distance, dt)
-	local rootPart = character:FindFirstChild("HumanoidRootPart")
-	if not rootPart then return {} end
+local function Downcast(origin, height, params, total)
+	-- Set up Raycast: Start point at the instance, direction downwards for 100 studs
+	local direction = Vector3.new(0, -height, 0)
+	
+	-- Perform Raycast
+	local raycastResult = workspace:Raycast(origin, direction, params)
 
-	local origin = rootPart.Position
-	local baseCFrame = rootPart.CFrame
-	raycastParams.FilterDescendantsInstances = {character}
+	if raycastResult then
+		local hit = raycastResult.Instance
+		if hit then 
+			local results = {IncludeInstances= {}, ExcludeInstances = {}, Index = 0}
+
+			if total == nil then results.IncludeInstances = hit:GetChildren() return results end
+			
+			local current, last = hit, nil
+			
+			current=current.Parent
+			
+			while current ~= workspace do
+				results.Index=results.Index+1 
+
+				if total ~= nil and total>0 and results.Index>=total then
+					break
+				end
+				
+				last = current
+				current = current.Parent
+				task.wait()
+			end
+			
+			results.IncludeInstances = current:GetChildren()
+			results.ExcludeInstances = last:GetChildren()
+			return results
+		end
+	end
+
+	return nil
+end
+
+local function Directionalcast(origin, baseCFrame, info)
+	info = info or {}
+	
+	local raycastParams = info.RaycastParams
+	
+	--local rootPart = character:FindFirstChild("HumanoidRootPart")
+	--if not rootPart then return {} end
+
+	--local origin = cframe.Position
+	--local baseCFrame = rootPart.CFrame
+	
+	--raycastParams.FilterDescendantsInstances = {character}
 
 	local results = {}
 
 	-- Hitung offset ayunan derajat halus menggunakan Gelombang Sinus (Sine Wave)
 	local sweepOffset = 0
-	if USE_CONTINUOUS_SWEEP then
-		sweepOffset = math.sin(os.clock() * SWEEP_SPEED) * SWEEP_RANGE
+	if info.UseSweep~=nil and info.UseSweep==true then
+		sweepOffset = math.sin(os.clock() * (info.SweepSpeed or 2.5)) * (info.SweepRange or 25)
 	end
 
-	for name, baseAngle in pairs(baseTargetAngles) do
+	for name, baseAngle in pairs(info.TargetAngles) do
 		-- Sudut target aktual + ayunan pemindai
 		local targetAngle = baseAngle + sweepOffset
 
 		-- Formula Derajat Mendaki Halus (Eksponensial Lerp berdasarkan Delta Time)
-		local lerpFactor = 1 - math.exp(-SMOOTH_SPEED * dt)
-		currentAngles[name] = currentAngles[name] + (targetAngle - currentAngles[name]) * lerpFactor
-		
+		local lerpFactor = 1 - math.exp(-(info.Speed or 14) * info.DeltaTime)
+		info.CurrentAngles[name] = info.CurrentAngles[name] + (targetAngle - info.CurrentAngles[name] or 0) * lerpFactor
+
 		-- Rotasi CFrame berdasarkan derajat saat ini
-		local angleRotation = CFrame.Angles(0, math.rad(currentAngles[name]), 0)
-		local directionVector = (baseCFrame * angleRotation).LookVector * distance
-		
+		local angleRotation = CFrame.Angles(0, math.rad(info.CurrentAngles[name]), 0)
+		local directionVector = (baseCFrame * angleRotation).LookVector * info.Distance
+
 		-- Raycast
 		local raycastResult = workspace:Raycast(origin, directionVector, raycastParams)
-		results[name] = raycastResult
 		
 		-- Tentukan Warna & Panjang Sinar
-		local visualDirection = directionVector
-		local rayColor = Color3.fromRGB(255, 0, 0) -- Merah saat tidak kena objek
-
+		local detected = false -- saat tidak kena objek
+		local direction = directionVector
+		
 		if raycastResult then
-			visualDirection = raycastResult.Position - origin
-			rayColor = Color3.fromRGB(0, 255, 0) -- Hijau saat mengenai halangan
+			local hit = {
+				["Distance"] = raycastResult.Distance,
+				["Position"] = raycastResult.Position,
+				["Normal"] = raycastResult.Normal,
+				["Material"] = raycastResult.Material,
+				["Instance"] = raycastResult.Instance
+			}
+			
+			detected = true
+			direction = raycastResult.Position - origin
+			
+			hit.Direction = direction
+			hit.Dectected = detected
+			
+			results[name] = hit
 		end
 		
-		drawVisualRay(name, origin, visualDirection, rayColor)
+		if info.UseVisualPart then
+			local rayColor = info.Color1 or Color3.fromRGB(255, 0, 0)
+			if detected then
+				rayColor = info.Color2 or Color3.fromRGB(0, 255, 0)
+			end
+			DrawPart(name, origin, direction, rayColor)
+		end
 	end
-
+	
+	if not next(results) then return nil end
+	
 	return results
 end
 
--- Cleanup saat karakter respawn/mati
-LocalPlayer.CharacterRemoving:Connect(function()
-	for _, part in pairs(visualParts) do
-		if part then part:Destroy() end
-	end
-	table.clear(visualParts)
-end)
-
--- Main Loop dengan Delta Time (dt)
-task.spawn(function()
-	while true do
-		local dt = task.wait() -- Mengambil nilai selisih waktu antar frame untuk kehalusan ekstra
-		local character = LocalPlayer.Character
-		if character then
-			local humanoid = character:FindFirstChildOfClass("Humanoid")
-			if humanoid and humanoid.Health > 0 then
-				castSmoothDirectionalRays(character, DISTANCE, dt)
+local Window=UI:CreateWindow({
+	Name="Raycaster",
+	Destroying=function()
+		for key, enabled in pairs(Enableds) do
+			Enableds[key]=false
+		end
+		for key, connection in pairs(Connections) do
+			if connection then
+				connection:Disconnect()
 			end
 		end
 	end
-end)
+})
+
+VisualToggles["Caught"] = Window:AddToggle({
+	Text="Caught",
+	Value=false,
+	Callback=function() end
+})
+
+local InfoFolder=Window:AddFolder({
+	Text="Info",
+	Open=false,
+})
+
+for name in pairs(BaseTargetAngles) do
+	VisualToggles[name] = InfoFolder:AddToggle({
+		Text=name,
+		Value=false,
+		Callback=function() end
+	})
+end
+
+local RaycastFolder = Window:AddFolder({
+	Text = "Raycast",
+	Open=false,
+})
+
+local BodyType=""
+
+RaycastFolder:AddDropdown({
+	Text="Body Type",
+	Options={"RootPart","Head"},
+	Option="RootPart",
+	MultipleOptions=false,
+	Callback=function(option)
+		BodyType=option[1]
+	end
+})
+
+RaycastFolder:AddSlider({
+	Text="Distance",
+	Range={50,1000},
+	Value=50,
+	Increment=1,
+	Flag="distance",
+	Callback=function(value)
+		RaycastInfo.Distance=value
+	end
+})
+
+RaycastFolder:AddSlider({
+	Text="Speed",
+	Range={1,100},
+	Value=14,
+	Increment=1,
+	Flag="speed",
+	Callback=function(value)
+		RaycastInfo.Speed=value
+	end
+})
+
+RaycastFolder:AddToggle({
+	Text="Use Sweep",
+	Value=true,
+	Flag="sweep_enabled",
+	Callback=function(value)
+		RaycastInfo.UseSweep=value
+	end
+})
+
+RaycastFolder:AddSelect({
+	Text = "Target",
+	Callback = function(target)
+		local instance = target
+		while instance ~= workspace do
+			if instance and instance:IsA("Model") and instance:FindFirstChildOfClass("Humanoid") then
+				break
+			end
+			instance = instance.Parent
+			task.wait()
+		end
+		if instance and instance:IsA("Model") and instance:FindFirstChildOfClass("Humanoid") then
+			RaycastInfo.Target=instance
+		end
+	end,
+})
+
+RaycastFolder:AddToggle({
+	Text="Use Target",
+	Value=false,
+	Flag="target_enabled",
+	Callback=function(value)
+		Enableds.UseTarget=value
+	end
+})
+
+local UsePartOrUIButton=nil
+UsePartOrUIButton=RaycastFolder:AddButton({
+	Text="Use Visual Part",
+	MethodType="DoubleClick",
+	Callback=function()
+		Enableds.UsePart=not Enableds.UsePart
+		UsePartOrUIButton:Set(Enableds.UsePart and "Use Visual UI" or "Use Visual Part")
+	end
+})
+
+Window:AddToggle({
+	Text="Raycast",
+	Value=false,
+	Flag="raycast_enabled",
+	Callback=function(value)
+		Enableds.Raycast=value
+		if not Enableds.Raycast then return end
+		task.spawn(function()
+			while Enableds.Raycast do
+				local deltaTime = task.wait() -- Mengambil nilai selisih waktu antar frame untuk kehalusan ekstra
+				local bodyPart = nil
+				local model = nil
+				if Enableds.UseTarget then
+					model = RaycastInfo.Target
+				else
+					model = Character
+				end
+				if not (model and model.Parent) then continue end
+				if not BodyType or BodyType=="" or BodyType=="RootPart" then
+					bodyPart=model.PrimaryPart or model:FindFirstChild("HumanoidRootPart")
+				elseif BodyType=="Head" then
+					bodyPart=model:FindFirstChild("Head")
+				end
+				RaycastInfo.RaycastParams.FilterDescendantsInstances={model}
+				RaycastInfo.DeltaTime=deltaTime
+				local origin=bodyPart.Position
+				RaycastInfo.UseVisualPart=Enableds.UsePart
+				local results=Directionalcast(origin,bodyPart.CFrame,RaycastInfo)
+				VisualToggles["Caught"]:Replace(results~=nil and true or false)
+				local list = results or RaycastInfo.TargetAngles
+				for name, hit in pairs(list) do
+					local detected = false
+					if results ~= nil then
+						detected = hit.Detected
+					end
+					local toggle=VisualToggles[name]
+					if toggle then
+						toggle:Replace(detected)
+					end
+				end
+			end
+		end)
+	end
+})
+
+Window:AddLabel({
+	Text="YouTube: Crokyreo",
+	TextColor3=Color3.fromRGB(255,255,255)
+})
