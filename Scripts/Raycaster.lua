@@ -12,26 +12,18 @@ local Character=LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
 local Enableds,Connections={["Raycast"]=false,["UsePart"]=false,["UseTarget"]=false},{}
 local RaycastInfo={
-	-- Jarak jangkauan raycast
-	Distance=50, 
-	-- Kecepatan interpolasi sudut (makin tinggi makin responsif & mulus)
-	Speed=14, 
-	-- Mengubah ke 'true' agar sinar mengayun memindai area terus-menerus tanpa celah
-	UseSweep=true,
-	-- Kecepatan ayunan radar
-	SweepSpeed = 2.5, 
-	-- Jangkauan ayunan derajat (+25° ke kanan, -25° ke kiri)
-	SweepRange=25,
-	
-	-- Ignore this
+	["Distance"]=50, 
+	["Speed"]=14, 
+	["UseSweep"]=true,
+	["SweepSpeed"]=2.5, 
+	["SweepRange"]=25,
 	["TargetAngles"]={},
 	["CurrentAngles"]={},
 	["RaycastParams"]=RaycastParams.new(),
 	["DeltaTime"]=0,
 	["Color2"]=Color3.fromRGB(0,255,0),
 	["Color1"]=Color3.fromRGB(255,0,0),
-	["Target"]=nil,
-	["HitIndex"]=0,
+	["Target"]=nil
 }
 
 RaycastInfo.RaycastParams.FilterType=Enum.RaycastFilterType.Exclude
@@ -78,7 +70,9 @@ local function DrawPart(name, origin, direction, color)
 		visualPart.Parent = Character
 		VisualParts[name] = visualPart
 	end
-
+	
+    visualPart.Transparency = 0.5
+	
 	local length = direction.Magnitude
 	if length < 0.001 then length = 0.001 end
 
@@ -358,8 +352,15 @@ UsePartOrUIButton=RaycastFolder:AddButton({
 	MethodType="DoubleClick",
 	Callback=function()
 		Enableds.UsePart=not Enableds.UsePart
-		UsePartOrUIButton:Set(Enableds.UsePart and "Use Visual UI" or "Use Visual Part")
-	end
+	    local lastUsePart=Enableds.UsePart
+		UsePartOrUIButton:Set(lastUsePart and "Use Visual UI" or "Use Visual Part")
+		if not lastUsePart then 
+		   for _, part in pairs(VisualParts) do
+			  if lastUsePart~=Enableds.UsePart then break end
+			  if part and part.Parent then part.Transparency = 1 end
+		   end
+	   end
+   end
 })
 
 Window:AddToggle({
@@ -390,10 +391,11 @@ Window:AddToggle({
 				local origin=bodyPart.Position
 				local results,caught=Directionalcast(origin,bodyPart.CFrame,RaycastInfo)
 				VisualToggles["Caught"]:Replace(caught)
+				
 				for name, result in pairs(results) do
 					local detected = result.Detected
 					result.Color = detected and RaycastInfo.Color2 or RaycastInfo.Color1
-					if Enableds.UsePart then
+					if Enableds.UsePart and caught then
 		               DrawPart(name, origin, result.Direction, result.Color)
 					end
 					local toggle=VisualToggles[name]
