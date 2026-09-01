@@ -553,7 +553,10 @@ local function getComponents(Window)
 		options.OutlineSelectedColor3=Color3.fromRGB(140,140,140)
 		options.OutlineUnselectedColor3=Color3.fromRGB(100,100,100)
 		options.InnerUnselectedColor3=Color3.fromRGB(20,20,20)
-		
+		if options.Value==nil then options.Value=false end
+		if options.Default~=nil then
+			options.Value=options.Default and true or false
+		end
 		local inContact,title,tickboxOutline,changeValue=false,nil,nil,nil
 		local main=create("Frame",{
 			Name=options.Type,
@@ -1567,7 +1570,7 @@ local function getComponents(Window)
 		local titleLabel=nil
 
 		if text then
-			titleLabel=getComponents(Window):AddLabel({Text=text,TextColor3=Color3.fromRGB(255,255,255)})
+			titleLabel=getComponents(Window):AddLabel({Text=text})
 		end
 
 		local main=create("Frame",{
@@ -1735,7 +1738,10 @@ local function getComponents(Window)
 		options.Type="Dropdown"
 		options.Name=options.Name or options.Type
 		options.Text=options.Text or options.Title or options.Name
-		options.MultipleOptions=options.MultipleOptions and true or false
+		if options.Multi==nil then options.Multi=false end
+		if options.MultipleOptions~=nil then
+			options.Multi=options.MultipleOptions and true or false
+		end
 		options.Callback=missing("function",options.Callback,function() end)
 		options.Open=false
 		options.SortOrder=options.SortOrder or "LayoutOrder"
@@ -1748,7 +1754,7 @@ local function getComponents(Window)
 			if type(options.Option)=="string" then
 				options.Option={options.Option}
 			end
-			if not options.MultipleOptions and type(options.Option)=="table" then
+			if not options.Multi and type(options.Option)=="table" then
 				options.Option={options.Option[1]}
 			end
 			if type(options.Option)~="table" then
@@ -1850,7 +1856,7 @@ local function getComponents(Window)
 		options.Actives={}
 		options.IsEmpty=false
 
-		if options.MultipleOptions then
+		if options.Multi then
 			if #options.Option==1 then
 				selected.Text=options.Option[1]
 			elseif #options.Option==0 then
@@ -1911,7 +1917,7 @@ local function getComponents(Window)
 				if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
 					clicking=true
 					local currentOption=Strs.trim(droption.Text)
-					if options.MultipleOptions then
+					if options.Multi then
 						local foundIndex=table.find(options.Option,currentOption)
 						if foundIndex then
 							table.remove(options.Option,foundIndex)
@@ -1997,12 +2003,12 @@ local function getComponents(Window)
 			elseif optionType~="table" then
 				option={}
 			end
-			if not options.MultipleOptions then
+			if not options.Multi then
 				option={option[1]}
 			end
 			options.Option=option
 			callSafely(options.Callback,option)
-			if options.MultipleOptions then
+			if options.Multi then
 				if #option==1 then
 					selected.Text=tostring(option[1])
 				elseif #options.Option==0 then
@@ -2015,7 +2021,7 @@ local function getComponents(Window)
 				options:Close()
 				for _,droption in ipairs(content:GetChildren()) do
 					if droption.ClassName=="TextLabel" then
-						if not options.MultipleOptions then
+						if not options.Multi then
 							droption.BackgroundColor3=table.find(options.Option,droption.Name) ~= nil and Theme.Unselected or Theme.Selected
 						else
 							break
@@ -2156,6 +2162,9 @@ local function getComponents(Window)
 			__newindex=function(_,i,v)
 				if i~="Set" and i~="DroptionButtons" and i~="Option" and i~="IsEmpty" and i~="Actives" then
 					options[i]=v
+				end
+				if i=="MultipleOptions" then
+					options.Multi=v
 				end
 				if i=="Visible" then
 					main.Visible=v
