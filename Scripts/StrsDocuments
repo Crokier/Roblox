@@ -1,0 +1,11 @@
+-- Example: "Check1" -> 1
+local s = "Check1"
+local tier = tonumber(s:match("%d+") or "")
+print(tier)
+
+-- Example: "1. A\n2. D" > {{["Tier"] = "1", ["Letter"] = "A"}, {["Tier"] = "2", ["Letter"] = "D"}}
+local s = "1. A\n2. D"
+local list = {}
+for tier, letter in string.gmatch(s, "(%d+)%.%s*(%a+)") do
+    print("Tier:", tier, "| Letter:", letter)
+end
