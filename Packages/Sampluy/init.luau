@@ -45,7 +45,8 @@ local Library={
 }
 
 local Strs={
-	BuilderIcons = "rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json"
+	BuilderIcons = "rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json",
+	FamiliesBuilderIcons = "rbxasset://fonts/families/BuilderIcons.json"
 }
 
 function Strs.toNumber(v,maxFloat)
@@ -93,7 +94,6 @@ local function callSafely(func,...)
 	end
 end
 
--- Copy a string to clipboard. Returns whether a clipboard fn was available.
 local function copyToClipboard(s)
 	if not setclipboard then return false end
 	return pcall(setclipboard, s)
@@ -249,6 +249,10 @@ local function resizeUIScale(ui,screenSize,x,y,callback)
 	uiScale.Scale=result
 end
 
+local function iconStr(name)
+	return `<font face="{Strs.FamiliesBuilderIcons}">{name}</font>`
+end
+
 local function getComponents(Window)
 	local elements={}
 
@@ -396,7 +400,7 @@ local function getComponents(Window)
 			Parent=Window.Container
 		})
 
-		local title=create("TextLabel",{
+		local title:TextLabel=create("TextLabel",{
 			Name="Title",
 			ZIndex=2,
 			AnchorPoint=Vector2.new(0.5,0.5),
@@ -410,7 +414,7 @@ local function getComponents(Window)
 			TextSize=12,
 			Parent=main
 		})
-
+		
 		local round=create("ImageLabel",{
 			Name="Round",
 			AnchorPoint=Vector2.new(0.5,0.5),
@@ -425,6 +429,16 @@ local function getComponents(Window)
 			SliceScale=0.02,
 			Parent=main
 		})
+		
+		if options.ImageTransparency ~= nil then
+			round.ImageTransparency=options.ImageTransparency
+		end
+		
+		for key, value in pairs(options) do
+			if key=="FontFace" or key=="TextColor3" or key=="TextScaled" then
+				pcall(function() title[key]=value end)
+			end
+		end
 		
 		function options:Set(text)
 			options.Text=text
@@ -2079,7 +2093,7 @@ local function getComponents(Window)
 		end
 
 		local inContact=false
-
+		
 		function options:Close()
 			Library.ActivePopup=nil
 			options.Open=false
@@ -2401,6 +2415,7 @@ function Library:GetProtectGui(gui)
 	if gethui then return gethui() or Services.CoreGui end
 	if not cloneref then
 		LocalPlayer:Kick("Error: protect_gui function not found")
+		return
 	end
 	return Services.CoreGui
 end
@@ -3189,7 +3204,7 @@ function Library:CreateWindow(config)
 		ScaleType=Enum.ScaleType.Slice,
 		SliceCenter=Rect.new(100,100,100,100),
 		SliceScale=0.04,
-		ClipsDescendants=true,
+		ClipsDescendants=false,
 		Parent=gui
 	})
 
@@ -3214,7 +3229,27 @@ function Library:CreateWindow(config)
 		TextSize=12,
 		Parent=mainFrame
 	})
-
+	
+	local tabMainButton=create("TextButton",{
+		AnchorPoint=Vector2.new(0.5,0),
+		Name="Title",
+		Size=UDim2.new(0,200,0,38),
+		Position=UDim2.new(0.5,0,-0.8,0),
+		BackgroundTransparency=1,
+		BorderSizePixel=0,
+		Text="three-dots-horizontal",
+		FontFace=Font.new(Strs.BuilderIcons,Enum.FontWeight.Bold),
+		TextColor3=Color3.fromRGB(0,0,0),
+		TextSize=12,
+		Parent=titleBar
+	})
+	
+	create("UITextSizeConstraint",{
+		MaxTextSize=100,
+		MinTextSize=50,
+		Parent=tabMainButton
+	})
+	
 	local closeHolder=create("Frame",{
 		Name="Close",
 		Position=UDim2.new(1,0,0,0),
@@ -3265,7 +3300,48 @@ function Library:CreateWindow(config)
 		HorizontalAlignment=Enum.HorizontalAlignment.Center,
 		SortOrder=Enum.SortOrder.LayoutOrder
 	})
+	
+	local tabScrollFrame=create("ScrollingFrame",{
+		Name="Tabs",
+		Size=UDim2.new(0.225,0,0,0),
+		Position=UDim2.new(-0.2,0,0,40),
+		BackgroundTransparency=0,
+		BackgroundColor3=Color3.fromRGB(20,20,20),
+		BorderSizePixel=0,
+		ScrollBarThickness=4,
+		ScrollBarImageColor3=Color3.fromRGB(100,100,110),
+		ClipsDescendants=true,
+		CanvasSize=UDim2.new(0,0,0,0),
+		Parent=mainFrame
+	})
+	
+	local tabContentHolder=create("Frame",{
+		AnchorPoint=Vector2.new(0.5,0),
+		Size=UDim2.new(1,-16,0,0),
+		Position=UDim2.new(0.5,0,0,0),
+		AutomaticSize=Enum.AutomaticSize.Y,
+		BackgroundTransparency=1,
+		Parent=tabScrollFrame
+	})
 
+	create("UIListLayout",{
+		Parent=tabContentHolder,
+		Padding=UDim.new(0,6),
+		HorizontalAlignment=Enum.HorizontalAlignment.Center,
+		SortOrder=Enum.SortOrder.LayoutOrder
+	})
+	
+	local cleanDraggable=Library:MakeDraggable(titleBar,mainFrame)
+
+	Window.Main=mainFrame
+	Window.Container=contentHolder
+	Window.Gui=gui
+	Window.TabButtons={}
+	Window.TabPages={}
+	Window.Parent=true
+	Window.TabActive=false
+	Library.Container=contentHolder
+	
 	local savedMaxHeight = Window.MaxHeight
 
 	local function updateWindowSize(animated)
@@ -3283,8 +3359,8 @@ function Library:CreateWindow(config)
 			end
 		end
 
-		local contentHeight=contentHolder.AbsoluteSize.Y
-		local targetMainSize,targetScrollSize
+		local contentHeight=Library.Container.AbsoluteSize.Y
+		local targetMainSize:UDim2,targetScrollSize
 
 		if not Window.Open then
 			targetMainSize=Window.Size
@@ -3298,14 +3374,24 @@ function Library:CreateWindow(config)
 		if animated then
 			tween(mainFrame,TweenCache.Default,{Size=targetMainSize})
 			tween(scrollFrame,TweenCache.Default,{Size=targetScrollSize})
+			tween(tabScrollFrame,TweenCache.Default,{Size=UDim2.new(0.225,0,0,targetScrollSize.Y.Offset)})
 		else
 			mainFrame.Size=targetMainSize
 			scrollFrame.Size=targetScrollSize
+			tabScrollFrame.Size=UDim2.new(0.225,0,0,targetScrollSize.Y.Offset)
 		end
 	end
-
+	
+	tabScrollFrame.Visible = false
+	
+	local absoluteCinema=tabMainButton.Activated:Connect(function()
+		if tabMainButton.Visible then
+			tabScrollFrame.Visible = not tabScrollFrame.Visible
+		end
+	end)
+	
 	local absoluteSizeChanged=contentHolder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-		scrollFrame.CanvasSize=UDim2.new(0,0,0,contentHolder.AbsoluteSize.Y+6)
+		scrollFrame.CanvasSize=UDim2.new(0,0,0,Library.Container.AbsoluteSize.Y+6)
 		updateWindowSize(true)
 	end)
 
@@ -3317,21 +3403,13 @@ function Library:CreateWindow(config)
 		end
 	end)
 
-	local cleanDraggable=Library:MakeDraggable(titleBar,mainFrame)
-
-	Window.Main=mainFrame
-	Window.Container=contentHolder
-	Window.Gui=gui
-	Window.TabButtons={}
-	Window.TabPages={contentHolder}
-	Window.Parent=true
-
 	function Window:Destroy()
 		if not self.Parent then return end
 		self.Parent=nil
 		callSafely(self.Destroying)
 		absoluteSizeChanged:Disconnect()
 		inputBegan:Disconnect()
+		absoluteCinema:Disconnect()
 		cleanDraggable()
 		self.Open=false
 		if self.Gui.Parent then
@@ -3341,22 +3419,88 @@ function Library:CreateWindow(config)
 			self.Gui.Name=self.OldName or self.GuiName.."-Old"
 		end
 	end
-
+	
 	connectDestroying(Window.Gui,Window.SaveName,function()
 		Window:Destroy()
 	end)
-
+	
+	Window.FirstTab = false
+	
 	function Window:CreateTab(options)
 		options=missing("table",options,{})
 		options.Icon=options.Icon or options.Image or ""
-	end
+		
+		local isFirtTab = false
+		local Tab = {}
+		
+		for key, value in pairs(Window) do
+			Tab[key] = value
+		end
+		
+		if not Window.FirstTab then
+			Window.FirstTab=true
+			isFirtTab = true
 
-	local baseComponents=getComponents(Window)
-	for k,v in next,baseComponents do
-		Window[k]=v
-	end
+			Tab.Container=contentHolder
+			tabMainButton.Visible=false
+			tabScrollFrame.Visible=false
+			Tab.CreateTab = Window.CreateTab
+		else
+			local tabPage=create("Frame",{
+				AnchorPoint=Vector2.new(0.5,0),
+				Size=UDim2.new(1,-16,0,0),
+				Position=UDim2.new(0.5,0,0,0),
+				AutomaticSize=Enum.AutomaticSize.Y,
+				BackgroundTransparency=1,
+				Visible = false,
+				Parent=scrollFrame
+			})
 
-	return Window
+			create("UIListLayout",{
+				Parent=tabPage,
+				Padding=UDim.new(0,6),
+				HorizontalAlignment=Enum.HorizontalAlignment.Center,
+				SortOrder=Enum.SortOrder.LayoutOrder
+			})
+			
+			tabPage.Visible = false
+			Tab.Container = tabPage
+			tabMainButton.Visible=true
+		end
+		
+		local baseComponents=getComponents(Tab)
+		for k,v in next,baseComponents do
+			Tab[k]=v
+		end
+		
+		table.insert(Window.TabPages, Tab.Container)
+		
+		getComponents({Gui=Window.Gui,SaveName=Window.SaveName,Container=tabContentHolder}):AddButton({
+			Text=options.Icon,
+			ImageTransparency=1,
+			FontFace=Font.new(Strs.BuilderIcons,Enum.FontWeight.Bold),
+			TextColor3=Color3.fromRGB(255,255,255),
+			TextScaled=true,
+			Callback=function()
+				Library.Container = Tab.Container
+				for _, tabPage in ipairs(Window.TabPages) do
+					if tabPage ~= Tab.Container then
+						tabPage.Visible = false
+					end
+				end
+				Tab.Container.Visible = true
+			end
+		})
+		
+		
+		return Tab
+	end
+	
+	local mainTab = Window:CreateTab({
+		Icon="square-code",
+	})
+	
+	return mainTab
 end
 
 function Library:Notify(data)
