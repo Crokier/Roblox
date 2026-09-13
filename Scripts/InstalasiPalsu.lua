@@ -1,4 +1,4 @@
-local PLUGIN_NAME='Downloader'
+local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
 
 local Missing=function(t,v,f) return type(v)==t and v or f end
@@ -26,23 +26,65 @@ local Instancer=loadstring(game:HttpGet('https://raw.githubusercontent.com/Croki
 local Strs=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Strs/init.luau'))()
 local UI=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Sampluy/init.luau'))()
 
-
 local PlayerGui=LocalPlayer:FindFirstChildOfClass("PlayerGui")
 local Mouse=LocalPlayer:GetMouse()
 local SaveMouseIcon=Mouse.Icon
 
-local IsEnums,IsEmpty,IsStrings,GetLines,ToPersentase,GetProperties,IsAlive,IsAs,AddInstance,CopyInstanceWith,GetInstanceProperty,CreateVariable,ConvertMeshPartToSpecialMesh,GetAncestorsAndSelf,SetChildrenParent,AddPose=nil,Strs.IsEmpty,Strs.IsStrings,Strs.GetLines,Strs.ToPersentase,Tabler.GetProperties,Instancer.IsAlive,Instancer.IsAs,Instancer.AddInstance,Instancer.CopyInstanceWith,Instancer.GetInstanceProperty,Instancer.CreateVariable,Instancer.ConvertMeshPartToSpecialMesh,Instancer.GetAncestorsAndSelf,Instancer.SetChildrenParent,nil
-local MathHuge,MathFloor,MathMax,StringFormat,StringSplit,StringSub,StringFind,StringGmatch,TableInsert,TableRemove,TableConcat,TableFind,TableClear,Color3FromRGB,InstanceNew=math.huge,math.floor,math.max,string.format,string.split,string.sub,string.find,string.gmatch,table.insert,table.remove,table.concat,table.find,table.clear,Color3.fromRGB,Instance.new
+local Values={
+	["Inf"]=math.huge,
+	FolderName='Instal',
+	FileName=nil,
+	SaveDebounce=false
+}
+local Templates={
+	['SurfaceAppearance']=Instance.new('SurfaceAppearance')
+}
+
+local Utility={
+	-- Instancer --
+	IsAlive=Instancer.IsAlive,
+	IsAs=Instancer.IsAs,
+	AddInstance=Instancer.AddInstance,
+	CopyInstanceWith=Instancer.CopyInstanceWith,
+	CopyInstance=Instancer.CopyInstance,
+	GetInstanceProperty=Instancer.GetInstanceProperty,
+	CreateVariable=Instancer.CreateVariable,
+	ConvertMeshPartToSpecialMesh=Instancer.ConvertMeshPartToSpecialMesh,
+	SetChildrenParent=Instancer.SetChildrenParent,
+	GetAncestorsAndSelf=Instancer.GetAncestorsAndSelf,
+	Create=function(className,properties)
+		properties=typeof(properties)=="table" and properties or {}
+		local obj=Instance.new(className)
+		for property,value in next,properties do
+			obj[property]=value
+		end
+		return obj
+	end,
+	AddPose=function(name,cframe,parent)
+		local pose=Instance.new('Pose') pose.Name=name pose.CFrame=cframe pose.Parent=parent
+	end,
+	
+	-- Strs --
+	IsEmpty=Strs.IsEmpty,
+	IsStrings=Strs.IsStrings,
+	GetLines=Strs.GetLines,
+	ToPersentase=Strs.ToPersentase,
+	ToNumber=Strs.ToNumber,
+	
+	-- Tabler --
+	GetProperties=Tabler.GetProperties,
+	Foreach=function(t,func)
+		while #t > 0 do
+			local v=table.remove(t)
+			func(v)
+		end
+	end,
+	IsEnums=function(enum1,enum2)
+		for i,v in ipairs(enum2) do if enum1==v then return true end end return false
+	end,
+}
+
 local TopSelectButton,StatusLabel,LoaderLabel,ResetButton,DestroyButton,TextBox,SelectorGrabTypeButton,SelectorAnimationButton,SelectorFPSButton,AddButton,InitializeButton,InstalButton,RecordButton,StopButton
-
-
-IsEnums=function(enum1,enum2)
-	for i,v in ipairs(enum2) do if enum1==v then return true end end return false
-end
-
-AddPose=function(name,cframe,parent)
-	local pose=Instance.new('Pose') pose.Name=name pose.CFrame=cframe pose.Parent=parent
-end
 
 local Outliner=Instance.new('SelectionBox') Outliner.Name='Selection' Outliner.Color3=Color3.fromRGB(25,153,255) Outliner.LineThickness=0.1 Outliner.SurfaceColor3=Color3.fromRGB(255,255,255) Outliner.SurfaceTransparency=1 Outliner.Transparency=0 Outliner.Adornee=nil Outliner.Visible=false
 
@@ -246,6 +288,12 @@ local GlobalData={
 	},
 	['Propertys']={}
 }
+
+if isfolder and makefolder then
+	if not isfolder(FOLDER_NAME) then
+		makefolder(FOLDER_NAME)
+	end
+end
 
 GlobalData.Propertys.Constraint=[[
 Attachment
@@ -1203,11 +1251,11 @@ local SafeData={}
 do
 	SafeData['bool']=function(value) return tostring(value) end
 	SafeData['boolean']=SafeData['bool']
-	SafeData['float']=function(value) return Strs.ToNumber(value,2) end
-	SafeData['int']=function(value) return tostring(MathFloor(value)) end
-	SafeData['number']=function(value) return Strs.ToNumber(value,3) end
+	SafeData['float']=function(value) return Utility.ToNumber(value,2) end
+	SafeData['int']=function(value) return tostring(math.floor(value)) end
+	SafeData['number']=function(value) return Utility.ToNumber(value,3) end
 	SafeData['string']=function(value) return "\'"..value:gsub("[\"\\]","\\%1"):gsub("\n","\\\\n").."\'" end
-	
+
 	SafeData['EnumItem']=SafeData['bool']
 	SafeData['TextureMode']=SafeData['bool']
 	SafeData['LineJoinMode']=SafeData['bool']
@@ -1224,7 +1272,7 @@ do
 	SafeData['EasingDirection']=SafeData['bool']
 	SafeData['EasingStyle']=SafeData['bool']
 	SafeData['FillDirection']=SafeData['bool']
-	SafeData['Font']=function(value) return string.format("Fnt('%s',%s,%s)",value.Family,tostring(value.Weight),tostring(value.Style)) end
+	SafeData['Font']=function(value) return ("Fnt('%s',%s,%s)"):format(value.Family,tostring(value.Weight),tostring(value.Style)) end
 	SafeData['FrameStyle']=SafeData['bool']
 	SafeData['HorizontalAlignment']=SafeData['bool']
 	SafeData['NormalId']=SafeData['bool']
@@ -1245,7 +1293,7 @@ do
 		local hierarchy=''
 		local previousObjectUsedBrackets=true
 
-		for object in GetAncestorsAndSelf(value) do
+		for object in Utility.GetAncestorsAndSelf(value) do
 			local safeName=''
 			local shouldUseBrackets=false
 			local currentHierarchy=''
@@ -1303,9 +1351,9 @@ do
 
 		return hierarchy
 	end
-	
+
 	SafeData['PhysicalProperties']=function(value)
-		return ('PhyProp(%s,%s,%s,%s,%s)'):format(Strs.ToNumber(value.Density,3),Strs.ToNumber(value.Friction,3),Strs.ToNumber(value.Elasticity,3),Strs.ToNumber(value.FrictionWeight,3),Strs.ToNumber(value.ElasticityWeight,3))
+		return ('PhyProp(%s,%s,%s,%s,%s)'):format(Utility.ToNumber(value.Density,3),Utility.ToNumber(value.Friction,3),Utility.ToNumber(value.Elasticity,3),Utility.ToNumber(value.FrictionWeight,3),Utility.ToNumber(value.ElasticityWeight,3))
 	end
 	SafeData['Rect2D']=function(value)
 		return 'R2D('..tostring(value):gsub('\n',''):gsub(' ','')..')'
@@ -1319,7 +1367,7 @@ do
 	SafeData['UDim']=function(value)
 		local t={}
 		for i,v in ipairs({value.Scale,value.Offset})  do
-			t[i]=Strs.ToNumber(v,3)
+			t[i]=Utility.ToNumber(v,3)
 		end
 		local s=table.concat(t,',')
 		return 'UD('..s..')'
@@ -1327,7 +1375,7 @@ do
 	SafeData['UDim2']=function(value)
 		local t={}
 		for i,v in ipairs({value.X.Scale,value.X.Offset,value.Y.Scale,value.Y.Offset}) do
-			t[i]=Strs.ToNumber(v,3)
+			t[i]=Utility.ToNumber(v,3)
 		end
 		local s=table.concat(t,',')
 		return 'UD2('..s..')'
@@ -1335,7 +1383,7 @@ do
 	SafeData['Vector2']=function(value)
 		local t={}
 		for i,v in ipairs({value.X,value.Y})  do
-			t[i]=Strs.ToNumber(v,3)
+			t[i]=Utility.ToNumber(v,3)
 		end
 		local s=table.concat(t,',')
 		return 'V2('..s..')'
@@ -1343,7 +1391,7 @@ do
 	SafeData['Vector3']=function(value)
 		local t={}
 		for i,v in ipairs({value.X,value.Y,value.Z})  do
-			t[i]=Strs.ToNumber(v,3)
+			t[i]=Utility.ToNumber(v,3)
 		end
 		local s=table.concat(t,',')
 		return 'V3('..s..')'
@@ -1352,7 +1400,7 @@ do
 		local list={value.X,value.Y,value.Z,value.W or value.A}
 		local results={}
 		for i,v in ipairs(list)  do
-			results[i]=Strs.ToNumber(v,3)
+			results[i]=Utility.ToNumber(v,3)
 		end
 		local s=table.concat(results,',')
 		return 'V4('..s..')'
@@ -1361,27 +1409,27 @@ do
 		local list=string.split(tostring(value):gsub('\n',''):gsub(' ',''),',')
 		local results={}
 		for i,v in ipairs(list)  do
-			results[i]=Strs.ToNumber(v,3)
+			results[i]=Utility.ToNumber(v,3)
 		end
 		local s=table.concat(results,',')
 		return 'CF('..s..')'
 	end
 
 	SafeData['NumberRange']=function(value)
-		return ('NR(%s,%s)'):format(Strs.ToNumber(value.Min),Strs.ToNumber(value.Max))
+		return ('NR(%s,%s)'):format(Utility.ToNumber(value.Min),Utility.ToNumber(value.Max))
 	end
 	SafeData['FloatRange']=function(value)
-		return ('FR(%s,%s)'):format(Strs.ToNumber(value.Min),Strs.ToNumber(value.Max))
+		return ('FR(%s,%s)'):format(Utility.ToNumber(value.Min),Utility.ToNumber(value.Max))
 	end
 
 	SafeData['ColorSequenceKeypoint']=function(value)
-		return ('CSeqKey(%s,%s)'):format(Strs.ToNumber(value.Time),SafeData['Color3'](value.Value));
+		return ('CSeqKey(%s,%s)'):format(Utility.ToNumber(value.Time),SafeData['Color3'](value.Value));
 	end
 	SafeData['NumberSequenceKeypoint']=function(value)
-		return ('NSeqKey(%s,%s)'):format(Strs.ToNumber(value.Time),Strs.ToNumber(value.Value))
+		return ('NSeqKey(%s,%s)'):format(Utility.ToNumber(value.Time),Utility.ToNumber(value.Value))
 	end
 	SafeData['FloatSequenceKeypoint']=function(value)
-		return ('FSeqKey(%s,%s)'):format(Strs.ToNumber(value.Time),Strs.ToNumber(value.Value))
+		return ('FSeqKey(%s,%s)'):format(Utility.ToNumber(value.Time),Utility.ToNumber(value.Value))
 	end
 
 	SafeData['ColorSequence']=function(value)
@@ -1409,23 +1457,23 @@ end
 
 local RegisteredClasses,ObjectClasses={},{}
 local GrabTypeList,BannedGrabTypeList,RecordAnimTypeList,FPSTypeList,NumericList,EventClasses,LightingClasses,UIClasses,ColorProperties,TextProperties,UIColorProperties,IconProperties=unpack(GlobalData.Others)
-local GrabTypeCache,BuildingCache,GuiCache,ToolCache,MouseIconCache,InstalCache,Cache={},{},{},{},{},{},{}
+local GrabTypeCache,BuildingCache,GuiCache,ToolCache,MouseIconCache,InstalCache,FileCache,Cache={},{},{},{},{},{},{},{}
 
 local GrabType,RecordAnimType,FPSType,LastStatus=GrabTypeList[1],'','',''
 local RecordAnimConnection,PlayerGuiAdded,BuildingTarget,GuiTarget,ToolTarget,InstalTarget,GrabberModel=nil,nil,nil,nil,nil,nil,nil
 local Destroyed,Debounce,IsInput,IsRecordAnim=false,false,false,false
 local BuildingIndex,TotalBuilding=0,0
 
-local function CreateClasses(properties)
+Utility.CreateClasses=function(properties)
 	local className,templateObject,classList,registeredList=nil,nil,{},{}
-	for line in GetLines(properties) do
-		if StringSub(line,1,1)~='-' then
-			if StringSub(line,1,1)=='	' then
+	for line in Utility.GetLines(properties) do
+		if line:sub(1,1)~='-' then
+			if line:sub(1,1)=='	' then
 				if templateObject then
-					local space=StringFind(line,' ')
+					local space=line:find(' ')
 					if not tonumber(space) then return end
-					local dataType=StringSub(line,2,space-1)
-					local propertyName=StringSub(line,space+1,#line)
+					local dataType=line:sub(2,space-1)
+					local propertyName=line:sub(space+1,#line)
 					local propertyValue,propertyType=nil,nil
 					local success,err=pcall(function() propertyValue=templateObject[propertyName] end) 
 					if not success then
@@ -1436,7 +1484,6 @@ local function CreateClasses(properties)
 					if propertyType=='EnumItem' then
 						dataType=propertyType
 					end
-
 					if SafeData[dataType]==nil then
 						warn('['..PLUGIN_NAME..'] Unhandled data type '..dataType..' '..className..'.'..propertyName..' will be ignored.')
 						continue
@@ -1445,12 +1492,12 @@ local function CreateClasses(properties)
 						DataType=dataType,
 						DefaultValue=propertyValue
 					}
-					TableInsert(classList[className],propertyName)
+					table.insert(classList[className],propertyName)
 				end
 			else
 				if templateObject then templateObject:Destroy() templateObject=nil end
 				className=line
-				if not pcall(function() InstanceNew(className):Destroy() end) then
+				if not pcall(function() Instance.new(className):Destroy() end) then
 					warn('['..PLUGIN_NAME..'] Unknown class '..line..'  will be ignored.')
 					continue
 				end
@@ -1458,8 +1505,8 @@ local function CreateClasses(properties)
 					warn('['..PLUGIN_NAME..'] '..className..'class is already registered.')
 					continue
 				end
-				TableInsert(registeredList,className)
-				templateObject=InstanceNew(className)
+				table.insert(registeredList,className)
+				templateObject=Instance.new(className)
 				classList[className]={}
 			end
 		end
@@ -1469,7 +1516,7 @@ local function CreateClasses(properties)
 	return classList,registeredList
 end
 
-ObjectClasses,RegisteredClasses=CreateClasses(REFERENCE_PROPERTY)
+ObjectClasses,RegisteredClasses=Utility.CreateClasses(REFERENCE_PROPERTY)
 
 REFERENCE_PROPERTY=nil
 GUI_PROPERTY=nil
@@ -1494,7 +1541,7 @@ function Module:SetStatus(mode,...)
 		elseif v==-2 then
 			LoaderLabel.Text='(0/0) 0%'
 		else
-			local persentase=ToPersentase(v,max,2,true)
+			local persentase=Utility.ToPersentase(v,max,2,true)
 			LoaderLabel.Text=tostring(v)..'/'..tostring(max)..' '..persentase
 		end
 	end
@@ -1502,12 +1549,12 @@ end
 
 function Module:SetUpdate(mode,...)
 	if mode==1 then
-		TableClear(GrabTypeCache)
-		TableClear(BuildingCache)
-		TableClear(GuiCache)
-		TableClear(ToolCache)
-		TableClear(MouseIconCache)
-		TableClear(InstalCache)
+		table.clear(GrabTypeCache)
+		table.clear(BuildingCache)
+		table.clear(GuiCache)
+		table.clear(ToolCache)
+		table.clear(MouseIconCache)
+		table.clear(InstalCache)
 		GrabType=GrabTypeList[1]
 		BuildingTarget=nil
 		InstalTarget=nil
@@ -1577,7 +1624,7 @@ function Module:GetGrabData(mode)
 	StatusLabel.Text=mode
 	task.wait(2)
 
-	local newModel=InstanceNew('Model') 
+	local newModel=Instance.new('Model') 
 	newModel.Name=mode
 
 	local s,sLen,maxSLen,maxSound,canSRemoved='',0,100,200,true
@@ -1614,7 +1661,7 @@ function Module:GetGrabData(mode)
 			k=v.Texture 
 		elseif className=='Texture' and mode=='Texture' then
 			k=v.Texture
-		elseif IsAs(v,EventClasses) and mode=='Event' then
+		elseif Utility.IsAs(v,EventClasses) and mode=='Event' then
 			k=name..'_'..className
 		end 
 		if k~=nil and not actives[k] then
@@ -1624,24 +1671,27 @@ function Module:GetGrabData(mode)
 		end
 		return false
 	end
-
+	
 	if mode=='Sound' then
 		local soundIds={}
-		CopyInstanceWith(explorers,ObjectClasses,newModel,function(v) 
-			local name,className,key=v.Name,v.ClassName,nil 
-			if className=='Sound' then key=v.SoundId elseif className=='AudioPlayer' then key=v.Asset end 
-			if key~=nil and not actives[key] then 
-				actives[key]=true StatusLabel.Text=mode..': '..className..' '..name
-				TableInsert(soundIds,{name,needle}) 
-				return true 
-			end
-			return false 
-		end)
+		for _, explorer in ipairs(explorers) do
+			if not (explorer and explorer.Parent) then continue end
+			for _, value in ipairs(explorer:GetDescendants()) do
+				if not (value and value.Parent) then continue end
+				local name,className,key=value.Name,value.ClassName,nil
+				if className=='Sound' then key=value.SoundId elseif className=='AudioPlayer' then key=value.Asset end 
+				if key~=nil and not actives[key] then 
+					actives[key]=true 
+					StatusLabel.Text=mode..': '..className..' '..name
+					table.insert(soundIds,{name,needle,value,className})
+				end
+				RunService.Stepped:Wait() 
+			end 
+		end
 		if #soundIds>=maxSound then 
 			StatusLabel.Text=tostring(#soundIds)..' Sound Sound is Dangerous!'
 			task.wait(2)
 			StatusLabel.Text=''
-			newModel:ClearAllChildren()
 			s='\n local SoundIds={'
 			for i,v in ipairs(soundIds) do
 				RunService.Stepped:Wait() 
@@ -1657,69 +1707,76 @@ function Module:GetGrabData(mode)
 			s=s.."}\n"
 			s=s.. [[for i,v in ipairs(SoundIds) do local nv=e('Sound') nv.Name=v[1] nv.SoundId=v[2] nv.Parent=%s end]] .."\n"
 			canSRemoved=false
+		else
+			for i,v in ipairs(soundIds) do
+				RunService.Stepped:Wait()
+				StatusLabel.Text=mode..': '..v[2]
+				local newValue=Utility.CopyInstance(v[4],v[3],ObjectClasses[v[4]]) 
+				newValue.Parent=newModel 
+			end
 		end
-		TableClear(soundIds)
+		table.clear(soundIds)
 	elseif mode=='Lighting' then
-		local newLighting=InstanceNew("Model")
+		local newLighting=Instance.new("Model")
 		newLighting.Name='Lighting'
 		newLighting.Parent=newModel
 
-		local newAmbient=InstanceNew("Color3Value")
+		local newAmbient=Instance.new("Color3Value")
 		newAmbient.Name='Ambient'
 		newAmbient.Value=Lighting.Ambient
 		newAmbient.Parent=newLighting
 
-		local newBrightness=InstanceNew('NumberValue')
+		local newBrightness=Instance.new('NumberValue')
 		newBrightness.Name='Brightness'
 		newBrightness.Value=Lighting.Brightness
 		newBrightness.Parent=newLighting
 
-		local newColorShift_Bottom=InstanceNew('Color3Value')
+		local newColorShift_Bottom=Instance.new('Color3Value')
 		newColorShift_Bottom.Name='ColorShift_Bottom'
 		newColorShift_Bottom.Value=Lighting.ColorShift_Bottom
 		newColorShift_Bottom.Parent=newLighting
 
-		local newColorShift_Top=InstanceNew('Color3Value')
+		local newColorShift_Top=Instance.new('Color3Value')
 		newColorShift_Top.Name='ColorShift_Top'
 		newColorShift_Top.Value=Lighting.ColorShift_Top
 		newColorShift_Top.Parent=newLighting
 
-		local newEnvironmentDiffuseScale=InstanceNew('NumberValue')
+		local newEnvironmentDiffuseScale=Instance.new('NumberValue')
 		newEnvironmentDiffuseScale.Name='EnvironmentDiffuseScale'
 		newEnvironmentDiffuseScale.Value=Lighting.EnvironmentDiffuseScale
 		newEnvironmentDiffuseScale.Parent=newLighting
 
-		local newEnvironmentSpecularScale=InstanceNew('NumberValue')
+		local newEnvironmentSpecularScale=Instance.new('NumberValue')
 		newEnvironmentSpecularScale.Name='EnvironmentSpecularScale'
 		newEnvironmentSpecularScale.Value=Lighting.EnvironmentSpecularScale
 		newEnvironmentSpecularScale.Parent=newLighting
 
-		local newGlobalShadows=InstanceNew('BoolValue')
+		local newGlobalShadows=Instance.new('BoolValue')
 		newGlobalShadows.Name='GlobalShadows'
 		newGlobalShadows.Value=Lighting.GlobalShadows
 		newGlobalShadows.Parent=newLighting
 
-		local newOutdoorAmbient=InstanceNew('Color3Value')
+		local newOutdoorAmbient=Instance.new('Color3Value')
 		newOutdoorAmbient.Name='OutdoorAmbient'
 		newOutdoorAmbient.Value=Lighting.OutdoorAmbient
 		newOutdoorAmbient.Parent=newLighting
 
-		local newShadowSoftness=InstanceNew('NumberValue')
+		local newShadowSoftness=Instance.new('NumberValue')
 		newShadowSoftness.Name='ShadowSoftness'
 		newShadowSoftness.Value=Lighting.ShadowSoftness
 		newShadowSoftness.Parent=newLighting
 
-		local newClockTime=InstanceNew('NumberValue')
+		local newClockTime=Instance.new('NumberValue')
 		newClockTime.Name='ClockTime'
 		newClockTime.Value=Lighting.ClockTime
 		newClockTime.Parent=newLighting
 
-		local newGeographicLatitude=InstanceNew('NumberValue')
+		local newGeographicLatitude=Instance.new('NumberValue')
 		newGeographicLatitude.Name='GeographicLatitude'
 		newGeographicLatitude.Value=Lighting.GeographicLatitude
 		newGeographicLatitude.Parent=newLighting
 
-		local newExposureCompensation=InstanceNew('NumberValue')
+		local newExposureCompensation=Instance.new('NumberValue')
 		newExposureCompensation.Name='ExposureCompensation'
 		newExposureCompensation.Value=Lighting.ExposureCompensation
 		newExposureCompensation.Parent=newLighting
@@ -1727,41 +1784,81 @@ function Module:GetGrabData(mode)
 		StatusLabel.Text=mode..': '..newLighting.Name
 		task.wait(2)
 
-		CopyInstanceWith(explorers,ObjectClasses,newModel,function(v) if IsAs(v,LightingClasses) then  StatusLabel.Text=mode..': '..v.Name return true end return false end)
+		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,function(v) 
+			if Utility.IsAs(v,LightingClasses) then  
+				StatusLabel.Text=mode..': '..v.Name 
+				return true 
+			end 
+			return false 
+		end)
 	elseif mode=='Event' then
-		CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
+		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
 	elseif mode=='Team' then
-		CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
+		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
 	elseif mode=='Texture' then
-		CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
+		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
 	elseif mode=='Decal' then
-		CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
+		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
 	elseif mode=='Trail' then
-		CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
+		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
 	elseif mode=='Beam' then
-		CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
+		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
 	elseif mode=='GuiColor' then
-		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do if IsAs(v,UIClasses) then GetInstanceProperty(v,UIColorProperties,function(dataType,propertyValue) if dataType=='Color3' or dataType=='BrickColor' then needle=dataType..'_'..tostring(propertyValue) if not actives[needle] then actives[needle]=true StatusLabel.Text=mode..': '..tostring(propertyValue) if dataType=='BrickColor' then s=s..tostring(propertyValue)..',' else s=s..SafeData['Color3'](propertyValue)..',' end if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1) % maxSLen RunService.Stepped:Wait() end end end) end end end
+		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do if Utility.IsAs(v,UIClasses) then Utility.GetInstanceProperty(v,UIColorProperties,function(dataType,propertyValue) if dataType=='Color3' or dataType=='BrickColor' then needle=dataType..'_'..tostring(propertyValue) if not actives[needle] then actives[needle]=true StatusLabel.Text=mode..': '..tostring(propertyValue) if dataType=='BrickColor' then s=s..tostring(propertyValue)..',' else s=s..SafeData['Color3'](propertyValue)..',' end if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1) % maxSLen RunService.Stepped:Wait() end end end) end end end
 	elseif mode=='PartColor' then
-		for i,v in ipairs(Workspace:GetDescendants()) do if v:IsA('BasePart') then GetInstanceProperty(v,ColorProperties,function(dataType,propertyValue) if dataType=='Color3' or dataType=='BrickColor' then needle=dataType..'_'..tostring(propertyValue) if not actives[needle] then actives[needle]=true StatusLabel.Text=mode..': '..tostring(propertyValue) if dataType=='BrickColor' then s=s..tostring(propertyValue)..',' else s=s..SafeData['Color3'](propertyValue)..',' end if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1) % maxSLen RunService.Stepped:Wait() end end end) end end
+		for i,v in ipairs(Workspace:GetDescendants()) do if v:IsA('BasePart') then Utility.GetInstanceProperty(v,ColorProperties,function(dataType,propertyValue) if dataType=='Color3' or dataType=='BrickColor' then needle=dataType..'_'..tostring(propertyValue) if not actives[needle] then actives[needle]=true StatusLabel.Text=mode..': '..tostring(propertyValue) if dataType=='BrickColor' then s=s..tostring(propertyValue)..',' else s=s..SafeData['Color3'](propertyValue)..',' end if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1) % maxSLen RunService.Stepped:Wait() end end end) end end
 	elseif mode=='Name'  then
-		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do GetInstanceProperty(v,TextProperties,function(dataType,propertyValue,propertyName) if dataType=='string' then local nameFilter='' for v in StringGmatch(propertyValue,"[%w]") do if not IsStrings(v,NumericList) then nameFilter=nameFilter..v end end if #nameFilter==0 then return end local isA=false pcall(function() isA=v:IsA(nameFilter) end) if isA or #nameFilter==0 then return end local newInstance=InstanceNew(v.ClassName) local instanceValue=nil pcall(function() instanceValue=newInstance[propertyName] end) if instanceValue and instanceValue==nameFilter then newInstance:Destroy() return end if not actives[nameFilter] then actives[nameFilter]=true StatusLabel.Text=mode..': '..nameFilter s=s..nameFilter..',' if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1)%maxSLen RunService.Stepped:Wait() end end end) end end
+		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do Utility.GetInstanceProperty(v,TextProperties,function(dataType,propertyValue,propertyName) if dataType=='string' then local nameFilter='' for v in propertyValue:gmatch("[%w]") do if not Utility.IsStrings(v,NumericList) then nameFilter=nameFilter..v end end if #nameFilter==0 then return end local isA=false pcall(function() isA=v:IsA(nameFilter) end) if isA or #nameFilter==0 then return end local newInstance=Instance.new(v.ClassName) local instanceValue=nil pcall(function() instanceValue=newInstance[propertyName] end) if instanceValue and instanceValue==nameFilter then newInstance:Destroy() return end if not actives[nameFilter] then actives[nameFilter]=true StatusLabel.Text=mode..': '..nameFilter s=s..nameFilter..',' if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1)%maxSLen RunService.Stepped:Wait() end end end) end end
 	elseif mode=='MouseIcon' then
 		if next(MouseIconCache) then for v,k in pairs(MouseIconCache) do StatusLabel.Text=mode..': '..v s=s..v..',' if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1)%maxSLen RunService.Stepped:Wait() end end
 	elseif mode=='Icon' then
-		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do GetInstanceProperty(v,IconProperties,OnImageIdCallback) end end
+		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do Utility.GetInstanceProperty(v,IconProperties,OnImageIdCallback) end end
 	elseif mode=='GuiIcon' then
-		for i,v in ipairs(PlayerGui:GetDescendants()) do GetInstanceProperty(v,IconProperties,OnImageIdCallback) end
+		for i,v in ipairs(PlayerGui:GetDescendants()) do Utility.GetInstanceProperty(v,IconProperties,OnImageIdCallback) end
 	elseif mode=='Tool' then
 		ToolTarget=nil
-		if not next(ToolCache) then  for i,v in ipairs(ReplicatedStorage:GetDescendants()) do if v.ClassName=='Tool' then StatusLabel.Text=mode TableInsert(ToolCache,v:Clone()) RunService.Stepped:Wait() end end end
-		if next(ToolCache) then for i,v in ipairs(ToolCache) do if v and v.Parent==nil then StatusLabel.Text=mode..': '..v.Name v.Parent=newModel RunService.Stepped:Wait() end end TableClear(ToolCache) end
+		if not next(ToolCache) then 
+			Utility.Foreach(ReplicatedStorage:GetDescendants(),function(v)
+				if v and v.Parent and v.ClassName=='Tool' then 
+					StatusLabel.Text=mode 
+					table.insert(ToolCache,v:Clone()) 
+					RunService.Stepped:Wait()
+				end 
+			end)
+		end
+		Utility.Foreach(ToolCache,function(v)
+			RunService.Stepped:Wait()
+			if v and v.Parent==nil then 
+				StatusLabel.Text=mode..': '..v.Name 
+				v.Parent=newModel 
+			end 
+		end)
 	elseif mode=='Gui' then
 		GuiTarget=nil
-		if next(GuiCache) then for v,k in pairs(GuiCache) do local cv=v:Clone() if cv and cv.Parent==nil then StatusLabel.Text=mode..': '..cv.Name cv.Parent=newModel end RunService.Stepped:Wait() end TableClear(GuiCache) end
+		local k,v=next(GuiCache)
+		while k and v do
+			RunService.Stepped:Wait()
+			GuiCache[k]=nil
+			local cv=k:Clone() 
+			if cv and cv.Parent==nil then 
+				StatusLabel.Text=mode..': '..cv.Name 
+				cv.Parent=newModel 
+			end 
+			k,v=next(GuiCache)
+		end
 	elseif mode=='Building' then
 		BuildingTarget=nil 
-		if next(BuildingCache) then for v,k in pairs(BuildingCache) do local cv=v:Clone() if cv and cv.Parent==nil then StatusLabel.Text=mode..': '..cv.Name cv.Parent=newModel end RunService.Stepped:Wait() end TableClear(BuildingCache) end
+		local k,v=next(BuildingCache)
+		while k and v do
+			RunService.Stepped:Wait()
+			BuildingCache[k]=nil
+			local cv=k:Clone() 
+			if cv and cv.Parent==nil then 
+				StatusLabel.Text=mode..': '..cv.Name 
+				cv.Parent=newModel 
+			end 
+			k,v=next(BuildingCache)
+		end
 	else
 		return false,nil
 	end
@@ -1798,7 +1895,7 @@ function Module:Initialize()
 	task.wait(2)
 	self:SetUpdate(2)
 	if GrabberModel then GrabberModel:Destroy() GrabberModel=nil end
-	local newInstance=InstanceNew('Model')
+	local newInstance=Instance.new('Model')
 	newInstance.Name='InstalModel'
 	if next(GrabTypeCache) then
 		for k,v in pairs(GrabTypeCache) do 
@@ -1838,77 +1935,86 @@ end
 
 function Module:Scan(instance,func,list)
 	if list==nil then 
-		local descendants=instance:GetDescendants() 
-		list={Count=0,Max=#descendants} 
+		list={Count=0,Max=#instance:GetDescendants()} 
 	end
-	local children=instance:GetChildren()
-	for i,v in ipairs(children) do
+	Utility.Foreach(instance:GetChildren(),function(v)
 		task.wait(1/240)
 		local className,parent=v.ClassName,v.Parent
-		if v:IsA('SurfaceAppearance') then
-			task.wait(1/240)
-			local folder,dv=InstanceNew('Folder'),InstanceNew('SurfaceAppearance')
-			pcall(function()
-				folder.Name='SurfaceAppearance'
-				if v.ColorMap~=dv.ColorMap then
-					AddInstance('StringValue',{Name='ColorMap',Value=v.ColorMap,Parent=folder})
-				end
-				if v.MetalnessMap~=dv.MetalnessMap then
-					AddInstance('StringValue',{Name='MetalnessMap',Value=v.MetalnessMap,Parent=folder})
-				end
-				if v.NormalMap~=dv.NormalMap then
-					AddInstance('StringValue',{Name='NormalMap',Value=v.NormalMap,Parent=folder})
-				end
-				if v.RoughnessMap~=dv.RoughnessMap then
-					AddInstance('StringValue',{Name='RoughnessMap',Value=v.RoughnessMap,Parent=folder})
-				end
-				if v.Color~=dv.Color then
-					AddInstance('Color3Value',{Name='Color',Value=v.Color,Parent=folder})
-				end
-				if v.AlphaMode~=dv.AlphaMode then
-					AddInstance('StringValue',{Name='AlphaMode',Value=SafeData['EnumItem'](v.AlphaMode),Parent=folder})
-				end
-				if v.EmissiveStrength~=dv.EmissiveStrength then
-					AddInstance('NumberValue',{Name='EmissiveStrength',Value=v.EmissiveStrength,Parent=folder})
-				end
-				if v.EmissiveMaskContent~=dv.EmissiveMaskContent then
-					AddInstance('StringValue',{Name='EmissiveMaskContent',Value=SafeData['Content'](v.EmissiveMaskContent),Parent=folder})
-				end
-			end)
-			dv:Destroy()
+		if className=='SurfaceAppearance' then
+			local dv,folder=Templates.SurfaceAppearance,Instance.new('Folder')
+			folder.Name='SurfaceAppearance'
+			if v.ColorMapContent~=dv.ColorMapContent then
+				Utility.Create('StringValue',{Name='ColorMap',Value=SafeData['Content'](v.ColorMapContent),Parent=folder})
+			end
+			if v.MetalnessMapContent~=dv.MetalnessMapContent then
+				Utility.Create('StringValue',{Name='MetalnessMap',Value=SafeData['Content'](v.MetalnessMapContent),Parent=folder})
+			end
+			if v.NormalMapContent~=dv.NormalMapContent then
+				Utility.Create('StringValue',{Name='NormalMap',Value=SafeData['Content'](v.NormalMapContent),Parent=folder})
+			end
+			if v.RoughnessMapContent~=dv.RoughnessMapContent then
+				Utility.Create('StringValue',{Name='RoughnessMap',Value=SafeData['Content'](v.RoughnessMapContent),Parent=folder})
+			end
+			if v.Color~=dv.Color then
+				Utility.Create('Color3Value',{Name='Color',Value=v.Color,Parent=folder})
+			end
+			if v.AlphaMode~=dv.AlphaMode then
+				Utility.Create('StringValue',{Name='AlphaMode',Value=SafeData['EnumItem'](v.AlphaMode),Parent=folder})
+			end
+			if v.EmissiveStrength~=dv.EmissiveStrength then
+				Utility.Create('NumberValue',{Name='EmissiveStrength',Value=v.EmissiveStrength,Parent=folder})
+			end
+			if v.EmissiveMaskContent~=dv.EmissiveMaskContent then
+				Utility.Create('StringValue',{Name='EmissiveMaskContent',Value=SafeData['Content'](v.EmissiveMaskContent),Parent=folder})
+			end
 			local folderChildren=folder:GetChildren()
 			if #folderChildren<=0 then
 				folder:Destroy()
 			else
 				v:Destroy()
 				list.Count+=1
-				list.Max+=(#folderChildren+1)
-				if parent==nil then folder:Destroy() continue end
-				folder.Parent=parent
+				list.Max+=#folderChildren+1
+				if parent==nil then
+					folder:Destroy() 
+					return
+				else
+					folder.Parent=parent
+				end
 			end
 		end
 		local info=ObjectClasses[className]
 		if not info then
 			list.Max-=1
-			SetChildrenParent(v,parent)
+			for j,k in ipairs(v:GetChildren()) do k.Parent=parent end
 			v:Destroy()
 			func(list.Count,nil,list.Max)
-			continue
+			return
 		end
 		list.Count+=1
 		func(list.Count,v,list.Max)
 		if #v:GetChildren()>0 then
 			self:Scan(v,func,list)
 		end
-	end
+	end)
 end
 
 function Module:Starting(instance,func)
 	self:Scan(instance,func)
 	local progress,maxProgress,waitCount,meshParts=0,0,0,{}
 	local packList={instance:FindFirstChild('Building'),instance:FindFirstChild('Tool'),instance:FindFirstChild('Gui')}
-	for _,model in ipairs(packList) do if model then local descendants=model:GetDescendants() for _,value in ipairs(descendants) do if value:IsA('MeshPart') then maxProgress+=1 TableInsert(meshParts,value) end end end end
+	for _,model in ipairs(packList) do 
+		if model then 
+			Utility.Foreach(model:GetDescendants(),function(v)
+				task.wait()
+				if v:IsA('MeshPart') then 
+					maxProgress+=1 
+					table.insert(meshParts,v) 
+				end 
+			end)
+		end 
+	end
 	if next(meshParts) then
+		waitCount=0
 		maxProgress+=#meshParts
 		for i,v in ipairs(meshParts) do 
 			progress+=2 
@@ -1916,7 +2022,7 @@ function Module:Starting(instance,func)
 			if waitCount==0 then 
 				RunService.Stepped:Wait()
 			end 
-			ConvertMeshPartToSpecialMesh(v) 
+			Utility.ConvertMeshPartToSpecialMesh(v)
 			func(progress,v,maxProgress) 
 		end 
 	else
@@ -1931,19 +2037,21 @@ function Module:Creating(instance,visualInstance,data,func)
 	local descendants=instance:GetDescendants()
 	for mode,list in pairs(data) do for j,k in ipairs(list) do if type(k)=='string' then maxProgress+=1 end end end
 	maxProgress+=#descendants
-	for i,v in ipairs(descendants) do
-		if IsStrings(v.ClassName,RegisteredClasses) then 
+	Utility.Foreach(descendants, function(v)
+		if Utility.IsStrings(v.ClassName,RegisteredClasses) then 
 			progress+=1
 			waitCount=(waitCount+1)%30
 			if waitCount==0 then task.wait(1/240) end 
 			count=count+1
-			CreateVariable(v,variables)
+			Utility.CreateVariable(v,variables)
 			objectives[variables[v]]=v
 			advencedVariables[v]=string.format("%s[\'%s\']","V",count)
-			TableInsert(selections,v)
+			table.insert(selections,v)
 			func(progress,v,maxProgress)
+		else
+			task.wait()
 		end
-	end
+	end)
 	for mode,list in pairs(data) do
 		for i,k in ipairs(list) do
 			if type(k)~='string' then continue end
@@ -1957,18 +2065,18 @@ function Module:Creating(instance,visualInstance,data,func)
 				if variable then
 					if coding~=nil and coding==true then
 						advencedVariables[v]=nil
-						local instanceIndex=TableFind(selections,v)
-						if instanceIndex then TableRemove(selections,instanceIndex) end
+						local instanceIndex=table.find(selections,v)
+						if instanceIndex then table.remove(selections,instanceIndex) end
 						local otherVariable=variables[v]
 						if otherVariable then
 							variables[v]=nil
 							objectives[otherVariable]=nil
 						end
 						count-=1
-						TableInsert(selections,k)
+						table.insert(selections,k)
 						v:Destroy()
 					else
-						TableInsert(selections,string.format(k,variable))
+						table.insert(selections,string.format(k,variable))
 					end
 				end
 			end
@@ -1987,7 +2095,7 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 	local progress,maxProgress,instanceIndex,maxInstance=0,#selections,0,0
 	func(progress,nil,maxProgress)
 	for i,v in ipairs(selections) do if not v or typeof(v)~='Instance' then continue end maxInstance+=1 end
-	for i,v in ipairs(selections) do
+	Utility.Foreach(selections, function(v)
 		if v then
 			RunService.Stepped:Wait()
 			progress+=1
@@ -2016,13 +2124,13 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 						local rv=nil
 						if particleEmitter.FlipbookLayout==Enum.ParticleFlipbookLayout.None then
 							rv={'FlipbookBlendFrames','FlipbookFramerate','FlipbookMode','FlipbookSizeY','FlipbookSizeX','FlipbookStartRandom'}
-						elseif IsEnums(particleEmitter.FlipbookLayout,{Enum.ParticleFlipbookLayout.Grid2x2,Enum.ParticleFlipbookLayout.Grid4x4,Enum.ParticleFlipbookLayout.Grid8x8}) then
+						elseif Utility.IsEnums(particleEmitter.FlipbookLayout,{Enum.ParticleFlipbookLayout.Grid2x2,Enum.ParticleFlipbookLayout.Grid4x4,Enum.ParticleFlipbookLayout.Grid8x8}) then
 							rv={'FlipbookSizeY','FlipbookSizeX'}
 						end
 						if rv then for j,k in ipairs(rv) do if not defaultPropertyAdds[k] then defaultPropertyAdds[k]=true end end end
 					end)
 				end
-				for propertyName,property in GetProperties(ObjectClasses[className]) do
+				for propertyName,property in Utility.GetProperties(ObjectClasses[className]) do
 					RunService.Stepped:Wait()
 					local propertyType,propertyValue,propertyDefaultValue=property.DataType,nil,property.DefaultValue
 					local success,err=pcall(function() propertyValue=v[propertyName] end)
@@ -2051,13 +2159,13 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 							table.insert(foundLocals,secondPropertyType)
 						end
 					end
-					if IsStrings(propertyType,{'number','float','int','short','double'}) and type(propertyValue)=='number' then 
+					if Utility.IsStrings(propertyType,{'number','float','int','short','double'}) and type(propertyValue)=='number' then 
 						isProperty=true
 						if propertyValue~=propertyValue then
 							textProperty=textProperty..variable..'.'..propertyName..'=0/0;'
-						elseif propertyValue>=MathHuge then
+						elseif propertyValue>=Values.Inf then
 							textProperty=textProperty..variable..'.'..propertyName..'=math.huge;'
-						elseif propertyValue<=-MathHuge then
+						elseif propertyValue<=-Values.Inf then
 							textProperty=textProperty..variable..'.'..propertyName..'=-math.huge;'
 						else
 							isProperty=false 
@@ -2089,7 +2197,7 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 			end
 			func(progress,v,maxProgress)
 		end
-	end
+	end)
 	textInstance=textInstance..'\n}'
 	for i,k in ipairs(foundLocals) do
 		local v=LocalData[k] 
@@ -2119,7 +2227,7 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 			sValue=sValue..value..','
 		end
 	end
-	TableClear(localCache) TableClear(foundLocals)
+	table.clear(localCache) table.clear(foundLocals)
 	func(maxProgress,nil,maxProgress)
 	if #sPrefix>0 then
 		textLocal=textLocal..'local '..sPrefix..'='
@@ -2140,7 +2248,7 @@ end
 function Module:Convert(data,target)
 	local lastTime=tick()
 
-	local visualInstance=InstanceNew('Model')
+	local visualInstance=Instance.new('Model')
 	visualInstance.Name='Visual'
 	target.Parent=visualInstance
 
@@ -2182,6 +2290,11 @@ function Module:Instal()
 	if success and type(result)=='string' then
 		setclipboard(result)
 		StatusLabel.Text='Copied To Clipboard!'
+		local fileId = os.date("%Y-%m-%d %H:%M:%S", os.time())
+		table.insert(FileCache,{
+			Path=Values.FolderName.."//".. fileId ..".txt",
+			Value=result
+		})
 	else
 		StatusLabel.Text='An Error Occured'
 		warn('['..PLUGIN_NAME..']',result)
@@ -2190,14 +2303,14 @@ function Module:Instal()
 	StatusLabel.Text='Status'
 	LoaderLabel.Text='(0/0) 0%'
 	if GrabberModel then GrabberModel:Destroy() GrabberModel=nil end
-	TableClear(InstalCache)
+	table.clear(InstalCache)
 	self:SetUpdate(1)
 	task.wait(2)
 	Debounce=false
 end
 
 function Module:Add()
-	if IsStrings(GrabType,BannedGrabTypeList) then 
+	if Utility.IsStrings(GrabType,BannedGrabTypeList) then 
 		self:SetStatus(1,'This type not allowed',2) 
 		return 
 	end
@@ -2220,7 +2333,7 @@ function Module:Add()
 	elseif GrabType=='Tool' then
 		local newCharacter=LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 		local isTool=false
-		for i,v in ipairs(newCharacter:GetChildren()) do if v:IsA('Tool') then isTool=true TableInsert(ToolCache,v:Clone()) end end
+		for i,v in ipairs(newCharacter:GetChildren()) do if v:IsA('Tool') then isTool=true table.insert(ToolCache,v:Clone()) end end
 		if not isTool then self:SetStatus(1,'Tool Target Has Empty',2) return end
 		if not GrabTypeCache[GrabType] then GrabTypeCache[GrabType]=true end
 	elseif GrabType=='Gui' then
@@ -2256,7 +2369,7 @@ end
 function Module:Stop()
 	if GrabType=='Building' then
 		local model=BuildingTarget
-		if not IsAlive(model) then self:SetStatus(1,'No Building Target',2) return end
+		if not Utility.IsAlive(model) then self:SetStatus(1,'No Building Target',2) return end
 		local animators=model:QueryDescendants('Animator')
 		if not next(animators) then self:SetStatus(1,'Animator not found',2) return end
 		for i,k in ipairs(animators) do local playingTracks=k:GetPlayingAnimationTracks() for j,v in ipairs(playingTracks) do v.TimePosition=0 v:Stop() end end
@@ -2268,7 +2381,7 @@ function Module:Record()
 	if GrabType=='Animation' then
 		if IsRecordAnim then self:SetStatus(1,'Waiting',2) return end
 		local model=BuildingTarget
-		if not IsAlive(model) then self:SetStatus(1,'No Building Target',2) return end
+		if not Utility.IsAlive(model) then self:SetStatus(1,'No Building Target',2) return end
 		local animators=model:QueryDescendants('Animator')
 		if not next(animators) then self:SetStatus(1,'Animator not found',2) return end
 		local animator=animators[1]
@@ -2301,16 +2414,16 @@ function Module:Record()
 		targetTrack.TimePosition=0 
 		local frameRate,elapsed=FPSRateData[fpsMode] or 1/30,0
 		RecordAnimConnection=RunService.Stepped:Connect(function()
-			if not IsAlive(model) then if IsRecordAnim then IsRecordAnim=false if RecordAnimConnection then RecordAnimConnection:Disconnect() RecordAnimConnection=nil end Module:SetStatus(1,'Record Failed',2) end end
+			if not Utility.IsAlive(model) then if IsRecordAnim then IsRecordAnim=false if RecordAnimConnection then RecordAnimConnection:Disconnect() RecordAnimConnection=nil end Module:SetStatus(1,'Record Failed',2) end end
 			if fpsMode=='Unlimited' then elapsed=os.clock()-startTime else elapsed=elapsed+frameRate end
 			if elapsed<=duration then
 				StatusLabel.Text='Recording...'
 				local keyframe=Instance.new('Keyframe') 
 				keyframe.Time=elapsed
 				if recordAnimMode=='Bone' then
-					for i,v in ipairs(bones) do AddPose(v.Name,v.Transform,keyframe) end
+					for i,v in ipairs(bones) do Utility.AddPose(v.Name,v.Transform,keyframe) end
 				else
-					for i,v in ipairs(motors) do AddPose(v.Part1.Name,v.Transform,keyframe) end
+					for i,v in ipairs(motors) do Utility.AddPose(v.Part1.Name,v.Transform,keyframe) end
 				end
 				keyframe.Parent=keyframeSequence
 			else
@@ -2339,6 +2452,24 @@ Window=UI:CreateWindow({
 	end
 })
 Outliner.Parent=Window.Gui
+Window:AddButton({
+	Text='Save to File',
+	MethodType='DoubleClick',
+	Callback=function()
+		if isfile and writefile then
+			if not Values.SaveDebounce then
+				Values.SaveDebounce=true
+				Utility.Foreach(FileCache,function(info)
+					if not isfile(info.Path) then
+						writefile(info.Path,info.Value)
+					end
+					task.wait()
+				end)
+				Values.SaveDebounce=false
+			end
+		end
+	end
+})
 StatusLabel=Window:AddLabel('Status')
 LoaderLabel=Window:AddLabel('(0/0) 0%')
 
@@ -2356,7 +2487,7 @@ local TargetDebounce=false
 TopSelectButton=Window:AddSelect({
 	Visible=false,
 	Callback=function(target) 
-		if not IsInput and IsStrings(GrabType,{'Building','Animation'}) then 
+		if not IsInput and Utility.IsStrings(GrabType,{'Building','Animation'}) then 
 			if not TargetDebounce then
 				TargetDebounce=true
 				if target then
@@ -2417,14 +2548,14 @@ MainLabel=Window:AddLabel({
 	TextScaled=true
 })
 TextBox=Window:AddInput({
-	Name="Typing",
+	Text="Typing",
 	PlaceholderText='Type here',
 	Visible=false,
 	Callback=function(text)
 		local amount=tonumber(text)
 		if amount then
-			if IsStrings(GrabType,{'Building','Animation'}) then 
-				TotalBuilding=MathMax(amount,0)
+			if Utility.IsStrings(GrabType,{'Building','Animation'}) then 
+				TotalBuilding=math.max(amount,0)
 				TextBox.Text=tostring(TotalBuilding)
 			end
 		else
@@ -2486,13 +2617,12 @@ DestroyButton=Window:AddButton({
 		Module:Destroy() 
 	end
 })
-
 StatusLabel=Window:AddLabel({
-	Text='YouTube: Crokyreo'
+	Text='YouTube: Crokyreo',
+	TextColor3=Color3.fromRGB(255,255,255)
 })
-
 LoaderLabel=Window:AddLabel({
-	Text='Version: 36'
+	Text='Version: 36',
+	TextColor3=Color3.fromRGB(255,255,255)
 })
-
 Module.Parent=true
