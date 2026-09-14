@@ -2485,6 +2485,7 @@ SelectorGrabTypeButton=Window:AddSelector({
 
 local TargetDebounce=false
 TopSelectButton=Window:AddSelect({
+	Text="None",
 	Visible=false,
 	Callback=function(target) 
 		if not IsInput and Utility.IsStrings(GrabType,{'Building','Animation'}) then 
@@ -2504,7 +2505,7 @@ TopSelectButton=Window:AddSelect({
 					end
 					if Window.Parent then
 						MainLabel.Text='Total Building: '..tostring(BuildingIndex)
-						StatusLabel.Text=target.Name..' | '..target.ClassName..' | '..tostring(#target:GetChildren())
+						TopSelectButton.Text=target.Name..' | '..target.ClassName..' | '..tostring(#target:GetChildren())
 					end
 					Module:SetUpdate(2,target)
 					BuildingTarget=target
@@ -2512,7 +2513,7 @@ TopSelectButton=Window:AddSelect({
 					BuildingIndex=0
 					if Window.Parent then
 						MainLabel.Text='Total Building: 0'
-						StatusLabel.Text='Status'
+						TopSelectButton.Text'None'
 					end
 					Module:SetUpdate(2)
 					BuildingTarget=nil
