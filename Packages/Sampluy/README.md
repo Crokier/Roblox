@@ -151,8 +151,6 @@ Window:Destroy()
 Credit To OYB Offical, Crokyreo, and Rayfield
 ```lua
 local KeySystem=UI:CreateKeySystem({
-  	["Style"] = nil, -- The version of the gui style you want. (number or string Only)
-  
   	Title = "Panel", -- The main title shown at the top of the GUI
   	Description = "Key System", -- The text shown below the title
   	UseNonce = true, -- To prevent replay attacks and request tampering, default: false
