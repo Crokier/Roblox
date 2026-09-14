@@ -2286,7 +2286,7 @@ function Module:Instal()
 		StatusLabel.Text='Copied To Clipboard!'
 		local fileId = os.date("%Y-%m-%d %H:%M:%S", os.time())
 		table.insert(FileCache,{
-			Path=Values.FolderName.."//".. fileId ..".txt",
+			Path=Values.FolderName.."/".. fileId ..".txt",
 			Value=result
 		})
 	else
