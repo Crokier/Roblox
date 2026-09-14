@@ -81,7 +81,7 @@ local Utility={
 	end,
 	IsEnums=function(enum1,enum2)
 		for i,v in ipairs(enum2) do if enum1==v then return true end end return false
-	end,
+	end
 }
 
 local TopSelectButton,StatusLabel,LoaderLabel,ResetButton,DestroyButton,TextBox,SelectorGrabTypeButton,SelectorAnimationButton,SelectorFPSButton,AddButton,InitializeButton,InstalButton,RecordButton,StopButton
@@ -288,12 +288,6 @@ local GlobalData={
 	},
 	['Propertys']={}
 }
-
-if isfolder and makefolder then
-	if not isfolder(FOLDER_NAME) then
-		makefolder(FOLDER_NAME)
-	end
-end
 
 GlobalData.Propertys.Constraint=[[
 Attachment
@@ -2456,9 +2450,12 @@ Window:AddButton({
 	Text='Save to File',
 	MethodType='DoubleClick',
 	Callback=function()
-		if isfile and writefile then
+		if isfile and writefile and isfolder and makefolder then
 			if not Values.SaveDebounce then
 				Values.SaveDebounce=true
+	            if not isfolder(Values.FolderName) then
+			       makefolder(Values.FolderName)
+				end
 				Utility.Foreach(FileCache,function(info)
 					if not isfile(info.Path) then
 						writefile(info.Path,info.Value)
