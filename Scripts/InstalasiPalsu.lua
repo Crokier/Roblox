@@ -2462,6 +2462,9 @@ Window:AddButton({
 					end
 					task.wait()
 				end)
+				if #FileCache<=0 then
+					Module:SetStatus(1,'Save Completed',2)
+				end
 				Values.SaveDebounce=false
 			end
 		end
@@ -2615,12 +2618,12 @@ DestroyButton=Window:AddButton({
 		Module:Destroy() 
 	end
 })
-StatusLabel=Window:AddLabel({
+Window:AddLabel({
 	Text='YouTube: Crokyreo',
 	TextColor3=Color3.fromRGB(255,255,255)
 })
-LoaderLabel=Window:AddLabel({
-	Text='Version: 36',
+Window:AddLabel({
+	Text='Version: 38',
 	TextColor3=Color3.fromRGB(255,255,255)
 })
 Module.Parent=true
