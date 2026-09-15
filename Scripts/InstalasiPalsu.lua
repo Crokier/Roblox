@@ -2427,6 +2427,27 @@ function Module:Record()
 	end
 end
 
+function Module:SaveToFile()
+    if isfile and writefile and isfolder and makefolder then
+			if not Values.SaveDebounce then
+				Values.SaveDebounce=true
+	            if not isfolder(Values.FolderName) then
+			       makefolder(Values.FolderName)
+				end
+				Utility.Foreach(FileCache,function(info)
+					if not isfile(info.Path) then
+						writefile(info.Path,info.Value)
+					end
+					task.wait()
+				end)
+				if #FileCache<=0 then
+					Module:SetStatus(1,'Save Completed',2)
+				end
+				Values.SaveDebounce=false
+			end
+	end
+end
+
 do
 	local function OnCharacterToolAdded(character)
 		if Cache.CharacterToolAdded then Cache.CharacterToolAdded:Disconnect() Cache.CharacterToolAdded=nil end
@@ -2450,24 +2471,7 @@ Window:AddButton({
 	Text='Save to File',
 	MethodType='DoubleClick',
 	Callback=function()
-		if isfile and writefile and isfolder and makefolder then
-			if not Values.SaveDebounce then
-				Values.SaveDebounce=true
-	            if not isfolder(Values.FolderName) then
-			       makefolder(Values.FolderName)
-				end
-				Utility.Foreach(FileCache,function(info)
-					if not isfile(info.Path) then
-						writefile(info.Path,info.Value)
-					end
-					task.wait()
-				end)
-				if #FileCache<=0 then
-					Module:SetStatus(1,'Save Completed',2)
-				end
-				Values.SaveDebounce=false
-			end
-		end
+		
 	end
 })
 StatusLabel=Window:AddLabel('Status')
