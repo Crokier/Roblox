@@ -27,9 +27,11 @@ local Button = Window:AddButton({
   	Text = "Click me",
 	MethodType = "DebounceClick", -- Default or 0 or nil, DoubleClick or 2, DebounceClick or 3
 	-- Use this for MethodType is DoubleClick
+    DoubleClick = false,
 	ClickThreshold = 0.5,
 	MaxClick = 2,
 	-- Use this for MethodType is DebounceClick
+    DebounceClick = false,
 	ClickDuration = 1,
   	Callback = function()
    		print("hello world")
