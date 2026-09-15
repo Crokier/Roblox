@@ -1594,7 +1594,7 @@ local function getComponents(Window)
 		local titleLabel=nil
 
 		if text then
-			titleLabel=getComponents(Window):AddLabel({Text=text})
+			titleLabel=getComponents(Window):AddLabel({Text=text,TextScaled=true})
 		end
 
 		local main=create("Frame",{
