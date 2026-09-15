@@ -2478,7 +2478,7 @@ function Module:SaveToFile()
 				task.wait(1)
 			end
 			Utility.Foreach(FileCache,function(info)
-				local path=Values.FolderName..'/'..info.FileId
+				local path=Values.FolderName..'/'..info.FileId..'.txt'
 				writefile(path,info.Value)
 				print("File Path:"..path)
 				task.wait()
