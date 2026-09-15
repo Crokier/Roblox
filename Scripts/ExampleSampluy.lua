@@ -52,15 +52,14 @@ Button = Window:AddButton({
 	Text = "Show",
 	MethodType = nil, -- Default or 0 or nil, DoubleClick or 2, DebounceClick or 3
 	-- Use this for MethodType is DoubleClick
-    DoubleMethod=false,
+    DoubleClick = false,
 	ClickThreshold = 0.5,
 	MaxClick = 2,
 	-- Use this for MethodType is DebounceClick
-	DebounceMethod=false,
+    DebounceClick = false,
 	ClickDuration = 1,
 	Callback = function()
 		Button:Set(Button.Text == "Hide" and "Show" or "Hide")
-			
 		if Button.Text == "Hide" then
 			print("Hide Pressed")
 		else
