@@ -36,7 +36,8 @@ local Values={
 	['GrabType']='None',['RecordAnimType']='Motor',['FPSType']='12 FPS',
 	['LastStatus']='',
 	['BuildingTarget']=nil,['InstalTarget']=nil,['GuiTarget']=nil,['ToolTarget']=nil,['GrabberModel']=nil,
-	['Destroyed']=false
+	['Destroyed']=false,
+	['NoCapIcon']=false,
 }
 
 local Templates={
@@ -90,7 +91,8 @@ local Utility={
 	GetLines=Strs.GetLines,
 	ToPersentase=Strs.ToPersentase,
 	ToNumber=Strs.ToNumber,
-
+	Trim=Strs.Trim,
+	
 	-- Tabler --
 	GetProperties=Tabler.GetProperties,
 	Foreach=function(t,func)
@@ -290,19 +292,6 @@ local GlobalData={
 		['Effect']={Workspace,ReplicatedStorage},
 		['Name']={Workspace,ReplicatedStorage,Players,Teams,ReplicatedFirst,StarterPack},
 		['Icon']={Workspace,ReplicatedStorage,PlayerGui,Teams,ReplicatedFirst}
-	},
-	['Others']={
-		{'None','Building','Gui','Lighting','Sound','Tool','Icon','GuiIcon','MouseIcon','Animation','Team','Event','Texture','Decal','Beam','Trail','Name','GuiColor','PartColor'},
-		{'None','Animation'},
-		{'Motor','Bone'},
-		{'12 FPS','24 FPS','30 FPS','60 FPS','120 FPS','240 FPS','Unlimited'},
-		{'1','2','3','4','5','6','7','8','9','0'},
-		{'RemoteEvent','RemoteFunction','BindableEvent','BindableFunction','UnreliableRemoteEvent'},
-		{'Sky','BloomEffect','ColorCorrectionEffect','SunRaysEffect','Atmosphere','BlurEffect'},
-		{'ScreenGui','Frame','ImageLabel','TextLabel','ImageButton','TextButton','ScrollingFrame','Interfaces.TextBox'},
-		{'BackgroundColor3','ImageColor3','BorderColor3','Color','Color3','Value','BrickColor'},
-		{'Name','Value','Message','Text','Print','DisplayName'},
-		
 	},
 	['Types']={
 		['GrabTypes']={'None','Building','Gui','Lighting','Sound','Tool','Icon','GuiIcon','MouseIcon','Animation','Team','Event','Texture','Decal','Beam','Trail','Name','GuiColor','PartColor'},
@@ -1278,7 +1267,11 @@ do
 	SafeData['float']=function(value) return Utility.ToNumber(value,2) end
 	SafeData['int']=function(value) return tostring(math.floor(value)) end
 	SafeData['number']=function(value) return Utility.ToNumber(value,3) end
-	SafeData['string']=function(value) return "\'"..value:gsub("[\"\\]","\\%1"):gsub("\n","\\\\n").."\'" end
+	SafeData['string']=function(value) 
+		value=Utility.Trim(value)
+		local result="\'"..value:gsub("[\"\\]","\\%1"):gsub("\n","\\\\n").."\'"
+		return result
+	end
 
 	SafeData['EnumItem']=SafeData['bool']
 	SafeData['TextureMode']=SafeData['bool']
@@ -1291,7 +1284,9 @@ do
 	SafeData['RollOffMode']=SafeData['bool']
 	SafeData['AspectType']=SafeData['bool']
 	SafeData['ButtonStyle']=SafeData['bool']
-	SafeData['Content']=SafeData['bool']
+	SafeData['Content']=function(value)
+		return SafeData['string'](tostring(value))
+	end
 	SafeData['DominantAxis']=SafeData['bool']
 	SafeData['EasingDirection']=SafeData['bool']
 	SafeData['EasingStyle']=SafeData['bool']
@@ -1598,6 +1593,7 @@ function Module:SetUpdate(mode,...)
 		end
 	elseif mode==3 then
 		local lastGrabType=Values.GrabType
+		Interfaces.NoCapIconToggle.Visible=lastGrabType=='Icon' or lastGrabType=='GuiIcon' or lastGrabType=='Decal'
 		Interfaces.InitializeButton.Visible=lastGrabType=='None'
 		Interfaces.InstalButton.Visible=lastGrabType=='None'
 		for i,v in ipairs({Interfaces.DestroyButton,Interfaces.ResetButton}) do v.Visible=lastGrabType=='None' end
@@ -1646,7 +1642,9 @@ function Module:GetGrabData(mode)
 	local s,sLen,maxSLen,maxSound,canSRemoved='',0,100,200,true
 	local needle=nil
 	local actives,needles,explorers={},{},GlobalData.Explorers[mode] or {}
-
+	local imageIds={}
+	local lastNoCapImage=Values.NoCapIcon
+	
 	if mode=='Texture' or mode=='Effect' or mode=='Decal' or mode=='Trail' or mode=='Beam' then
 		explorers=GlobalData.Explorers['Effect']
 	elseif mode=='Team' then
@@ -1662,7 +1660,8 @@ function Module:GetGrabData(mode)
 		s=s..k..',' 
 		if sLen>=maxSLen then s=s..'\n' end 
 		sLen=(sLen+1)%maxSLen 
-		RunService.Stepped:Wait() 
+		RunService.Stepped:Wait()
+		table.insert(imageIds,k)
 	end
 
 	local function IsCopyInstance(v)
@@ -1881,17 +1880,32 @@ function Module:GetGrabData(mode)
 
 	local isModel,modelChildren=false,newModel:GetChildren()
 	if #s>0 then
-		local ns=mode~='Sound' and 'local '..mode..'s=[['..s..']]' or s
-		if #ns>=2000 then
-			Values.LastStatus='This '..mode..' string is too long! and '..tostring(#ns)
-			Interfaces.StatusLabel.Text=Values.LastStatus
-			task.wait(2)
+		if mode=='Decal' or mode=='GuiIcon' or mode=='Icon' then
+			if not lastNoCapImage then
+				local ns=mode~='Sound' and 'local '..mode..'s=[['..s..']]' or s
+				if #ns>=2000 then
+					Values.LastStatus='This '..mode..' string is too long! and '..tostring(#ns)
+					Interfaces.StatusLabel.Text=Values.LastStatus
+					task.wait(2)
+				end
+				if canSRemoved then
+					newModel:SetAttribute('Coding',true)
+				end
+				InstalCache[mode]={ns}
+				isModel=false
+			else
+				isModel=true
+				Utility.Foreach(imageIds,function(id)
+					local newImage=Instance.new('ImageLabel')
+					newImage.Size=UDim2.new(1,0,1,0)
+					newImage.Image=id
+					newImage.Parent=newModel
+					task.wait()
+				end)
+			end
+			
 		end
-		if canSRemoved then
-			newModel:SetAttribute('Coding',true)
-		end
-		InstalCache[mode]={ns}
-		isModel=false
+		
 	elseif #s<=0 and not next(modelChildren) then
 		self:SetStatus(0,mode..' Has Empty')
 		newModel:Destroy()
@@ -2610,6 +2624,14 @@ Interfaces.StopButton=Window:AddButton({
 	MethodType='DoubleClick',
 	Callback=function() 
 		Module:Stop() 
+	end
+})
+Interfaces.NoCapIconToggle=Window:AddToggle({
+	Text='No Cap Image',
+	Visible=false,
+	Value=false,
+	Callback=function(value) 
+		Values.NoCapIcon=value
 	end
 })
 Interfaces.AddButton=Window:AddButton({
