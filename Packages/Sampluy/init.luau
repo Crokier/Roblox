@@ -385,13 +385,15 @@ local function getComponents(Window)
 		options.Text=options.Text or options.Title or options.Name or options.Type
 		options.Callback=missing("function",options.Callback,function() end)
 		options.MethodType=options.MethodType or "Default"
-		options.ClickThreshold=options.ClickThreshold or 0.5
+	    options.DoubleClick=options.DoubleClick and true or false
+        options.DebounceClick=options.DebounceClick and true or false
+        options.ClickThreshold=options.ClickThreshold or 0.5
 		options.ClickDuration=options.ClickDuration or 1
 		options.MaxClick=options.MaxClick or 2
 		options.ClickCount=0
 		options.LastClickTime=0
 		options.ClickWaiting=false
-
+       
 		local main=create("Frame",{
 			Name=options.Type,
 			Size=UDim2.new(1,0,0,30),
@@ -445,6 +447,20 @@ local function getComponents(Window)
 			title.Text=text
 		end
 
+        local executeCallback=function(value)
+	       if value then
+		       if not options.ClickWaiting then
+			      options.ClickWaiting = true
+			      callSafely(options.Callback)
+			      task.wait(options.ClickDuration or 1)
+			      options.ClickWaiting = false
+		       end
+	       else
+		      options.ClickWaiting = false
+		      callSafely(options.Callback)
+	       end
+        end
+
 		local inContact,clicking=false,false
 
 		local inputBegan=main.InputBegan:Connect(function(input)
@@ -452,29 +468,23 @@ local function getComponents(Window)
 				clicking=true
 				tween(round,TweenCache.Default,{ImageColor3=Color3.fromRGB(255,65,65)})
 				local methodType=tostring(options.MethodType)
-				if methodType=="DoubleClick" or methodType=="MultiClick" or methodType=="2" then
-					local currentClickTime=os.clock()
-					if (currentClickTime-options.LastClickTime)>options.ClickThreshold then
-						options.ClickCount=0
-					end
-					options.ClickCount=options.ClickCount+1
-					options.LastClickTime=currentClickTime
-					if options.ClickCount>=options.MaxClick then
-						options.ClickCount=0
-						callSafely(options.Callback)
-					end
-				elseif methodType=="AntiSpamClick" or methodType=="DebounceClick" or methodType=="3" then
-					if not options.ClickWaiting then
-						options.ClickWaiting=true
-						callSafely(options.Callback)
-						task.wait(options.ClickDuration)
-						options.ClickWaiting=false
-					end
-				else
-					options.ClickWaiting=false
-					callSafely(options.Callback)
-				end
-			end
+                local isDouble=options.DoubleClick or (methodType == "DoubleClick" or methodType == "MultiClick" or methodType == "2")
+                local isDebounce=options.DebounceClick or (methodType == "AntiSpamClick" or methodType == "DebounceClick" or methodType == "3")
+                if isDouble then
+	                local currentClickTime = os.clock()
+	                if (currentClickTime - options.LastClickTime) > options.ClickThreshold then
+		               options.ClickCount = 0
+	                end
+	                options.ClickCount = options.ClickCount + 1
+	                options.LastClickTime = currentClickTime
+	                if options.ClickCount >= options.MaxClick then
+		                options.ClickCount = 0
+		                executeCallback(isDebounce)
+	                end
+                else
+	                executeCallback(isDebounce)
+			    end
+            end
 			if input.UserInputType==Enum.UserInputType.MouseMovement then
 				inContact=true
 				tween(round,TweenCache.Other,{ImageColor3=Color3.fromRGB(60,60,60)})
