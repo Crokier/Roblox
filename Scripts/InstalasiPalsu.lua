@@ -58,7 +58,7 @@ local Interfaces={
 	['GrabTypeSelector']=nil,
 	['AnimationSelector']=nil,
 	['FPSSelector']=nil,
-	
+
 }
 
 local Utility={
@@ -92,7 +92,7 @@ local Utility={
 	ToPersentase=Strs.ToPersentase,
 	ToNumber=Strs.ToNumber,
 	Trim=Strs.Trim,
-	
+
 	-- Tabler --
 	GetProperties=Tabler.GetProperties,
 	Foreach=function(t,func)
@@ -1644,7 +1644,7 @@ function Module:GetGrabData(mode)
 	local actives,needles,explorers={},{},GlobalData.Explorers[mode] or {}
 	local imageIds={}
 	local lastNoCapImage=Values.NoCapIcon
-	
+
 	if mode=='Texture' or mode=='Effect' or mode=='Decal' or mode=='Trail' or mode=='Beam' then
 		explorers=GlobalData.Explorers['Effect']
 	elseif mode=='Team' then
@@ -1653,6 +1653,7 @@ function Module:GetGrabData(mode)
 
 	local function OnImageIdCallback(propertyType,propertyValue)
 		if propertyType~='string' then return end 
+		RunService.Stepped:Wait()
 		local k=propertyValue
 		if actives[k] then return end
 		actives[k]=true 
@@ -1660,7 +1661,6 @@ function Module:GetGrabData(mode)
 		s=s..k..',' 
 		if sLen>=maxSLen then s=s..'\n' end 
 		sLen=(sLen+1)%maxSLen 
-		RunService.Stepped:Wait()
 		table.insert(imageIds,k)
 	end
 
@@ -1684,6 +1684,7 @@ function Module:GetGrabData(mode)
 			Interfaces.StatusLabel.Text=mode..': '..name
 			return true
 		end
+		RunService.Stepped:Wait()
 		return false
 	end
 
@@ -1903,9 +1904,9 @@ function Module:GetGrabData(mode)
 					task.wait()
 				end)
 			end
-			
+
 		end
-		
+
 	elseif #s<=0 and not next(modelChildren) then
 		self:SetStatus(0,mode..' Has Empty')
 		newModel:Destroy()
@@ -2085,7 +2086,7 @@ function Module:Creating(instance,visualInstance,data,func)
 	end)
 	for mode,list in pairs(data) do
 		Utility.Foreach(list,function(k)
-			if type(k)~='string' then continue end
+			if type(k)~='string' then return end
 			progress+=1
 			waitCount=(waitCount+1)%30
 			if waitCount==0 then RunService.Stepped:Wait() end 
