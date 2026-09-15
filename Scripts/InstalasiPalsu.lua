@@ -562,7 +562,7 @@ SurfaceGui
 	float LightInfluence
 	float ToolPunchThroughDistance
 	float ZOffset
-Interfaces.TextBox
+TextBox
 -	[ Instance ]
 	bool Archivable
 	string Name
@@ -2068,11 +2068,11 @@ function Module:Creating(instance,visualInstance,data,func)
 	local descendants=instance:GetDescendants()
 	for mode,list in pairs(data) do for j,k in ipairs(list) do if type(k)=='string' then maxProgress+=1 end end end
 	maxProgress+=#descendants
-	Utility.Foreach(descendants, function(v)
+	Utility.Foreach(descendants,function(v)
 		if Utility.IsStrings(v.ClassName,RegisteredClasses) then 
 			progress+=1
-			waitCount=(waitCount+1)%30
-			if waitCount==0 then task.wait(1/240) end 
+			waitCount=(waitCount+1)%50
+			if waitCount==0 then RunService.Stepped:Wait() end 
 			count=count+1
 			Utility.CreateVariable(v,variables)
 			objectives[variables[v]]=v
@@ -2080,11 +2080,11 @@ function Module:Creating(instance,visualInstance,data,func)
 			table.insert(selections,v)
 			func(progress,v,maxProgress)
 		else
-			task.wait()
+			RunService.Stepped:Wait()
 		end
 	end)
 	for mode,list in pairs(data) do
-		for i,k in ipairs(list) do
+		Utility.Foreach(list,function(k)
 			if type(k)~='string' then continue end
 			progress+=1
 			waitCount=(waitCount+1)%30
@@ -2112,7 +2112,7 @@ function Module:Creating(instance,visualInstance,data,func)
 				end
 			end
 			func(progress,k,maxProgress)
-		end
+		end)
 	end
 	func(maxProgress,nil,maxProgress) 
 	return selections,variables,objectives,advencedVariables
