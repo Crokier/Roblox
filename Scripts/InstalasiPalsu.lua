@@ -2308,9 +2308,10 @@ function Module:Instal()
 		setclipboard(text)
 		Interfaces.StatusLabel.Text='Copied To Clipboard!'
 		local fileInfo={
-			FileId=os.date("%Y-%m-%d_%H:%M:%S",os.time()),
+			FileId=os.date("%Y%m%d%H%M%S",os.time()),
 			Value=text
 		}
+		print("Insert File to "..fileInfo.FileId)
 		table.insert(FileCache,fileInfo)
 	else
 		Interfaces.StatusLabel.Text='An Error Occured'
@@ -2459,12 +2460,12 @@ function Module:SaveToFile()
 			Values.SaveDebounce=true
 			if not isfolder(Values.FolderName) then
 				makefolder(Values.FolderName)
+				task.wait(1)
 			end
 			Utility.Foreach(FileCache,function(info)
 				local path=Values.FolderName..'/'..info.FileId
-				if not isfile(path) then
-					writefile(path,info.Value)
-				end
+				writefile(path,info.Value)
+				print("File Path:"..path)
 				task.wait()
 			end)
 			Module:SetStatus(1,'Save Completed',2)
