@@ -2,8 +2,6 @@ local UI = loadstring(game:HttpGet("http://raw.githubusercontent.com/Crokier/Rob
 
 --[[
 local KeySystem=UI:CreateKeySystem({
-  	["Style"] = nil, -- The version of the gui style you want. (number or string Only)
-  
   	Title = "Panel", -- The main title shown at the top of the GUI
   	Description = "Key System", -- The text shown below the title
   	UseNonce = true, -- To prevent replay attacks and request tampering, default: false
@@ -49,19 +47,20 @@ local Label = Window:AddLabel({
 })
 
 -- Button
---[[]]
 local Button = nil
 Button = Window:AddButton({
 	Text = "Show",
 	MethodType = nil, -- Default or 0 or nil, DoubleClick or 2, DebounceClick or 3
 	-- Use this for MethodType is DoubleClick
+    DoubleMethod=false,
 	ClickThreshold = 0.5,
 	MaxClick = 2,
 	-- Use this for MethodType is DebounceClick
+	DebounceMethod=false,
 	ClickDuration = 1,
 	Callback = function()
 		Button:Set(Button.Text == "Hide" and "Show" or "Hide")
-		
+			
 		if Button.Text == "Hide" then
 			print("Hide Pressed")
 		else
