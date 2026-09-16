@@ -1,4 +1,6 @@
 --                         This was made by Crokyreo 
+-- Instal V53 04-05-2024
+
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
 
@@ -2070,18 +2072,15 @@ function Module:Creating(instance,visualInstance,data,func)
 	for mode,list in pairs(data) do for j,k in ipairs(list) do if type(k)=='string' then maxProgress+=1 end end end
 	maxProgress+=#descendants
 	Utility.Foreach(descendants,function(v)
-		if Utility.IsStrings(v.ClassName,RegisteredClasses) then 
+		RunService.Stepped:Wait()
+		if ObjectClasses[v.ClassName] then 
 			progress+=1
-			waitCount=(waitCount+1)%50
-			if waitCount==0 then RunService.Stepped:Wait() end 
 			count=count+1
 			Utility.CreateVariable(v,variables)
 			objectives[variables[v]]=v
 			advencedVariables[v]=string.format("%s[\'%s\']","V",count)
 			table.insert(selections,v)
 			func(progress,v,maxProgress)
-		else
-			RunService.Stepped:Wait()
 		end
 	end)
 	for mode,list in pairs(data) do
@@ -2120,9 +2119,8 @@ function Module:Creating(instance,visualInstance,data,func)
 end
 
 function Module:Process(selections,variables,objectives,targets,instance,func)
-	local isLimit=#selections>=MAX_CAP
-	local textLocal,textCoding,textProperty,textInstance,sPrefix,sValue='','','','local V={\n','',''
-	local isProperty=false
+	local isLimit,isProperty=#selections>=MAX_CAP,false
+	local textLocal,textCoding,textProperty,textInstance,textPrefix,textValue='','','','local V={\n','',''
 	local foundLocals,localCache={},{}
 	local progress,maxProgress,instanceIndex,maxInstance=0,#selections,0,0
 	func(progress,nil,maxProgress)
@@ -2252,22 +2250,22 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 		RunService.Stepped:Wait()
 		local prefix,value=v[1],v[2]
 		if i==#localCache then
-			sPrefix=sPrefix..prefix
-			sValue=sValue..value
+			textPrefix=textPrefix..prefix
+			textValue=textValue..value
 		else
-			sPrefix=sPrefix..prefix..','
-			sValue=sValue..value..','
+			textPrefix=textPrefix..prefix..','
+			textValue=textValue..value..','
 		end
 	end
 	table.clear(localCache) table.clear(foundLocals)
 	func(maxProgress,nil,maxProgress)
-	if #sPrefix>0 then
-		textLocal=textLocal..'local '..sPrefix..'='
+	if #textPrefix>0 then
+		textLocal=textLocal..'local '..textPrefix..'='
 	else
 		textLocal=textLocal..'local Empty='
 	end
-	if #sValue>0 then
-		textLocal=textLocal..sValue
+	if #textValue>0 then
+		textLocal=textLocal..textValue
 	else
 		textLocal=textLocal..'1'
 	end
