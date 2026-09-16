@@ -1660,12 +1660,16 @@ function Module:GetGrabData(mode)
 		if actives[k] then return end
 		actives[k]=true 
 		Interfaces.StatusLabel.Text=mode..': '..tostring(k)
-		s=s..k..',' 
+		s=s.."'"..k.."',"
 		if sLen>=maxSLen then s=s..'\n' end 
 		sLen=(sLen+1)%maxSLen 
 		table.insert(imageIds,k)
 	end
 
+	if mode=='GuiIcon' or mode=='Icon' then
+		s=s..'local '..mode..'={\n'
+	end
+	
 	local function IsCopyInstance(v)
 		local name,className,k=v.Name,v.ClassName,nil
 		if className=='Team' and mode=='Team' then 
@@ -1883,18 +1887,23 @@ function Module:GetGrabData(mode)
 
 	local isModel,modelChildren=false,newModel:GetChildren()
 	if #s>0 then
+	    if mode=='Sound' then
+			if #s>=2000 then
+				Values.LastStatus='This '..mode..' string is too long! and '..tostring(#ns)
+				Interfaces.StatusLabel.Text=Values.LastStatus
+				task.wait(2)
+			end
+	    end
+		if canSRemoved then
+			newModel:SetAttribute('Coding',true)
+		end
+		InstalCache[mode]={s}
+		
 		if mode=='Decal' or mode=='GuiIcon' or mode=='Icon' then
 			if not lastNoCapImage then
-				local ns=mode~='Sound' and 'local '..mode..'s=[['..s..']]' or s
-				if #ns>=2000 then
-					Values.LastStatus='This '..mode..' string is too long! and '..tostring(#ns)
-					Interfaces.StatusLabel.Text=Values.LastStatus
-					task.wait(2)
-				end
-				if canSRemoved then
-					newModel:SetAttribute('Coding',true)
-				end
-				InstalCache[mode]={ns}
+				
+				
+				
 				isModel=false
 			else
 				isModel=true
