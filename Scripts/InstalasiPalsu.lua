@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V53 04-05-2024
+-- Instal V54 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -1595,7 +1595,6 @@ function Module:SetUpdate(mode,...)
 		end
 	elseif mode==3 then
 		local lastGrabType=Values.GrabType
-		Interfaces.NoCapIconToggle.Visible=lastGrabType=='Icon' or lastGrabType=='GuiIcon' or lastGrabType=='Decal'
 		Interfaces.InitializeButton.Visible=lastGrabType=='None'
 		Interfaces.InstalButton.Visible=lastGrabType=='None'
 		for i,v in ipairs({Interfaces.DestroyButton,Interfaces.ResetButton}) do v.Visible=lastGrabType=='None' end
@@ -1885,39 +1884,24 @@ function Module:GetGrabData(mode)
 		return false,nil
 	end
 
+	if mode=='GuiIcon' or mode=='Icon' then
+		s=s..'}\n'
+	elseif #s>0 then
+		local ns='local '..mode..'=[['..s..']]'
+		s=ns
+	end
+	
 	local isModel,modelChildren=false,newModel:GetChildren()
 	if #s>0 then
-	    if mode=='Sound' then
-			if #s>=2000 then
-				Values.LastStatus='This '..mode..' string is too long! and '..tostring(#ns)
-				Interfaces.StatusLabel.Text=Values.LastStatus
-				task.wait(2)
-			end
-	    end
+	    if #s>=2000 then
+			Values.LastStatus=mode..' string is too long! and '..tostring(#s)
+			Interfaces.StatusLabel.Text=Values.LastStatus
+			task.wait(2)
+		end
 		if canSRemoved then
 			newModel:SetAttribute('Coding',true)
 		end
 		InstalCache[mode]={s}
-		
-		if mode=='Decal' or mode=='GuiIcon' or mode=='Icon' then
-			if not lastNoCapImage then
-				
-				
-				
-				isModel=false
-			else
-				isModel=true
-				Utility.Foreach(imageIds,function(id)
-					local newImage=Instance.new('ImageLabel')
-					newImage.Size=UDim2.new(1,0,1,0)
-					newImage.Image=id
-					newImage.Parent=newModel
-					task.wait()
-				end)
-			end
-
-		end
-
 	elseif #s<=0 and not next(modelChildren) then
 		self:SetStatus(0,mode..' Has Empty')
 		newModel:Destroy()
@@ -2632,14 +2616,6 @@ Interfaces.StopButton=Window:AddButton({
 	MethodType='DoubleClick',
 	Callback=function() 
 		Module:Stop() 
-	end
-})
-Interfaces.NoCapIconToggle=Window:AddToggle({
-	Text='No Cap Image',
-	Visible=false,
-	Value=false,
-	Callback=function(value) 
-		Values.NoCapIcon=value
 	end
 })
 Interfaces.AddButton=Window:AddButton({
