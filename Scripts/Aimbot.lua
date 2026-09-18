@@ -11,13 +11,13 @@ local Camera = Workspace.CurrentCamera
 local AimbotSettings = {
 	Enabled = false,
 	PlayerTarget = nil,
-	PartName = "",
+	PartName = "Head",
 	PartTypes = {"Head", "Torso", "HumanoidRootPart", "LeftArm", "RightArm", "LeftLeg", "RightLeg"},
 	MaxDistance = 10000,
 	Smoothness = 5,
-	TeamCheck = false,
+	TeamCheck = true,
 	WallCheck = true,
-  FindDebounce = false
+    FindDebounce = false
 }
 local Connections = {}
 
@@ -44,7 +44,7 @@ local function IsTargetVisible(targetPart)
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
 	rayParams.IgnoreWater = true
 
-	local rayResult = Workspace:Raycast(
+	local rayResult = workspace:Raycast(
 		Camera.CFrame.Position,
 		(targetPart.Position - Camera.CFrame.Position).Unit * (targetPart.Position - Camera.CFrame.Position).Magnitude,
 		rayParams
@@ -58,14 +58,14 @@ local function FindClosestPlayer()
 	local closestPlayer = nil
 	local closestDistance = math.huge
 	local mousePosition = Camera.ViewportSize / 2
-  local waitCount = 0
-  local playerList = Players:GetPlayers()
+    local waitCount = 0
+    local playerList = Players:GetPlayers()
   
 	while #playerList > 0 do
-    local player = table.remove(playerList)
+        local player = table.remove(playerList)
     
-    waitCount = (waitCount + 1) % 15
-    if waitCount == 0 then task.wait(0.1) end
+        waitCount = (waitCount + 1) % 15
+        if waitCount == 0 then task.wait(0.1) end
     
 		if not IsAlive(player) or player == LocalPlayer or player.UserId == player.UserId then continue end
 		if AimbotSettings.TeamCheck and player.Team == LocalPlayer.Team then continue end
@@ -95,7 +95,7 @@ end
 local function UpdateAim()
 	if not AimbotSettings.Enabled then return end
 	if AimbotSettings.FindDebounce then return end
-  AimbotSettings.FindDebounce = true 
+    AimbotSettings.FindDebounce = true 
   
 	local target = FindClosestPlayer()
 	if IsAlive(target) then
@@ -109,30 +109,23 @@ local function UpdateAim()
 	   Camera.CFrame = cameraCFrame:Lerp(newCFrame, 1 / AimbotSettings.Smoothness)
 	end
   
-  AimbotSettings.FindDebounce = false
+    AimbotSettings.FindDebounce = false
 end
 
 local Window = UI:CreateWindow({
-	Name = "Aimbot Lite",
-  ConfigInfo={
-     Enabled=true,
-     FolderName=nil,
-     FileName="AimbotLite"
-  }
+	Name = "Aimbot",
 	Destroying = function()
-		local k1, v1 = next(Connections)
-		while v1 do
-			Connections[k1] = nil
-			v1:Disconnect()
-			k1, v1 = next(Connections)
+		local key, connection = next(Connections)
+		while connection do
+			Connections[key] = nil connection:Disconnect()
+			key, connection = next(Connections)
 		end
 	end
 })
 
 Window:AddToggle({
 	Text = "Auto Aim",
-	Value = false,
-	Flag = "aim_enabled",
+	Value = AimbotSettings.Enabled,
 	Callback = function(value)
 		AimbotSettings.Enabled = value
 		if Connections.Aimbot then Connections.Aimbot:Disconnect() Connections.Aimbot = nil end
@@ -144,31 +137,28 @@ Window:AddToggle({
 Window:AddDropdown({
 	Text = "Part Type",
 	Options = AimbotSettings.PartTypes,
-	Option = {"Head"},
+	Option = {AimbotSettings.PartName},
 	Multi = false,
-	Flag = "part_options",
 	Callback = function(option)
 		AimbotSettings.PartName = option[1]
 	end
 })
 
 Window:AddSlider({
-	Text = "Max Distance",
+	Text = "Distance",
 	Range = {100, 10000},
-	Value = 10000,
+	Value = AimbotSettings.MaxDistance,
 	Increment = 1,
-	Flag = "max_distance",
 	Callback = function(value)
 		AimbotSettings.MaxDistance = value
 	end
 })
 
 Window:AddSlider({
-	Text = "Camera Smoothness",
-	Range = {1, 15},
-	Value = 5,
+	Text = "Camera Speed",
+	Range = {1, 30},
+	Value = AimbotSettings.Smoothness,
 	Increment = 1,
-	Flag = "smoothness",
 	Callback = function(value)
 		AimbotSettings.Smoothness = value
 	end
@@ -176,8 +166,7 @@ Window:AddSlider({
 
 Window:AddToggle({
 	Text = "Team Check",
-	Value = true,
-	Flag = "team_enabled",
+	Value = AimbotSettings.TeamCheck,
 	Callback = function(value)
 		AimbotSettings.TeamCheck = value
 	end
@@ -185,8 +174,7 @@ Window:AddToggle({
 
 Window:AddToggle({
 	Text = "Wall Check",
-	Value = true,
-	Flag = "wall_enabled",
+	Value = AimbotSettings.WallCheck,
 	Callback = function(value)
 		AimbotSettings.WallCheck = value
 	end
@@ -196,8 +184,6 @@ Window:AddLabel({
 	Text = "YouTube: Crokyreo",
 	TextColor3 = Color3.fromRGB(255, 255, 255)
 })
-
-if Window.LoadConfig then Window:LoadConfig() end
 
 --[[
 local Players = game:GetService("Players")
