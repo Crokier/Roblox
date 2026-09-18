@@ -241,8 +241,3 @@ Window:AddLabel({
 	Text="YouTube: Crokyreo",
 	TextColor3=Color3.fromRGB(255, 255, 255)
 })
-
-Window:AddLabel({
-	Text="Date: 06-10-2026",
-	TextColor3=Color3.fromRGB(255, 255, 255)
-})
