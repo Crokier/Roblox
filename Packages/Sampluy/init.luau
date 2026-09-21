@@ -296,12 +296,12 @@ local function loadConfig(data)
 	return changed
 end
 
-local function SaveConfig()
+local function saveConfig()
 	if not CEnabled then return end
 	if Strs.isEmpty(CPath) then return end
 	if not GlobalLoaded then return end
 	if HttpService==nil then HttpService=Services.HttpService end
-    local data={}
+	local data={}
 	for name,flag in pairs(Library.Flags) do
 		if flag.Type=="ColorPicker" then
 			data[name]=packColor(flag.Color)
@@ -325,8 +325,7 @@ local function SaveConfig()
 			local path=paths[i]
 			s=s..path
 			if i<#paths then
-                print(s)
-                ensureFolder(s)
+				ensureFolder(s)
 				s=s.."/"
 			end
 		end
@@ -468,15 +467,15 @@ local function getComponents(Window)
 		options.Text=options.Text or options.Title or options.Name or options.Type
 		options.Callback=missing("function",options.Callback,function() end)
 		options.MethodType=options.MethodType or "Default"
-	    options.DoubleClick=options.DoubleClick and true or false
-        options.DebounceClick=options.DebounceClick and true or false
-        options.ClickThreshold=options.ClickThreshold or 0.5
+		options.DoubleClick=options.DoubleClick and true or false
+		options.DebounceClick=options.DebounceClick and true or false
+		options.ClickThreshold=options.ClickThreshold or 0.5
 		options.ClickDuration=options.ClickDuration or 1
 		options.MaxClick=options.MaxClick or 2
 		options.ClickCount=0
 		options.LastClickTime=0
 		options.ClickWaiting=false
-       
+
 		local main=create("Frame",{
 			Name=options.Type,
 			Size=UDim2.new(1,0,0,30),
@@ -499,7 +498,7 @@ local function getComponents(Window)
 			TextSize=12,
 			Parent=main
 		})
-		
+
 		local round=create("ImageLabel",{
 			Name="Round",
 			AnchorPoint=Vector2.new(0.5,0.5),
@@ -514,35 +513,35 @@ local function getComponents(Window)
 			SliceScale=0.02,
 			Parent=main
 		})
-		
+
 		if options.ImageTransparency ~= nil then
 			round.ImageTransparency=options.ImageTransparency
 		end
-		
+
 		for key, value in pairs(options) do
 			if key=="FontFace" or key=="TextColor3" or key=="TextScaled" then
 				pcall(function() title[key]=value end)
 			end
 		end
-		
+
 		function options:Set(text)
 			options.Text=text
 			title.Text=text
 		end
 
-        local executeCallback=function(value)
-	       if value then
-		       if not options.ClickWaiting then
-			      options.ClickWaiting = true
-			      callSafely(options.Callback)
-			      task.wait(options.ClickDuration or 1)
-			      options.ClickWaiting = false
-		       end
-	       else
-		      options.ClickWaiting = false
-		      callSafely(options.Callback)
-	       end
-        end
+		local executeCallback=function(value)
+			if value then
+				if not options.ClickWaiting then
+					options.ClickWaiting = true
+					callSafely(options.Callback)
+					task.wait(options.ClickDuration or 1)
+					options.ClickWaiting = false
+				end
+			else
+				options.ClickWaiting = false
+				callSafely(options.Callback)
+			end
+		end
 
 		local inContact,clicking=false,false
 
@@ -551,23 +550,23 @@ local function getComponents(Window)
 				clicking=true
 				tween(round,TweenCache.Default,{ImageColor3=Color3.fromRGB(255,65,65)})
 				local methodType=tostring(options.MethodType)
-                local isDouble=options.DoubleClick or (methodType == "DoubleClick" or methodType == "MultiClick" or methodType == "2")
-                local isDebounce=options.DebounceClick or (methodType == "AntiSpamClick" or methodType == "DebounceClick" or methodType == "3")
-                if isDouble then
-	                local currentClickTime = os.clock()
-	                if (currentClickTime - options.LastClickTime) > options.ClickThreshold then
-		               options.ClickCount = 0
-	                end
-	                options.ClickCount = options.ClickCount + 1
-	                options.LastClickTime = currentClickTime
-	                if options.ClickCount >= options.MaxClick then
-		                options.ClickCount = 0
-		                executeCallback(isDebounce)
-	                end
-                else
-	                executeCallback(isDebounce)
-			    end
-            end
+				local isDouble=options.DoubleClick or (methodType == "DoubleClick" or methodType == "MultiClick" or methodType == "2")
+				local isDebounce=options.DebounceClick or (methodType == "AntiSpamClick" or methodType == "DebounceClick" or methodType == "3")
+				if isDouble then
+					local currentClickTime = os.clock()
+					if (currentClickTime - options.LastClickTime) > options.ClickThreshold then
+						options.ClickCount = 0
+					end
+					options.ClickCount = options.ClickCount + 1
+					options.LastClickTime = currentClickTime
+					if options.ClickCount >= options.MaxClick then
+						options.ClickCount = 0
+						executeCallback(isDebounce)
+					end
+				else
+					executeCallback(isDebounce)
+				end
+			end
 			if input.UserInputType==Enum.UserInputType.MouseMovement then
 				inContact=true
 				tween(round,TweenCache.Other,{ImageColor3=Color3.fromRGB(60,60,60)})
@@ -633,15 +632,15 @@ local function getComponents(Window)
 		})
 	end
 
-    function elements:AddLinkButton(options)
-       options=type(options)=="table" and options or {}
-       return getComponents(Window):AddButton({
-           Text=options.Text or options.Title or options.Name or "LinkButton",
-           Callback=function()
-              copyToClipboard(options.Link or options.URL or "")
-           end
-        })
-    end
+	function elements:AddLinkButton(options)
+		options=type(options)=="table" and options or {}
+		return getComponents(Window):AddButton({
+			Text=options.Text or options.Title or options.Name or "LinkButton",
+			Callback=function()
+				copyToClipboard(options.Link or options.URL or "")
+			end
+		})
+	end
 
 	function elements:AddToggle(...)
 		local args={...}
@@ -674,7 +673,7 @@ local function getComponents(Window)
 		if options.Default~=nil then
 			options.Value=options.Default and true or false
 		end
-		
+
 		local inContact,title,tickboxOutline,changeValue=false,nil,nil,nil
 		local main=create("Frame",{
 			Name=options.Type,
@@ -683,7 +682,7 @@ local function getComponents(Window)
 			Size=UDim2.new(1,0,0,30),
 			Parent=Window.Container
 		})
-		
+
 		if options.Style=="0" then
 			title=create("TextLabel",{
 				Name="Title",
@@ -720,7 +719,7 @@ local function getComponents(Window)
 				if not initial and options.Value==value then return end
 				options.Value=value
 				if options.Flag then
-					SaveConfig()
+					saveConfig()
 				end
 				--{ImageColor3=value and Color3.fromRGB(60,200,60) or Color3.fromRGB(200,60,60)})
 				tween(title,TweenCache.Default, {TextColor3=value and  options.SelectedColor3 or options.UnselectedColor3})
@@ -850,7 +849,7 @@ local function getComponents(Window)
 				if not initial and options.Value==value then return end
 				options.Value=value
 				if options.Flag then
-					SaveConfig()
+					saveConfig()
 				end
 				checkmarkHolder:TweenSize(value and UDim2.new(1,-8,1,-8) or UDim2.new(0,0,1,-8),"Out","Quad",0.2,true)
 				tween(tickboxInner,TweenCache.Default,{ImageColor3=value and options.SelectedColor3 or options.InnerUnselectedColor3})
@@ -869,9 +868,9 @@ local function getComponents(Window)
 				changeValue(value,false,nil)
 			end
 		end
-		
+
 		changeValue(options.Value,true,nil)
-		
+
 		if options.Flag then
 			Library.Flags[options.Flag]=options
 		end
@@ -936,10 +935,10 @@ local function getComponents(Window)
 		options.NoEnter=options.NoEnter==nil and false and options.NoEnter
 		options.Value=options.Value or ""
 		options.Callback=missing("function",options.Callback,function() end)
-		
+
 		local main,title,inputBox=nil,nil,nil
 		local connections={}
-		
+
 		if options.Style=="0" then
 			main=create("Frame",{
 				Name=options.Type,
@@ -992,7 +991,7 @@ local function getComponents(Window)
 				inputBox.Text=text
 				callSafely(options.Callback,text)
 			end
-			
+
 			connections.FocusLost=inputBox.FocusLost:Connect(function(enter)
 				if not enter and not options.NoEnter then return end
 				local inputText=inputBox.Text
@@ -1056,11 +1055,11 @@ local function getComponents(Window)
 			})
 
 			local inContact, focused = false, false
-			
+
 			function options:Set(value)
 				options.Value=tostring(value)
 				if options.Flag then
-					SaveConfig()
+					saveConfig()
 				end
 				callSafely(options.Callback,value)
 			end
@@ -1069,7 +1068,7 @@ local function getComponents(Window)
 				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 					if not focused then inputBox:CaptureFocus() end
 				end
-				
+
 				if input.UserInputType == Enum.UserInputType.MouseMovement then
 					inContact = true
 					if not focused then
@@ -1101,11 +1100,11 @@ local function getComponents(Window)
 				options:Set(inputText)
 			end)
 		end
-		
+
 		if options.Flag then
 			Library.Flags[options.Flag]=options
 		end
-		
+
 		connectDestroying(Window.Gui,Window.SaveName,function()
 			for key, connection in pairs(connections) do
 				connection:Disconnect()
@@ -1272,7 +1271,7 @@ local function getComponents(Window)
 				value=math.clamp(value,options.Min,options.Max)
 				options.Value=value
 				if options.Flag then
-					SaveConfig()
+					saveConfig()
 				end
 				handle:TweenPosition(UDim2.new((value-options.Min)/(options.Max-options.Min),0,0.5,0),"Out","Quad",0.1,true)
 				if options.Min>=0 then
@@ -1431,7 +1430,7 @@ local function getComponents(Window)
 				value=math.clamp(value,min,max)
 				options.Value=value
 				if options.Flag then
-					SaveConfig()
+					saveConfig()
 				end
 				local ratio = (value-min)/(max-min)
 				handle:TweenPosition(UDim2.new(ratio,0,0.5,0),"Out","Quad",0.1,true)
@@ -1630,17 +1629,17 @@ local function getComponents(Window)
 			TextSize=12,
 			Parent=main
 		})
-		
+
 		if options.Flag then
 			Library.Flags[options.Flag]=options
 		end
-		
+
 		function options:Set(value,index)
 			self.Value=value
 			information.Text=self.Text and tostring(self.Text)..": "..tostring(value) or tostring(value)
 			if index and type(index)=="number" then self.Index=index else index=table.find(options.Options,value) or 1 end
 			if options.Flag then
-				SaveConfig()
+				saveConfig()
 			end
 			callSafely(self.Callback,value,index)
 		end
@@ -1795,12 +1794,12 @@ local function getComponents(Window)
 				tween(tickboxOutline,TweenInfo.new(inContact and 0.2 or 0.1,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{ImageColor3=inContact and Color3.fromRGB(140,140,140) or Color3.fromRGB(100,100,100)})
 			end
 		end
-		
+
 		options.ClickCount=0
 		options.LastClickTime = 0
 		options.ClickThreshold=options.ClickThreshold or 0.5
 		options.MaxClick=options.MaxClick or 2
-		
+
 		local selectClick=nil
 
 		local inputBegan=tickboxOutline.InputBegan:Connect(function(input)
@@ -2150,7 +2149,7 @@ local function getComponents(Window)
 			end
 			options.Option=option
 			if options.Flag then
-				SaveConfig()
+				saveConfig()
 			end
 			callSafely(options.Callback,option)
 			if options.Multi then
@@ -2224,7 +2223,7 @@ local function getComponents(Window)
 		end
 
 		local inContact=false
-		
+
 		function options:Close()
 			Library.ActivePopup=nil
 			options.Open=false
@@ -2420,7 +2419,7 @@ local function getComponents(Window)
 			if open then open=true else open=false end
 			options.Open=open
 			if options.Flag then
-				SaveConfig()
+				saveConfig()
 			end
 			tween(close,TweenCache.Default,{Rotation=open and 90 or 180})
 			childContainer.Visible=open
@@ -2492,7 +2491,6 @@ local function getComponents(Window)
 
 	return elements
 end
-
 
 function Library:SetAutoResizeGui(gui,data)
 	if not data or type(data)~="table" then data={} end
@@ -3311,12 +3309,12 @@ function Library:CreateWindow(config)
 	Window.AutoMaxHeight = config.AutoMaxHeight or true
 	Window.TabIcon = config.TabIcon or "controller"
 	Window.ConfigInfo = type(config.ConfigInfo)=="table" and config.ConfigInfo or {Enabled=false,Path=""}
-	
+
 	if Window.ConfigInfo and Window.ConfigInfo.Enabled then
 		CPath=Window.ConfigInfo.Path
 		CEnabled=true
 	end
-	
+
 	function Window:LoadConfig()
 		local data=nil
 		local success,result=pcall(function()
@@ -3329,10 +3327,10 @@ function Library:CreateWindow(config)
 			end
 		end)
 		if not data and success then 
-            GlobalLoaded=true
-        end
+			GlobalLoaded=true
+		end
 	end
-	
+
 	local gui=create("ScreenGui",{
 		Name=Window.Name,
 		ResetOnSpawn=false
@@ -3385,7 +3383,7 @@ function Library:CreateWindow(config)
 		TextSize=12,
 		Parent=mainFrame
 	})
-	
+
 	local tabMainButton=create("TextButton",{
 		AnchorPoint=Vector2.new(0.5,0),
 		Name="Title",
@@ -3399,13 +3397,13 @@ function Library:CreateWindow(config)
 		TextSize=12,
 		Parent=titleBar
 	})
-	
+
 	create("UITextSizeConstraint",{
 		MaxTextSize=100,
 		MinTextSize=50,
 		Parent=tabMainButton
 	})
-	
+
 	local closeHolder=create("Frame",{
 		Name="Close",
 		Position=UDim2.new(1,0,0,0),
@@ -3456,7 +3454,7 @@ function Library:CreateWindow(config)
 		HorizontalAlignment=Enum.HorizontalAlignment.Center,
 		SortOrder=Enum.SortOrder.LayoutOrder
 	})
-	
+
 	local tabScrollFrame=create("ScrollingFrame",{
 		Name="Tabs",
 		Size=UDim2.new(0.225,0,0,0),
@@ -3470,7 +3468,7 @@ function Library:CreateWindow(config)
 		CanvasSize=UDim2.new(0,0,0,0),
 		Parent=mainFrame
 	})
-	
+
 	local tabContentHolder=create("Frame",{
 		AnchorPoint=Vector2.new(0.5,0),
 		Size=UDim2.new(1,-16,0,0),
@@ -3486,7 +3484,7 @@ function Library:CreateWindow(config)
 		HorizontalAlignment=Enum.HorizontalAlignment.Center,
 		SortOrder=Enum.SortOrder.LayoutOrder
 	})
-	
+
 	local cleanDraggable=Library:MakeDraggable(titleBar,mainFrame)
 
 	Window.Main=mainFrame
@@ -3497,7 +3495,7 @@ function Library:CreateWindow(config)
 	Window.Parent=true
 	Window.TabActive=false
 	Library.Container=contentHolder
-	
+
 	local savedMaxHeight = Window.MaxHeight
 
 	local function updateWindowSize(animated)
@@ -3537,15 +3535,15 @@ function Library:CreateWindow(config)
 			tabScrollFrame.Size=UDim2.new(0.225,0,0,targetScrollSize.Y.Offset)
 		end
 	end
-	
+
 	tabScrollFrame.Visible = false
-	
+
 	local absoluteCinema=tabMainButton.Activated:Connect(function()
 		if tabMainButton.Visible then
 			tabScrollFrame.Visible = not tabScrollFrame.Visible
 		end
 	end)
-	
+
 	local absoluteSizeChanged=contentHolder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 		scrollFrame.CanvasSize=UDim2.new(0,0,0,Library.Container.AbsoluteSize.Y+6)
 		updateWindowSize(true)
@@ -3575,24 +3573,24 @@ function Library:CreateWindow(config)
 			self.Gui.Name=self.OldName or self.GuiName.."-Old"
 		end
 	end
-	
+
 	connectDestroying(Window.Gui,Window.SaveName,function()
 		Window:Destroy()
 	end)
-	
+
 	Window.FirstTab = false
-	
+
 	function Window:CreateTab(options)
 		options=missing("table",options,{})
 		options.Icon=options.Icon or options.Image or ""
-		
+
 		local isFirtTab = false
 		local Tab = {}
-		
+
 		for key, value in pairs(Window) do
 			Tab[key] = value
 		end
-		
+
 		if not Window.FirstTab then
 			Window.FirstTab=true
 			isFirtTab = true
@@ -3618,19 +3616,19 @@ function Library:CreateWindow(config)
 				HorizontalAlignment=Enum.HorizontalAlignment.Center,
 				SortOrder=Enum.SortOrder.LayoutOrder
 			})
-			
+
 			tabPage.Visible = false
 			Tab.Container = tabPage
 			tabMainButton.Visible=true
 		end
-		
+
 		local baseComponents=getComponents(Tab)
 		for k,v in next,baseComponents do
 			Tab[k]=v
 		end
-		
+
 		table.insert(Window.TabPages, Tab.Container)
-		
+
 		getComponents({Gui=Window.Gui,SaveName=Window.SaveName,Container=tabContentHolder}):AddButton({
 			Text=options.Icon,
 			ImageTransparency=1,
@@ -3647,15 +3645,15 @@ function Library:CreateWindow(config)
 				Tab.Container.Visible = true
 			end
 		})
-		
-		
+
+
 		return Tab
 	end
-	
+
 	local mainTab = Window:CreateTab({
 		Icon="square-code",
 	})
-	
+
 	return mainTab
 end
 
