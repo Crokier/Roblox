@@ -2163,6 +2163,9 @@ local function getComponents(Window)
 			if not options.Multi then
 				option={option[1]}
 			end
+			if option[1]==saveOptions[1] and options.Options[1]~=saveOptions[1] then
+				table.remove(option,1)
+			end
 			options.Option=option
 			if options.Flag then
 				saveConfig()
