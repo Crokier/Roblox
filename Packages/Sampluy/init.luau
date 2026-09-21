@@ -1920,7 +1920,9 @@ local function getComponents(Window)
 		else
 			options.Option={}
 		end
-
+		
+		local saveOptions=options.Options
+		
 		local main=create("Frame", {
 			BackgroundTransparency=1,
 			Size=UDim2.new(1,0,0,52),
@@ -2152,35 +2154,41 @@ local function getComponents(Window)
 			end)
 		end
 
-		function options:Set(newOption)
-			if newOption==nil then newOption={} end
-			local optionType=type(newOption)
+		function options:Set(value)
+			local option={}
+			local optionType=type(value)
 			if optionType=="string" then
-				newOption={newOption}
-			elseif optionType~="table" then
-				newOption={}
+				option={value}
+			elseif optionType=="table" then
+				option=value
 			end
 			if not options.Multi then
-				if #newOption>=1 then newOption={newOption[1]} end
+				if #option>=1 and option[1]~=nil then 
+					local nextValue=option[1] 
+					option={nextValue} 
+				end
 			end
-			if #newOption>=1 and #saveOptions>=1 and newOption[1]==saveOptions[1] and options.Options[1]~=saveOptions[1] then
-				table.remove(newOption,1)
+			if #option>=1 and #saveOptions>=1 and options.Options[1]~=saveOptions[1] then
+				local option1,option2=tostring(option[1]),tostring(saveOptions[1])
+				if option1==option2 and options.Options[1]~=option2 then
+					table.remove(option,1)
+				end
 			end
-			options.Option=newOption
+			options.Option=option
 			if options.Flag then
 				saveConfig()
 			end
-			callSafely(options.Callback,newOption)
+			callSafely(options.Callback,option)
 			if options.Multi then
-				if #newOption==1 then
-					selected.Text=tostring(newOption[1])
+				if #option==1 then
+					selected.Text=tostring(option[1])
 				elseif #options.Option==0 then
 					selected.Text="None"
 				else
 					selected.Text="Various"
 				end
 			else
-				selected.Text=tostring(newOption[1])
+				selected.Text=tostring(option[1])
 				options:Close()
 				for _,droption in ipairs(content:GetChildren()) do
 					if droption.ClassName=="TextLabel" then
@@ -2197,15 +2205,13 @@ local function getComponents(Window)
 		function options:Refresh()
 			local currentOptions = options.Options
 			local droptionButtons = options.DroptionButtons
-
-			-- 1. Sembunyikan semua tombol yang ada
+			
 			for _, droption in ipairs(droptionButtons) do
 				if droption and droption.Parent then
 					droption.Visible = false
 				end
 			end
 
-			-- 2. Tampilkan tombol sesuai opsi yang ada
 			for index, option in ipairs(currentOptions) do
 				local droption = droptionButtons[index]
 				if droption and droption.Parent then
@@ -2215,7 +2221,6 @@ local function getComponents(Window)
 				end
 			end
 
-			-- 3. (FITUR BARU) Hapus opsi dari self.Option jika sudah tidak ada di currentOptions
 			if options.Option and type(options.Option) == "table" then
 				for index = #options.Option, 1, -1 do
 					local option = options.Option[index]
@@ -2225,7 +2230,6 @@ local function getComponents(Window)
 				end
 			end
 
-			-- 4. Buat tombol baru jika currentOptions lebih banyak dari tombol yang tersedia
 			if #currentOptions > #droptionButtons then
 				for index = #droptionButtons + 1, #currentOptions do
 					local option = currentOptions[index]
@@ -2233,7 +2237,6 @@ local function getComponents(Window)
 				end
 			end
 
-			-- 5. Perbarui tampilan pilihan (Set value)
 			if not options.Option or #options.Option == 0 then
 				options:Set("None")
 			else
