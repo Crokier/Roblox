@@ -126,8 +126,8 @@ Dropdown = Window:AddDropdown({
 	Name = "Fruit (Empty = All)",
 	Options = {"Apple", "Banana", "Avocado", "Mango", "Durian", "Pineapple", "Peach", "Pear", "Grape", "Watermelon", "Strawberry", "Blueberry", "Orange"},
 	Option = {"Apple", "Banana"},
-	MultipleOptions = true,
-	Flag = "fruit_pptions",
+	Multi = true,
+	Flag = "fruit_options",
 	Callback = function(option)
 		print("Fruit:", unpack(option))
 	end
