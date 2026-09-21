@@ -633,6 +633,16 @@ local function getComponents(Window)
 		})
 	end
 
+    function elements:AddLinkButton(options)
+       options=type(options)=="table" and options or {}
+       return getComponents(Window):AddButton({
+           Text=options.Text or options.Title or options.Name or "LinkButton",
+           Callback=function()
+              copyToClipboard(options.Link or options.URL or "")
+           end
+        })
+    end
+
 	function elements:AddToggle(...)
 		local args={...}
 		local options={}
