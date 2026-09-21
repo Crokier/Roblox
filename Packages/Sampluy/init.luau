@@ -10,6 +10,8 @@ local Players=Services.Players
 local RunService=Services.RunService
 local UserInputService=Services.UserInputService
 local TweenService=Services.TweenService
+local TextService=Services.TextService
+
 local HttpService=nil
 local TeleportService=nil
 local LocalPlayer=Players.LocalPlayer
@@ -189,26 +191,6 @@ local function fastWait(duration)
 	return start-duration
 end
 
-local function getScreenType()
-	local size = workspace.CurrentCamera.ViewportSize
-	local width = size.X
-	local height = size.Y
-
-	if width >= 1920 and height >= 1080 then
-		if width >= 3840 then
-			return "4K"
-		else
-			return "1080p"
-		end
-	elseif width >= 1280 and height >= 720 then
-		return "720p"
-	elseif width>=1280 and height >= 500 then
-		return "1280x500"
-	else
-		return tostring(width).."x"..tostring(height)
-	end
-end
-
 local function connectDestroying(instance,saveName,func)
 	local destroying,enabledChanged=nil,nil
 	if instance and instance.Parent then
@@ -355,6 +337,12 @@ local function getComponents(Window)
 		options.Type="Label"
 		options.Text=options.Text or options.Title or options.Name or options.Type
 
+		if options.DoesWrap~=nil then 
+			options.Wrap=options.DoesWrap and true or false 
+		else
+			options.Wrap=options.Wrap and true or false
+		end
+
 		local main=create("Frame",{
 			Name=options.Type,
 			Size=UDim2.new(1,0,0,24),
@@ -374,20 +362,47 @@ local function getComponents(Window)
 			TextColor3=Theme.SecondaryText,
 			Font=Enum.Font.GothamBlack,
 			TextSize=12,
-			TextXAlignment=Enum.TextXAlignment.Center,
+			TextXAlignment=options.Wrap and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center,
+			TextWrapped=options.Wrap,
 			Parent=main
 		})
-
+		
+		function options:Display()
+			if not options.Wrap then return end
+			local Width=main.AbsoluteSize.X / 1
+			if Width<=0 then return end
+			local _, Y=Library:GetTextBounds(title.Text, title.FontFace, title.TextSize, Width)
+			main.Size=UDim2.new(1, 0, 0, Y + 4)
+		end
+		
 		function options:Set(text)
 			text=tostring(text or "")
-			options.Value=text
+			options.Text=text
 			title.Text=text
+			options:Display()
 		end
+		
+		local mainResized=nil
+		
+		if options.Wrap then
+			options:Display()
 
+			local Last=main.AbsoluteSize
+			mainResized=main:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+				--if main.AbsoluteSize==Last then return end
+				options:Display()
+				Last=main.AbsoluteSize
+			end)
+		end
+		
+		connectDestroying(Window.Gui,Window.SaveName,function()
+			if mainResized then mainResized:Disconnect() end
+		end)
+		
 		if options.Visible~=nil then
 			main.Visible=options.Visible and true or false
 		end
-
+		
 		local originals={["TitleScaled"]="TextScaled",["TitleStrokeTransparency"]="TextStrokeTransparency",["TitleStrokeColor3"]="TextStrokeColor3",["TitleColor3"]="TextColor3",["TitleTransparency"]="TextTransparency",["TitleXAlignment"]="TextXAlignment",["TitleYAlignment"]="TextYAlignment"}
 
 		for _,k in ipairs({"TextStrokeTransparency","TextStrokeColor3","TextScaled","TextTransparency","TextColor3","TextXAlignment","TextYAlignment","TextBounds","TextDirection","RichText","Font"}) do
@@ -405,7 +420,7 @@ local function getComponents(Window)
 		end
 
 		options.Instance=main
-
+	
 		return setmetatable({},{
 			__index=function(_,i)
 				if i=="Visible" then 
@@ -1117,7 +1132,8 @@ local function getComponents(Window)
 		end
 		options:Set(options.Value)
 		options.Instance=main
-
+		Window:Resize(false)
+		
 		return setmetatable({},{
 			__index=function(_,i)
 				if i=="Visible" then 
@@ -1681,7 +1697,7 @@ local function getComponents(Window)
 			main.Visible=options.Visible and true or false
 		end
 		options.Instance=main
-
+		
 		return setmetatable({},{
 			__index=function(_,i)
 				if i=="Visible" then 
@@ -2292,7 +2308,7 @@ local function getComponents(Window)
 			layoutChanged:Disconnect()
 			options:Set(nil)
 		end)
-
+		
 		return setmetatable({},{
 			__index=function(_,i)
 				local DropdownReturns={
@@ -2490,6 +2506,54 @@ local function getComponents(Window)
 	end
 
 	return elements
+end
+
+function Library:GetScreenType(checkScreenType)
+	local size = workspace.CurrentCamera.ViewportSize
+	local width = size.X
+	local height = size.Y
+
+	if not checkScreenType or checkScreenType=="Height" then
+		if height >= 1080 then
+			if width >= 3840 then
+				return "4K"
+			else
+				return "1080p"
+			end
+		elseif height >= 720 then
+			return "720p"
+		elseif height >= 500 then
+			return "1280x500"
+		else
+			return tostring(height)
+		end
+	elseif checkScreenType=="Width" then
+		if width >= 1920 then
+			if width >= 3840 then
+				return "4K"
+			else
+				return "1080p"
+			end
+		elseif width >= 1280 then
+			return "720p"
+		else
+			return tostring(width)
+		end
+	else
+		return tostring(width).."x"..tostring(height)
+	end
+end
+	
+function Library:GetTextBounds(Text, Font, Size, Width)
+	local Params = create("GetTextBoundsParams",{
+		["Text"]=Text,
+		["Font"]=Font,
+		["RichText"]=true,
+		["Size"]=Size*1,
+		["Width"]=Width~=nil and (Width * 1) or workspace.CurrentCamera.ViewportSize.X - 32
+	})
+	local Bounds = TextService:GetTextBoundsAsync(Params)
+	return math.ceil(Bounds.X / 1), math.ceil(Bounds.Y / 1)
 end
 
 function Library:SetAutoResizeGui(gui,data)
@@ -3301,15 +3365,16 @@ function Library:CreateWindow(config)
 	Window.OldName=config.Name.."-Old"
 	Window.SaveName=Window.Name
 	Window.Text=config.Text or config.Title or config.Name or "Panel"
-	Window.MaxHeight=config.MaxHeight or 320
+	Window.MaxHeight=config.MaxHeight or 340
 	Window.Size=config.Size or UDim2.new(0,230,0,40)
 	Window.Open=config.Open or true
 	Window.Destroying=config.Destroying or nil
-	Window.Style = config.Style or "Crokyreo"
+	Window.Style=config.Style or "Crokyreo"
 	Window.AutoMaxHeight = config.AutoMaxHeight or true
-	Window.TabIcon = config.TabIcon or "controller"
-	Window.ConfigInfo = type(config.ConfigInfo)=="table" and config.ConfigInfo or {Enabled=false,Path=""}
-
+	Window.TabIcon=config.TabIcon or "controller"
+	Window.ConfigInfo=type(config.ConfigInfo)=="table" and config.ConfigInfo or {Enabled=false,Path=""}
+	Window.Theme="Crokyreo"
+	
 	if Window.ConfigInfo and Window.ConfigInfo.Enabled then
 		CPath=Window.ConfigInfo.Path
 		CEnabled=true
@@ -3497,24 +3562,25 @@ function Library:CreateWindow(config)
 	Library.Container=contentHolder
 
 	local savedMaxHeight = Window.MaxHeight
+	
+	function Window:Resize(animated)
+		local screenType = Library:GetScreenType()
 
-	local function updateWindowSize(animated)
-		local screenType = getScreenType()
-
-		if Window.AutoMaxHeight or savedMaxHeight == 320 then
+		if Window.AutoMaxHeight or savedMaxHeight==340 then
 			if screenType == "720p" or screenType == "1280x500" then
-				Window.MaxHeight = 450
-			elseif screenType == "1080p" then
+				print(screenType)
 				Window.MaxHeight = 500
+			elseif screenType == "1080p" then
+				Window.MaxHeight = 600
 			elseif screenType == "4K" then
 				Window.MaxHeight = 600
 			else
-				Window.MaxHeight = 320
+				Window.MaxHeight = 340
 			end
 		end
 
 		local contentHeight=Library.Container.AbsoluteSize.Y
-		local targetMainSize:UDim2,targetScrollSize
+		local targetMainSize,targetScrollSize
 
 		if not Window.Open then
 			targetMainSize=Window.Size
@@ -3536,7 +3602,7 @@ function Library:CreateWindow(config)
 		end
 	end
 
-	tabScrollFrame.Visible = false
+	tabScrollFrame.Visible=false
 
 	local absoluteCinema=tabMainButton.Activated:Connect(function()
 		if tabMainButton.Visible then
@@ -3546,14 +3612,21 @@ function Library:CreateWindow(config)
 
 	local absoluteSizeChanged=contentHolder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 		scrollFrame.CanvasSize=UDim2.new(0,0,0,Library.Container.AbsoluteSize.Y+6)
-		updateWindowSize(true)
+		Window:Resize(true)
 	end)
-
+	
+	local function updateWindowScroll()
+		Window.Open=not Window.Open
+		scrollFrame.Visible=Window.Open
+		tween(close,TweenCache.Default,{Rotation=Window.Open and 90 or 180})
+		Window:Resize(true)
+	end
+	
+	updateWindowScroll()
+	
 	local inputBegan=closeHolder.InputBegan:connect(function(input)
 		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
-			Window.Open=not Window.Open
-			tween(close,TweenCache.Default,{Rotation=Window.Open and 90 or 180})
-			updateWindowSize(true)
+			updateWindowScroll()
 		end
 	end)
 
@@ -3568,7 +3641,7 @@ function Library:CreateWindow(config)
 		self.Open=false
 		if self.Gui.Parent then
 			tween(close,TweenCache.Default,{Rotation=180})
-			updateWindowSize(false)
+			Window:Resize(false)
 			self.Gui.Enabled=false
 			self.Gui.Name=self.OldName or self.GuiName.."-Old"
 		end
@@ -3578,27 +3651,28 @@ function Library:CreateWindow(config)
 		Window:Destroy()
 	end)
 
-	Window.FirstTab = false
+	Window.FirstTab=false
 
 	function Window:CreateTab(options)
 		options=missing("table",options,{})
 		options.Icon=options.Icon or options.Image or ""
 
-		local isFirtTab = false
-		local Tab = {}
+		local isFirtTab=false
+		local Tab={}
 
-		for key, value in pairs(Window) do
-			Tab[key] = value
+		for key,value in pairs(Window) do
+			Tab[key]=value
 		end
-
+		Tab.Resize=Window.Resize
+		
 		if not Window.FirstTab then
 			Window.FirstTab=true
 			isFirtTab = true
-
 			Tab.Container=contentHolder
 			tabMainButton.Visible=false
 			tabScrollFrame.Visible=false
-			Tab.CreateTab = Window.CreateTab
+			Tab.CreateTab=Window.CreateTab
+			
 		else
 			local tabPage=create("Frame",{
 				AnchorPoint=Vector2.new(0.5,0),
@@ -3797,7 +3871,7 @@ function Library:Notify(data)
 	lIlIll.MouseButton1Click:Connect(OnFinished)
 end
 
-Services.UserInputService.InputBegan:Connect(function(input)
+UserInputService.InputBegan:Connect(function(input)
 	if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
 		if Library.ActivePopup and Library.ActivePopup.MainHolder then
 			if input.Position.X<Library.ActivePopup.MainHolder.AbsolutePosition.X or input.Position.Y<Library.ActivePopup.MainHolder.AbsolutePosition.Y then
