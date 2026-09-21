@@ -2,6 +2,8 @@ local UI = loadstring(game:HttpGet("http://raw.githubusercontent.com/Crokier/Rob
 
 --[[
 local KeySystem=UI:CreateKeySystem({
+  	["Style"] = nil, -- The version of the gui style you want. (number or string Only)
+  
   	Title = "Panel", -- The main title shown at the top of the GUI
   	Description = "Key System", -- The text shown below the title
   	UseNonce = true, -- To prevent replay attacks and request tampering, default: false
@@ -38,13 +40,17 @@ KeySystem:Destroy() -- Destroy the key system after the user has successfully lo
 ]]
 
 -- Window
-local Window = UI:CreateWindow("Targeting Tools")
-
--- Label
-local Label = Window:AddLabel({
-	Text = "SYSTEM HEADERS",
-	TextColor3 = Color3.fromRGB(255, 255, 255),
+local Window = UI:CreateWindow({
+	Name = "Targeting Tools",
+	ConfigInfo = {
+		Enabled = true,
+		Path = "Crokyreo/TargetingTool.json"
+	},
+	Destroying = function()
+		print("cleanup")
+	end,
 })
+
 
 -- Button
 local Button = nil
@@ -52,14 +58,13 @@ Button = Window:AddButton({
 	Text = "Show",
 	MethodType = nil, -- Default or 0 or nil, DoubleClick or 2, DebounceClick or 3
 	-- Use this for MethodType is DoubleClick
-    DoubleClick = false,
 	ClickThreshold = 0.5,
 	MaxClick = 2,
 	-- Use this for MethodType is DebounceClick
-    DebounceClick = false,
 	ClickDuration = 1,
 	Callback = function()
 		Button:Set(Button.Text == "Hide" and "Show" or "Hide")
+		
 		if Button.Text == "Hide" then
 			print("Hide Pressed")
 		else
@@ -72,10 +77,11 @@ Button:Set("Hide")
 -- Toggle
 local Toggle1 = Window:AddToggle({
 	Style = nil or "1",
-	Text = "Master Override",
+	Text = "Super Override",
 	Value = true, 
+	Flag = "super_enabled",
 	Callback = function(value)
-		print("Master Override:", value)
+		print("Super Override:", value)
 	end
 })
 Toggle1:Set(true)
@@ -84,6 +90,7 @@ local Toggle2 = Window:AddToggle({
 	Style = "0",
 	Text = "Master Override",
 	Value = true, 
+	Flag = "master_enabled",
 	Callback = function(value)
 		print("Master Override:", value)
 	end
@@ -97,6 +104,7 @@ local Slider = Window:AddSlider({
 	Range = {0, 10} or {-10, 10}, 
 	Value = 0 or -5,
 	Increment = 0.1,
+	Flag = "rate",
 	Callback = function(value)
 		print("Rate:", value)
 	end
@@ -119,6 +127,7 @@ Dropdown = Window:AddDropdown({
 	Options = {"Apple", "Banana", "Avocado", "Mango", "Durian", "Pineapple", "Peach", "Pear", "Grape", "Watermelon", "Strawberry", "Blueberry", "Orange"},
 	Option = {"Apple", "Banana"},
 	MultipleOptions = true,
+	Flag = "fruit_pptions",
 	Callback = function(option)
 		print("Fruit:", unpack(option))
 	end
@@ -139,6 +148,7 @@ UpdateButton = Window:AddButton({
 local Input = Window:AddInput({
 	Name = "Speed", 
 	ClearOnFocus = true,
+	Flag = "speed_input",
 	Callback = function(value)
 		print("Speed:", value)
 	end
@@ -150,6 +160,7 @@ local Selector = Window:AddSelector({
 	Options={"Item","Bone","Other"},
 	Value="Other",
 	NoCap=true,
+	Flag = "selectortype",
 	Callback=function(value, index)
 		print("Mode:", value, index)
 	end
@@ -200,3 +211,5 @@ Window:AddButton({
 		Window:Destroy()
 	end
 })
+
+Window:LoadConfig()
