@@ -3309,7 +3309,6 @@ function Library:CreateWindow(config)
 	Window.ConfigInfo = type(config.ConfigInfo)=="table" and config.ConfigInfo or {Enabled=false,Path=""}
 	
 	if Window.ConfigInfo and Window.ConfigInfo.Enabled then
-        print("ConfigInfo:",Window.ConfigInfo.Enabled,Window.ConfigInfo.Path)
 		CPath=Window.ConfigInfo.Path
 		CEnabled=true
         print("ConfigInfo:",CEnabled,CPath)
@@ -3326,7 +3325,10 @@ function Library:CreateWindow(config)
 				end
 			end
 		end)
-		if not data then print("Config not loaded") end
+		if not data and success then 
+            print("Config not loaded or doesn't exist")
+            GlobalLoaded=true
+        end
 	end
 	
 	local gui=create("ScreenGui",{
