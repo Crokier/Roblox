@@ -293,19 +293,14 @@ local function loadConfig(data)
 		end
 	end
 	GlobalLoaded=true
-    print("Load Config Complete")
 	return changed
 end
 
 local function SaveConfig()
 	if not CEnabled then return end
-    print("Save Config #1")
 	if Strs.isEmpty(CPath) then return end
-    print("Save Config #2")
 	if not GlobalLoaded then return end
-    print("Save Config #3")
 	if HttpService==nil then HttpService=Services.HttpService end
-	print("Save Config Starting")
     local data={}
 	for name,flag in pairs(Library.Flags) do
 		if flag.Type=="ColorPicker" then
@@ -339,7 +334,6 @@ local function SaveConfig()
 		s=CPath
 	end
 	if writefile then callSafely(writefile,s,dataStr) end
-	print("Save Config Complete")
 end
 
 local function getComponents(Window)
@@ -3311,7 +3305,6 @@ function Library:CreateWindow(config)
 	if Window.ConfigInfo and Window.ConfigInfo.Enabled then
 		CPath=Window.ConfigInfo.Path
 		CEnabled=true
-        print("ConfigInfo:",CEnabled,CPath)
 	end
 	
 	function Window:LoadConfig()
@@ -3326,7 +3319,6 @@ function Library:CreateWindow(config)
 			end
 		end)
 		if not data and success then 
-            print("Config not loaded or doesn't exist")
             GlobalLoaded=true
         end
 	end
