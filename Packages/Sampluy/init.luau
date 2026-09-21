@@ -2162,40 +2162,63 @@ local function getComponents(Window)
 			elseif optionType=="table" then
 				option=value
 			end
-			if not options.Multi then
-				if #option>=1 and option[1]~=nil then 
-					local nextValue=option[1] 
-					option={nextValue} 
-				end
-			end
+
 			if #option>=1 and #saveOptions>=1 and options.Options[1]~=saveOptions[1] then
 				local option1,option2=tostring(option[1]),tostring(saveOptions[1])
 				if option1==option2 and options.Options[1]~=option2 then
 					table.remove(option,1)
 				end
 			end
+
 			options.Option=option
+
 			if options.Flag then
 				saveConfig()
 			end
-			callSafely(options.Callback,option)
+
+			callSafely(options.Callback,options.Option)
+
 			if options.Multi then
-				if #option==1 then
-					selected.Text=tostring(option[1])
+				if #options.Option==1 then
+					selected.Text=tostring(options.Option[1])
 				elseif #options.Option==0 then
 					selected.Text="None"
 				else
 					selected.Text="Various"
 				end
+
+				for _,droption in ipairs(content:GetChildren()) do
+					if droption.ClassName=="TextLabel" then
+						local currentOption = droption.Text:match("^%s*(.-)%s*$") or droption.Text
+
+						local isSelected = false
+						for _, v in ipairs(options.Option) do
+							if tostring(v) == currentOption then
+								isSelected = true
+								break
+							end
+						end
+
+						droption.BackgroundColor3 = isSelected and Theme.Unselected or Theme.Selected
+						options.Actives[currentOption] = isSelected
+					end
+				end
 			else
-				selected.Text=tostring(option[1])
+				selected.Text=tostring(options.Option[1] or "None")
 				options:Close()
-			end
-			local lastOptionLen=#options.Option
-			for _,droption in ipairs(content:GetChildren()) do
-				if droption.ClassName=="TextLabel" then
-					if lastOptionLen~=#options.Option then break end
-					droption.BackgroundColor3=table.find(options.Option,droption.Name) ~= nil and Theme.Unselected or Theme.Selected
+
+				for _,droption in ipairs(content:GetChildren()) do
+					if droption.ClassName=="TextLabel" then
+						local currentOption = droption.Text:match("^%s*(.-)%s*$") or droption.Text
+
+						local isSelected = false
+						if options.Option[1] ~= nil and tostring(options.Option[1]) == currentOption then
+							isSelected = true
+						end
+
+						droption.BackgroundColor3 = isSelected and Theme.Unselected or Theme.Selected
+						options.Actives[currentOption] = isSelected
+					end
 				end
 			end
 		end
