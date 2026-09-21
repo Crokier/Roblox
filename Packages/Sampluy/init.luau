@@ -2190,14 +2190,12 @@ local function getComponents(Window)
 			else
 				selected.Text=tostring(option[1])
 				options:Close()
-				for _,droption in ipairs(content:GetChildren()) do
-					if droption.ClassName=="TextLabel" then
-						if not options.Multi then
-							droption.BackgroundColor3=table.find(options.Option,droption.Name) ~= nil and Theme.Unselected or Theme.Selected
-						else
-							break
-						end
-					end
+			end
+			local lastOptionLen=#options.Option
+			for _,droption in ipairs(content:GetChildren()) do
+				if droption.ClassName=="TextLabel" then
+					if lastOptionLen~=#options.Option then break end
+					droption.BackgroundColor3=table.find(options.Option,droption.Name) ~= nil and Theme.Unselected or Theme.Selected
 				end
 			end
 		end
