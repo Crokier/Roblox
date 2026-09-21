@@ -2152,35 +2152,35 @@ local function getComponents(Window)
 			end)
 		end
 
-		function options:Set(option)
-			if option==nil then option={} end
-			local optionType=type(option)
+		function options:Set(newOption)
+			if newOption==nil then newOption={} end
+			local optionType=type(newOption)
 			if optionType=="string" then
-				option={option}
+				newOption={newOption}
 			elseif optionType~="table" then
-				option={}
+				newOption={}
 			end
 			if not options.Multi then
-				if #option>=1 then option={option[1]} end
+				if #newOption>=1 then newOption={newOption[1]} end
 			end
-			if #option>=1 and #saveOptions>=1 and option[1]==saveOptions[1] and options.Options[1]~=saveOptions[1] then
-				table.remove(option,1)
+			if #newOption>=1 and #saveOptions>=1 and newOption[1]==saveOptions[1] and options.Options[1]~=saveOptions[1] then
+				table.remove(newOption,1)
 			end
-			options.Option=option
+			options.Option=newOption
 			if options.Flag then
 				saveConfig()
 			end
-			callSafely(options.Callback,option)
+			callSafely(options.Callback,newOption)
 			if options.Multi then
-				if #option==1 then
-					selected.Text=tostring(option[1])
+				if #newOption==1 then
+					selected.Text=tostring(newOption[1])
 				elseif #options.Option==0 then
 					selected.Text="None"
 				else
 					selected.Text="Various"
 				end
 			else
-				selected.Text=tostring(option[1])
+				selected.Text=tostring(newOption[1])
 				options:Close()
 				for _,droption in ipairs(content:GetChildren()) do
 					if droption.ClassName=="TextLabel" then
