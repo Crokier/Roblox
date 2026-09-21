@@ -2161,9 +2161,9 @@ local function getComponents(Window)
 				option={}
 			end
 			if not options.Multi then
-				if #option>0 then option={option[1]} end
+				if #option>=1 then option={option[1]} end
 			end
-			if option[1]==saveOptions[1] and options.Options[1]~=saveOptions[1] then
+			if #option>=1 and #saveOptions>=1 and option[1]==saveOptions[1] and options.Options[1]~=saveOptions[1] then
 				table.remove(option,1)
 			end
 			options.Option=option
