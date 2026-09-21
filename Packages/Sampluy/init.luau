@@ -10,6 +10,7 @@ local Players=Services.Players
 local RunService=Services.RunService
 local UserInputService=Services.UserInputService
 local TweenService=Services.TweenService
+local HttpService=nil
 local TeleportService=nil
 local LocalPlayer=Players.LocalPlayer
 local Mouse=nil
@@ -34,18 +35,20 @@ local Theme = {
 	Unselected=Color3.fromRGB(30,30,30)
 }
 
-local EnumCache = {
-	ClickMethodTypes = {"Default","None","SingleClick","DoubleClick","MultiClick","AntiSpamClick","DebounceClick","1","2","3"}
+local EnumCache={
+	ClickMethodTypes={"Default","None","SingleClick","DoubleClick","MultiClick","AntiSpamClick","DebounceClick","1","2","3"}
 }
+
+local CEnabled,CPath,GlobalLoaded,SaveCDebounce=false,"",false,false
 
 local Library={
 	Flags={},
 	ActivePopup=nil,
-	Notifications = nil
+	Notifications=nil
 }
 
 local Strs={
-	BuilderIcons = "rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json",
+	BuilderIcons="rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json",
 	FamiliesBuilderIcons = "rbxasset://fonts/families/BuilderIcons.json"
 }
 
@@ -80,6 +83,14 @@ function Strs.isEmpty(s)
 		return true
 	end
 	return true
+end
+
+local function packColor(Color)
+	return {R=Color.R*255,G=Color.G*255,B=Color.B*255}
+end    
+
+local function unpackColor(Color)
+	return Color3.fromRGB(Color.R,Color.G,Color.B)
 end
 
 local function callSafely(func,...)
@@ -251,6 +262,82 @@ end
 
 local function iconStr(name)
 	return `<font face="{Strs.FamiliesBuilderIcons}">{name}</font>`
+end
+
+local function loadConfig(data)
+	if HttpService==nil then HttpService=Services.HttpService end
+	GlobalLoaded=false
+	local success,data=pcall(function() return HttpService:JSONDecode(data) end)
+	local changed=false
+	if not success then warn("had an issue decoding the configuration file, please try delete the file and reopen.") return end
+	for name,flag in pairs(Library.Flags) do
+		local value=data[name]
+		if (typeof(value)=="boolean" and value==false) or value~=nil then
+			task.spawn(function()
+				if flag.Type=="ColorPicker" then
+					changed=true
+					flag:Set(unpackColor(value))
+				elseif flag.Type=="Folder" then
+					changed=true
+					flag:Set(value)
+				else
+					if (flag.Value or flag.Keybind or flag.Option or flag.Color)~=value then 
+						changed=true
+						flag:Set(value) 	
+					end
+				end
+			end)
+		else
+			warn("Unable to find '"..name.. "' in the save file.")
+			print("The error above may not be an issue if new elements have been added or not been set values.")
+		end
+	end
+	GlobalLoaded=true
+	return changed
+end
+
+local function SaveConfig()
+	if not CEnabled then return end
+	if Strs.isEmpty(CPath) then return end
+	if not GlobalLoaded then return end
+	if HttpService==nil then HttpService=Services.HttpService end
+	if SaveCDebounce then return end
+	SaveCDebounce=true
+	local data={}
+	for name,flag in pairs(Library.Flags) do
+		if flag.Type=="ColorPicker" then
+			data[name]=packColor(flag.Color)
+		else
+			if flag.Value~=nil and type(flag.Value)=="boolean" then
+				if flag.Value==false then 
+					data[name]=false 
+				else 
+					data[name]=flag.Keybind or flag.Option or flag.Color or flag.Value 
+				end
+			else
+				data[name]=flag.Keybind or flag.Option or flag.Color or flag.Value
+			end
+		end
+	end
+	local dataStr=HttpService:JSONEncode(data)
+	local paths=string.split(CPath,"/")
+	local s=""
+	if #paths>=2 then
+		for i=1,#paths do
+			local path=paths[i]
+			s=s..path
+			if i<#paths then
+				s=s.."/"
+				ensureFolder(s)
+			end
+		end
+	else
+		s=CPath
+	end
+	if writefile then callSafely(writefile,s,dataStr) end
+	print("Save Config")
+	task.wait(1)
+	SaveCDebounce=false
 end
 
 local function getComponents(Window)
@@ -581,6 +668,7 @@ local function getComponents(Window)
 		if options.Default~=nil then
 			options.Value=options.Default and true or false
 		end
+		
 		local inContact,title,tickboxOutline,changeValue=false,nil,nil,nil
 		local main=create("Frame",{
 			Name=options.Type,
@@ -589,7 +677,7 @@ local function getComponents(Window)
 			Size=UDim2.new(1,0,0,30),
 			Parent=Window.Container
 		})
-
+		
 		if options.Style=="0" then
 			title=create("TextLabel",{
 				Name="Title",
@@ -625,6 +713,9 @@ local function getComponents(Window)
 				value=value and true or false
 				if not initial and options.Value==value then return end
 				options.Value=value
+				if options.Flag then
+					SaveConfig()
+				end
 				--{ImageColor3=value and Color3.fromRGB(60,200,60) or Color3.fromRGB(200,60,60)})
 				tween(title,TweenCache.Default, {TextColor3=value and  options.SelectedColor3 or options.UnselectedColor3})
 				tween(round,TweenCache.Default, {ImageColor3=value and options.UnselectedColor3 or options.SelectedColor3})  
@@ -752,6 +843,9 @@ local function getComponents(Window)
 				value=value and true or false
 				if not initial and options.Value==value then return end
 				options.Value=value
+				if options.Flag then
+					SaveConfig()
+				end
 				checkmarkHolder:TweenSize(value and UDim2.new(1,-8,1,-8) or UDim2.new(0,0,1,-8),"Out","Quad",0.2,true)
 				tween(tickboxInner,TweenCache.Default,{ImageColor3=value and options.SelectedColor3 or options.InnerUnselectedColor3})
 				tween(tickboxOutline, value and TweenCache.Default or TweenCache.Other,{ImageColor3=value and options.SelectedColor3 or options.OutlineUnselectedColor3})
@@ -838,6 +932,7 @@ local function getComponents(Window)
 		options.Callback=missing("function",options.Callback,function() end)
 		
 		local main,title,inputBox=nil,nil,nil
+		local connections={}
 		
 		if options.Style=="0" then
 			main=create("Frame",{
@@ -892,7 +987,7 @@ local function getComponents(Window)
 				callSafely(options.Callback,text)
 			end
 			
-			inputBox.FocusLost:Connect(function(enter)
+			connections.FocusLost=inputBox.FocusLost:Connect(function(enter)
 				if not enter and not options.NoEnter then return end
 				local inputText=inputBox.Text
 				if options.RemoveTextAfterFocusLost or options.ClearOnFocus then inputBox.Text="" end
@@ -958,10 +1053,13 @@ local function getComponents(Window)
 			
 			function options:Set(value)
 				options.Value=tostring(value)
+				if options.Flag then
+					SaveConfig()
+				end
 				callSafely(options.Callback,value)
 			end
 
-			main.InputBegan:connect(function(input)
+			connections.InputBegan=main.InputBegan:connect(function(input)
 				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 					if not focused then inputBox:CaptureFocus() end
 				end
@@ -974,7 +1072,7 @@ local function getComponents(Window)
 				end
 			end)
 
-			main.InputEnded:connect(function(input)
+			connections.InputEnded=main.InputEnded:connect(function(input)
 				if input.UserInputType == Enum.UserInputType.MouseMovement then
 					inContact = false
 					if not focused then
@@ -983,12 +1081,12 @@ local function getComponents(Window)
 				end
 			end)
 
-			inputBox.Focused:connect(function()
+			connections.Focused=inputBox.Focused:connect(function()
 				focused=true
 				tween(outline,TweenCache.Default,{ImageColor3=Color3.fromRGB(255,255,255)})
 			end)
 
-			inputBox.FocusLost:connect(function(enter)
+			connections.FocusLost=inputBox.FocusLost:connect(function(enter)
 				focused = false
 				tween(outline,TweenCache.Default,{ImageColor3=Color3.fromRGB(60,60,60)})
 				if not enter and not options.NoEnter then return end
@@ -1003,7 +1101,10 @@ local function getComponents(Window)
 		end
 		
 		connectDestroying(Window.Gui,Window.SaveName,function()
-			
+			for key, connection in pairs(connections) do
+				connection:Disconnect()
+			end
+			connections={}
 		end)
 
 		if options.Visible~=nil then
@@ -1164,6 +1265,9 @@ local function getComponents(Window)
 				value=round(value,options.Increment)
 				value=math.clamp(value,options.Min,options.Max)
 				options.Value=value
+				if options.Flag then
+					SaveConfig()
+				end
 				handle:TweenPosition(UDim2.new((value-options.Min)/(options.Max-options.Min),0,0.5,0),"Out","Quad",0.1,true)
 				if options.Min>=0 then
 					fill:TweenSize(UDim2.new((value-options.Min)/(options.Max-options.Min),0,1,0),"Out","Quad",0.1,true)
@@ -1311,17 +1415,18 @@ local function getComponents(Window)
 				fill.Size=UDim2.new(options.Value/(options.Max-options.Min),0,1,0)
 			end
 
-
 			if options.Visible~=nil then
 				main.Visible=options.Visible and true or false
 			end
-
 
 			function options:Set(value)
 				local min, max, increment, callback = options.Min or 0, options.Max or 100, options.Increment or 1, options.Callback
 				value=round(value,increment)
 				value=math.clamp(value,min,max)
 				options.Value=value
+				if options.Flag then
+					SaveConfig()
+				end
 				local ratio = (value-min)/(max-min)
 				handle:TweenPosition(UDim2.new(ratio,0,0.5,0),"Out","Quad",0.1,true)
 				if min>=0 then
@@ -1519,11 +1624,18 @@ local function getComponents(Window)
 			TextSize=12,
 			Parent=main
 		})
-
+		
+		if options.Flag then
+			Library.Flags[options.Flag]=options
+		end
+		
 		function options:Set(value,index)
 			self.Value=value
 			information.Text=self.Text and tostring(self.Text)..": "..tostring(value) or tostring(value)
 			if index and type(index)=="number" then self.Index=index else index=table.find(options.Options,value) or 1 end
+			if options.Flag then
+				SaveConfig()
+			end
 			callSafely(self.Callback,value,index)
 		end
 
@@ -2031,6 +2143,9 @@ local function getComponents(Window)
 				option={option[1]}
 			end
 			options.Option=option
+			if options.Flag then
+				SaveConfig()
+			end
 			callSafely(options.Callback,option)
 			if options.Multi then
 				if #option==1 then
@@ -2297,7 +2412,10 @@ local function getComponents(Window)
 
 		function options:Set(open)
 			if open then open=true else open=false end
-			self.Open=open
+			options.Open=open
+			if options.Flag then
+				SaveConfig()
+			end
 			tween(close,TweenCache.Default,{Rotation=open and 90 or 180})
 			childContainer.Visible=open
 		end
@@ -2368,6 +2486,7 @@ local function getComponents(Window)
 
 	return elements
 end
+
 
 function Library:SetAutoResizeGui(gui,data)
 	if not data or type(data)~="table" then data={} end
@@ -3169,7 +3288,6 @@ function Library:CreateWindow(config)
 		config={Name=config}
 	end
 	config=typeof(config)=="table" and config or {}
-
 	local Window={}
 	if config.Name~=nil then
 		Window.Name=config.Name.."_Sampluy"
@@ -3186,7 +3304,27 @@ function Library:CreateWindow(config)
 	Window.Style = config.Style or "Crokyreo"
 	Window.AutoMaxHeight = config.AutoMaxHeight or true
 	Window.TabIcon = config.TabIcon or "controller"
-
+	Window.ConfigInfo = type(config.ConfigInfo)=="table" and config.ConfigInfo or {Enabled=false,Path=""}
+	
+	if Window.ConfigInfo and Window.ConfigInfo.Enabled then
+		CPath=Window.ConfigInfo.Path
+		CEnabled=true
+	end
+	
+	function Window:LoadConfig()
+		local data=nil
+		local success,result=pcall(function()
+			if not Strs.isEmpty(CPath) then 
+				if isfile then
+					if callSafely(isfile,CPath) and readfile then
+						data=loadConfig(callSafely(readfile,CPath))
+					end
+				end
+			end
+		end)
+		if not data then print("Config not loaded") end
+	end
+	
 	local gui=create("ScreenGui",{
 		Name=Window.Name,
 		ResetOnSpawn=false
