@@ -41,16 +41,15 @@ KeySystem:Destroy() -- Destroy the key system after the user has successfully lo
 
 -- Window
 local Window = UI:CreateWindow({
-	Name = "Targeting Tools",
+	Name = "Targeting Tool",
 	ConfigInfo = {
 		Enabled = true,
-		Path = "Crokyreo/TargetingTool.json"
+		Path = "Crokyreo/TargetingTool/settings.json"
 	},
 	Destroying = function()
 		print("cleanup")
 	end,
 })
-
 
 -- Button
 local Button = nil
@@ -123,11 +122,11 @@ local RandomLists ={
 
 local Dropdown = nil
 Dropdown = Window:AddDropdown({
-	Name = "Fruit (Empty = All)",
+	Text = "Fruit (Empty = All)",
 	Options = {"Apple", "Banana", "Avocado", "Mango", "Durian", "Pineapple", "Peach", "Pear", "Grape", "Watermelon", "Strawberry", "Blueberry", "Orange"},
 	Option = {"Apple", "Banana"},
 	MultipleOptions = true,
-	Flag = "fruit_pptions",
+	Flag = "fruit_options",
 	Callback = function(option)
 		print("Fruit:", unpack(option))
 	end
@@ -148,7 +147,7 @@ UpdateButton = Window:AddButton({
 local Input = Window:AddInput({
 	Name = "Speed", 
 	ClearOnFocus = true,
-	Flag = "speed_input",
+	Flag = "speed",
 	Callback = function(value)
 		print("Speed:", value)
 	end
@@ -157,11 +156,11 @@ Input:Set("")
 
 -- Selector
 local Selector = Window:AddSelector({
-	Options={"Item","Bone","Other"},
-	Value="Other",
-	NoCap=true,
-	Flag = "selectortype",
-	Callback=function(value, index)
+	Options = {"Item","Bone","Other"},
+	Value = "Other",
+	NoCap = true,
+	Flag = "selector_type",
+	Callback = function(value, index)
 		print("Mode:", value, index)
 	end
 })
