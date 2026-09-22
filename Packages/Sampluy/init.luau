@@ -4,22 +4,71 @@
    Gemini AI | Just help and fix
 ]]
 
-local Services=setmetatable({},{__index=function(_,i) return cloneref and cloneref(game:GetService(i)) or game:GetService(i) end})
+--[[ Info
+	Feature
+	- Can fit to the height of all devices with AutoMaxHeight
+	- Key System
+	- Notification
+	- Get Protect Gui
+	
+	UI
+	- Label
+	- Dropdown
+	- Button
+	- Input
+	- Toggle
+	- Slider
+	- Selector
+	- Select
+	- Folder
+	- Tab
+]]
 
+local Services=setmetatable({},{__index=function(_,i) return cloneref and cloneref(game:GetService(i)) or game:GetService(i) end})
 local Players=Services.Players
 local RunService=Services.RunService
 local UserInputService=Services.UserInputService
 local TweenService=Services.TweenService
 local TextService=Services.TextService
 
+local function missing(t,v,f)
+	return (v~=nil and typeof(v)==t) and v or f
+end
+
+queueteleport=missing("function", queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport))
+getconnections=missing("function", getconnections or get_signal_cons)
+
 local HttpService=nil
 local TeleportService=nil
 local LocalPlayer=Players.LocalPlayer
 local Mouse=nil
 
+local PLACE_ID=game.PlaceId
+local JOB_ID=game.JobId
 local OFFSET=UDim2.new(0,100,0,50)
 local UIFolder="Sampluy"
 local baseX,baseY=1024,768
+
+local teleportRespawnHandler=[[
+local ok, data = pcall(function() return game:GetService("TeleportService"):GetLocalPlayerTeleportData() end)
+if ok and typeof(data) == "CFrame" then
+    local Players = game:GetService("Players")
+    local ME = Players.LocalPlayer
+    while not ME do
+        Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+        ME = Players.LocalPlayer
+    end
+
+    local Character = ME.Character or ME.CharacterAdded:Wait()
+    Character:WaitForChild("HumanoidRootPart")
+
+    local t = tick()
+    while (tick() - t) <= 0.3 do
+        Character:PivotTo(data)
+        task.wait()
+    end
+end
+]]
 
 local TweenCache = {
 	Tab = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
@@ -46,12 +95,13 @@ local CEnabled,CPath,GlobalLoaded,SaveCDebounce=false,"",false,false
 local Library={
 	Flags={},
 	ActivePopup=nil,
-	Notifications=nil
+	Notifications=nil,
+	Containers={},
 }
 
 local Strs={
 	BuilderIcons="rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json",
-	FamiliesBuilderIcons = "rbxasset://fonts/families/BuilderIcons.json"
+	FamiliesBuilderIcons="rbxasset://fonts/families/BuilderIcons.json"
 }
 
 function Strs.toNumber(v,maxFloat)
@@ -147,9 +197,6 @@ local function round(num, bracket)
 	return v
 end
 
-local function missing(t,v,f)
-	return (v~=nil and typeof(v)==t) and v or f
-end
 
 local function isUIOverlapping(ui1,ui2)
 	local pos1,size1=ui1.AbsolutePosition,ui1.AbsoluteSize
@@ -338,7 +385,9 @@ local function getComponents(Window)
 		options.Text=options.Text or options.Title or options.Name or options.Type
 
 		if options.DoesWrap~=nil then 
-			options.Wrap=options.DoesWrap and true or false 
+			options.Wrap=options.DoesWrap and true or false
+		elseif options.AutoWrap~=nil then
+			options.Wrap=options.AutoWrap and true or false
 		else
 			options.Wrap=options.Wrap and true or false
 		end
@@ -366,7 +415,7 @@ local function getComponents(Window)
 			TextWrapped=options.Wrap,
 			Parent=main
 		})
-		
+
 		function options:Display()
 			if not options.Wrap then return end
 			local Width=main.AbsoluteSize.X / 1
@@ -374,16 +423,16 @@ local function getComponents(Window)
 			local _, Y=Library:GetTextBounds(title.Text, title.FontFace, title.TextSize, Width)
 			main.Size=UDim2.new(1, 0, 0, Y + 4)
 		end
-		
+
 		function options:Set(text)
 			text=tostring(text or "")
 			options.Text=text
 			title.Text=text
 			options:Display()
 		end
-		
+
 		local mainResized=nil
-		
+
 		if options.Wrap then
 			options:Display()
 
@@ -394,15 +443,15 @@ local function getComponents(Window)
 				Last=main.AbsoluteSize
 			end)
 		end
-		
+
 		connectDestroying(Window.Gui,Window.SaveName,function()
 			if mainResized then mainResized:Disconnect() end
 		end)
-		
+
 		if options.Visible~=nil then
 			main.Visible=options.Visible and true or false
 		end
-		
+
 		local originals={["TitleScaled"]="TextScaled",["TitleStrokeTransparency"]="TextStrokeTransparency",["TitleStrokeColor3"]="TextStrokeColor3",["TitleColor3"]="TextColor3",["TitleTransparency"]="TextTransparency",["TitleXAlignment"]="TextXAlignment",["TitleYAlignment"]="TextYAlignment"}
 
 		for _,k in ipairs({"TextStrokeTransparency","TextStrokeColor3","TextScaled","TextTransparency","TextColor3","TextXAlignment","TextYAlignment","TextBounds","TextDirection","RichText","Font"}) do
@@ -420,7 +469,7 @@ local function getComponents(Window)
 		end
 
 		options.Instance=main
-	
+
 		return setmetatable({},{
 			__index=function(_,i)
 				if i=="Visible" then 
@@ -1133,7 +1182,7 @@ local function getComponents(Window)
 		options:Set(options.Value)
 		options.Instance=main
 		Window:Resize(false)
-		
+
 		return setmetatable({},{
 			__index=function(_,i)
 				if i=="Visible" then 
@@ -1697,7 +1746,7 @@ local function getComponents(Window)
 			main.Visible=options.Visible and true or false
 		end
 		options.Instance=main
-		
+
 		return setmetatable({},{
 			__index=function(_,i)
 				if i=="Visible" then 
@@ -1920,9 +1969,9 @@ local function getComponents(Window)
 		else
 			options.Option={}
 		end
-		
+
 		local saveOptions=options.Options
-		
+
 		local main=create("Frame", {
 			BackgroundTransparency=1,
 			Size=UDim2.new(1,0,0,52),
@@ -2226,7 +2275,7 @@ local function getComponents(Window)
 		function options:Refresh()
 			local currentOptions = options.Options
 			local droptionButtons = options.DroptionButtons
-			
+
 			for _, droption in ipairs(droptionButtons) do
 				if droption and droption.Parent then
 					droption.Visible = false
@@ -2335,7 +2384,7 @@ local function getComponents(Window)
 			layoutChanged:Disconnect()
 			options:Set(nil)
 		end)
-		
+
 		return setmetatable({},{
 			__index=function(_,i)
 				local DropdownReturns={
@@ -2570,7 +2619,7 @@ function Library:GetScreenType(checkScreenType)
 		return tostring(width).."x"..tostring(height)
 	end
 end
-	
+
 function Library:GetTextBounds(Text, Font, Size, Width)
 	local Params = create("GetTextBoundsParams",{
 		["Text"]=Text,
@@ -2642,6 +2691,704 @@ function Library:GetProtectGui(gui)
 		return
 	end
 	return Services.CoreGui
+end
+
+function Library:CreateWindow(config)
+	if config and type(config)=="string" then
+		config={Name=config}
+	end
+	config=typeof(config)=="table" and config or {}
+	local Window={}
+	if config.Name~=nil then
+		Window.Name=config.Name.."_Sampluy"
+	else
+		Window.Name="Sampluy"
+	end
+	Window.OldName=config.Name.."-Old"
+	Window.SaveName=Window.Name
+	Window.Text=config.Text or config.Title or config.Name or "Panel"
+	Window.MaxHeight=config.MaxHeight or 340
+	Window.Size=config.Size or UDim2.new(0,230,0,40)
+	Window.Open=config.Open or true
+	Window.Destroying=config.Destroying or nil
+	Window.Style=config.Style or "Crokyreo"
+	Window.AutoMaxHeight = config.AutoMaxHeight or true
+	Window.TabIcon=config.TabIcon or "controller"
+	Window.ConfigInfo=type(config.ConfigInfo)=="table" and config.ConfigInfo or {Enabled=false,Path=""}
+	Window.Theme="Crokyreo"
+
+	if Window.ConfigInfo and Window.ConfigInfo.Enabled then
+		CPath=Window.ConfigInfo.Path
+		CEnabled=true
+	end
+
+	function Window:LoadConfig()
+		local data=nil
+		local success,result=pcall(function()
+			if not Strs.isEmpty(CPath) then 
+				if isfile then
+					if callSafely(isfile,CPath) and readfile then
+						data=loadConfig(callSafely(readfile,CPath))
+					end
+				end
+			end
+		end)
+		if not data and success then 
+			GlobalLoaded=true
+		end
+	end
+
+	local gui=create("ScreenGui",{
+		Name=Window.Name,
+		ResetOnSpawn=false,
+		DisplayOrder=999,
+	})
+
+	local protectGui=Library:GetProtectGui(gui)
+
+	for _,interface in ipairs(protectGui:GetChildren()) do
+		if interface.Name==Window.Name and interface~=gui then
+			interface.Enabled=false
+			interface.Name=Window.OldName
+		end
+	end
+
+	gui.Parent=protectGui
+
+	local mainFrame=create("ImageLabel",{
+		Name="Main",
+		BackgroundTransparency=1,
+		BorderSizePixel=0,
+		Size=Window.Size,
+		Position=UDim2.new(0,20,0,20),
+		Image="rbxassetid://3570695787",
+		ImageColor3=Color3.fromRGB(10,10,10),
+		ScaleType=Enum.ScaleType.Slice,
+		SliceCenter=Rect.new(100,100,100,100),
+		SliceScale=0.04,
+		ClipsDescendants=false,
+		Parent=gui
+	})
+
+	for _,interface in ipairs(protectGui:GetChildren()) do
+		if interface~=gui then
+			for _,lastMainFrame in ipairs(interface:GetChildren()) do
+				if lastMainFrame.ClassName=="ImageLabel" and lastMainFrame.Name=="Main" and isUIOverlapping(mainFrame,lastMainFrame) then
+					lastMainFrame.Position=mainFrame.Position+OFFSET
+				end
+			end
+		end
+	end
+
+	local titleBar=create("TextLabel",{
+		Name="Title",
+		Size=UDim2.new(1,0,0,40),
+		BackgroundTransparency=1,
+		BorderSizePixel=0,
+		Text=Window.Text,
+		TextColor3=Theme.Text,
+		Font=Enum.Font.LuckiestGuy,
+		TextSize=12,
+		Parent=mainFrame
+	})
+
+	local tabMainButton=create("TextButton",{
+		AnchorPoint=Vector2.new(0.5,0),
+		Name="Title",
+		Size=UDim2.new(0,200,0,38),
+		Position=UDim2.new(0.5,0,-0.8,0),
+		BackgroundTransparency=1,
+		BorderSizePixel=0,
+		Text="three-dots-horizontal",
+		FontFace=Font.new(Strs.BuilderIcons,Enum.FontWeight.Bold),
+		TextColor3=Color3.fromRGB(0,0,0),
+		TextSize=12,
+		Parent=titleBar
+	})
+
+	create("UITextSizeConstraint",{
+		MaxTextSize=100,
+		MinTextSize=50,
+		Parent=tabMainButton
+	})
+
+	local closeHolder=create("Frame",{
+		Name="Close",
+		Position=UDim2.new(1,0,0,0),
+		Size=UDim2.new(-1,0,1,0),
+		SizeConstraint=Enum.SizeConstraint.RelativeYY,
+		BackgroundTransparency=1,
+		Parent=titleBar
+	})
+
+	local close=create("ImageLabel",{
+		Name="Icon",
+		AnchorPoint=Vector2.new(0.5,0.5),
+		Position=UDim2.new(0.5,0,0.5,0),
+		Size=UDim2.new(1,-Window.Size.Y.Offset-10,1,-Window.Size.Y.Offset-10),
+		BackgroundTransparency=1,
+		Rotation=Window.Open and 90 or 180,
+		Image="rbxassetid://4918373417",
+		ImageColor3=Color3.fromRGB(255,255,255),
+		ScaleType=Enum.ScaleType.Fit,
+		Parent=closeHolder
+	})
+
+	local scrollFrame=create("ScrollingFrame",{
+		Size=UDim2.new(1,0,0,0),
+		Position=UDim2.new(0,0,0,40),
+		BackgroundTransparency=0,
+		BackgroundColor3=Color3.fromRGB(20,20,20),
+		BorderSizePixel=0,
+		ScrollBarThickness=4,
+		ScrollBarImageColor3=Color3.fromRGB(100,100,110),
+		ClipsDescendants=true,
+		CanvasSize=UDim2.new(0,0,0,0),
+		Parent=mainFrame
+	})
+
+	local contentHolder=create("Frame",{
+		AnchorPoint=Vector2.new(0.5,0),
+		Size=UDim2.new(1,-16,0,0),
+		Position=UDim2.new(0.5,0,0,0),
+		AutomaticSize=Enum.AutomaticSize.Y,
+		BackgroundTransparency=1,
+		Parent=scrollFrame
+	})
+
+	create("UIListLayout",{
+		Parent=contentHolder,
+		Padding=UDim.new(0,6),
+		HorizontalAlignment=Enum.HorizontalAlignment.Center,
+		SortOrder=Enum.SortOrder.LayoutOrder
+	})
+
+	local tabScrollFrame=create("ScrollingFrame",{
+		Name="Tabs",
+		Size=UDim2.new(0.225,0,0,0),
+		Position=UDim2.new(-0.2,0,0,40),
+		BackgroundTransparency=0,
+		BackgroundColor3=Color3.fromRGB(20,20,20),
+		BorderSizePixel=0,
+		ScrollBarThickness=4,
+		ScrollBarImageColor3=Color3.fromRGB(100,100,110),
+		ClipsDescendants=true,
+		CanvasSize=UDim2.new(0,0,0,0),
+		Parent=mainFrame
+	})
+
+	local tabContentHolder=create("Frame",{
+		AnchorPoint=Vector2.new(0.5,0),
+		Size=UDim2.new(1,-16,0,0),
+		Position=UDim2.new(0.5,0,0.03,0),
+		AutomaticSize=Enum.AutomaticSize.Y,
+		BackgroundTransparency=1,
+		Parent=tabScrollFrame
+	})
+
+	create("UIListLayout",{
+		Parent=tabContentHolder,
+		Padding=UDim.new(0,10),
+		HorizontalAlignment=Enum.HorizontalAlignment.Center,
+		SortOrder=Enum.SortOrder.LayoutOrder
+	})
+
+	local cleanDraggable=Library:MakeDraggable(titleBar,mainFrame)
+
+	Window.Main=mainFrame
+	Window.Container=contentHolder
+	Window.Gui=gui
+	Window.TabButtons={}
+	Window.TabPages={}
+	Window.Parent=true
+	Window.TabActive=false
+	Library.Containers[Window.SaveName]=contentHolder
+
+	local currentMaxHeight = Window.MaxHeight
+
+	function Window:Resize(animated)
+		local screenType = Library:GetScreenType()
+
+		if Window.AutoMaxHeight or currentMaxHeight==340 then
+			if screenType == "720p" or screenType == "1280x500" then
+				Window.MaxHeight = 600
+			elseif screenType == "1080p" then
+				Window.MaxHeight = 650
+			elseif screenType == "4K" then
+				Window.MaxHeight = 700
+			else
+				Window.MaxHeight = 340
+			end
+		end
+
+		local contentHeight=Library.Containers[Window.SaveName].AbsoluteSize.Y
+		local targetMainSize,targetScrollSize
+
+		if not Window.Open then
+			targetMainSize=Window.Size
+			targetScrollSize=UDim2.new(1,0,0,0)
+		else
+			local allowedContentHeight=math.min(contentHeight+6,Window.MaxHeight-Window.Size.Y.Offset)
+			targetMainSize=UDim2.new(Window.Size.X.Scale,Window.Size.X.Offset,Window.Size.Y.Scale,Window.Size.Y.Offset+allowedContentHeight)
+			targetScrollSize=UDim2.new(1,0,0,allowedContentHeight)
+		end
+
+		if animated then
+			tween(mainFrame,TweenCache.Default,{Size=targetMainSize})
+			tween(scrollFrame,TweenCache.Default,{Size=targetScrollSize})
+			tween(tabScrollFrame,TweenCache.Default,{Size=UDim2.new(0.225,0,0,targetScrollSize.Y.Offset)})
+		else
+			mainFrame.Size=targetMainSize
+			scrollFrame.Size=targetScrollSize
+			tabScrollFrame.Size=UDim2.new(0.225,0,0,targetScrollSize.Y.Offset)
+		end
+	end
+
+	tabScrollFrame.Visible=false
+
+	local absoluteCinema=tabMainButton.Activated:Connect(function()
+		if tabMainButton.Visible then
+			tabScrollFrame.Visible = not tabScrollFrame.Visible
+		end
+	end)
+
+	local absoluteSizeChanged=contentHolder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		scrollFrame.CanvasSize=UDim2.new(0,0,0,Library.Containers[Window.SaveName].AbsoluteSize.Y+6)
+		Window:Resize(true)
+	end)
+
+	local function updateWindowScroll()
+		Window.Open=not Window.Open
+		scrollFrame.Visible=Window.Open
+		tween(close,TweenCache.Default,{Rotation=Window.Open and 90 or 180})
+		Window:Resize(true)
+	end
+
+	updateWindowScroll()
+
+	local inputBegan=closeHolder.InputBegan:connect(function(input)
+		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+			updateWindowScroll()
+		end
+	end)
+
+	function Window:Destroy()
+		if not self.Parent then return end
+		self.Parent=nil
+		callSafely(self.Destroying)
+		absoluteSizeChanged:Disconnect()
+		inputBegan:Disconnect()
+		absoluteCinema:Disconnect()
+		cleanDraggable()
+		self.Open=false
+		if self.Gui.Parent then
+			tween(close,TweenCache.Default,{Rotation=180})
+			Window:Resize(false)
+			self.Gui.Enabled=false
+			self.Gui.Name=self.OldName or self.GuiName.."-Old"
+		end
+	end
+
+	connectDestroying(Window.Gui,Window.SaveName,function()
+		Window:Destroy()
+	end)
+
+	Window.FirstTab=false
+	Window.FirstSettings=false
+	
+	function Window:BuildSettingsFeature(settingInfo)
+		if Window.FirstSettings then return end
+		Window.FirstSettings=true
+		
+		settingInfo=missing("table",settingInfo,{})
+		
+		local SettingTab=Window:CreateTab({Icon="gear"})
+
+		local GameplayPausedToggle=SettingTab:AddToggle({
+			Text="Gameplay Paused",
+			Value=false,
+			Flag="gameplay_paused",
+			Callback=function(value)
+				Services.GuiService:SetGameplayPausedNotificationEnabled(value)
+			end
+		})
+		GameplayPausedToggle:Set(false)
+		
+		local fullScreenGui=create("ScreenGui",{
+			Name="",
+			ResetOnSpawn=false,
+			IgnoreGuiInset=true,
+			DisplayOrder=998,
+			Enabled=false
+		})
+	
+		local protectGui=Library:GetProtectGui(fullScreenGui)
+		
+		local coverFrame=create("Frame",{
+			Name="",
+			Size=UDim2.new(1,0,1,0),
+			Position=UDim2.new(0,0,0,0),
+			BackgroundColor3=Color3.fromRGB(255,255,255),
+			BorderSizePixel=0,
+			BackgroundTransparency=0
+		})
+		
+		coverFrame.Parent=fullScreenGui
+		fullScreenGui.Parent=protectGui
+		gui.Parent=protectGui
+
+		local Disable3DRenderingToggle=SettingTab:AddToggle({
+			Text="Disable 3D Rendering",
+			Value=false,
+			Flag="disable_3d_rendering",
+			Callback=function(value)
+				fullScreenGui.Enabled=value
+			end
+		})
+		
+		local antiAfkCon=nil
+		
+		local AntiAFKToggle=SettingTab:AddToggle({
+			Text="Anti AFK",
+			Value=false,
+			Flag="anti_afk_enabled",
+			Callback=function(value)
+				if value then
+					if getconnections then
+						for _, c in getconnections(LocalPlayer.Idled) do
+							pcall(function() c:Disable() end)
+							pcall(function() c:Disconnect() end) 
+						end
+					end
+					pcall(function() antiAfkCon:Disconnect() end)
+					antiAfkCon=LocalPlayer.Idled:Connect(function()
+						local VirtualInputManager=Instance.new("VirtualInputManager")
+						VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
+						VirtualInputManager:SendMouseButtonEvent(0,0,0,false,game,0)
+						VirtualInputManager:Destroy()
+					end)
+				else
+					pcall(function() antiAfkCon:Disconnect() end)
+				end
+			end
+		})
+		
+		if TeleportService==nil then TeleportService=Services.TeleportService end
+		if HttpService==nil then HttpService=Services.HttpService end
+		
+		local RejoinLabel=SettingTab:AddLabel({
+			Text="Incompatible Exploit Your exploit does not support this argument (missing queue_on_teleport)",
+			TextColor3=Color3.fromRGB(255,255,255),
+			TextXAlignment=Enum.TextXAlignment.Left,
+			Wrap=true,
+			Visible=false
+		})
+		
+		SettingTab:AddButton({
+			Text="Rejoin",
+			DebounceClick=true,
+			DoubleClick=true,
+			Callback=function()
+				local data = nil
+				
+				if queueteleport then
+					if LocalPlayer.Character then
+						data = LocalPlayer.Character:GetPivot()
+						queueteleport(teleportRespawnHandler)
+					end
+				else
+					task.spawn(function()
+						RejoinLabel.Visible=true
+						task.wait(2)
+						RejoinLabel.Visible=false
+					end)
+				end
+
+				if #Players:GetPlayers() <= 1 then
+					Players.LocalPlayer:Kick("\nRejoining...")
+					task.wait(0.3)
+					TeleportService:Teleport(PLACE_ID, Players.LocalPlayer, data)
+				else
+					TeleportService:TeleportToPlaceInstance(PLACE_ID, JOB_ID, Players.LocalPlayer, nil, data)
+				end
+			end
+		})
+		
+		local ServerHopLabel=SettingTab:AddLabel({
+			Text="Couldn't find a server.",
+			TextColor3=Color3.fromRGB(255,255,255),
+			Visible=false
+		})
+		local ServerHopFolder=SettingTab:AddFolder({
+			Text="Server Hop",
+			Open=false
+		})
+		ServerHopFolder:AddButton({
+			Text="Random Server",
+			DebounceClick=true,
+			DoubleClick=true,
+			Callback=function()
+				local servers={}
+				local req=game:HttpGet("https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
+				local body=HttpService:JSONDecode(req)
+				if body and body.data then
+					for i,v in next,body.data do
+						if type(v)=="table" and tonumber(v.playing) and tonumber(v.maxPlayers) and v.playing<v.maxPlayers and v.id~=JOB_ID then
+							table.insert(servers,1,v.id)
+						end
+					end
+				end
+				if #servers>0 then
+					TeleportService:TeleportToPlaceInstance(PLACE_ID, servers[math.random(1, #servers)], Players.LocalPlayer)
+				else
+					ServerHopLabel.Visible=true
+					task.wait(2)
+					ServerHopLabel.Visible=false
+				end
+			end
+		})
+		ServerHopFolder:AddButton({
+			Text="Small Server",
+			MethodType="DoubleClick",
+			Callback=function() end
+		})
+		
+		local AutoExecute=SettingTab:AddToggle({
+			Text="Auto Execute (WIP)",
+			Value=false,
+			Flag="execute_enabled",
+			Callback=function(value)
+				
+			end
+		})
+		
+		if settingInfo.Link~=nil or settingInfo.TeleportLink~=nil then
+			local TeleportCheck, TeleportLink = false, settingInfo.Link or settingInfo.TeleportLink
+			Players.LocalPlayer.OnTeleport:Connect(function(State)
+				if (not TeleportCheck) and queueteleport and TeleportLink then
+					TeleportCheck = true
+					queueteleport("loadstring(game:HttpGet('"..TeleportLink.."'))()")
+				end
+			end)
+		end
+	end
+	
+	function Window:CreateTab(options)
+		options=missing("table",options,{})
+		options.Icon=options.Icon or options.Image or ""
+
+		local isFirtTab=false
+		local Tab={}
+
+		for key,value in pairs(Window) do
+			Tab[key]=value
+		end
+		Tab.Resize=Window.Resize
+
+		if not Window.FirstTab then
+			Window.FirstTab=true
+			isFirtTab = true
+			Tab.Container=contentHolder
+			tabMainButton.Visible=false
+			tabScrollFrame.Visible=false
+			--Tab.CreateTab=Window.CreateTab
+		else
+			local tabPage=create("Frame",{
+				AnchorPoint=Vector2.new(0.5,0),
+				Size=UDim2.new(1,-16,0,0),
+				Position=UDim2.new(0.5,0,0,0),
+				AutomaticSize=Enum.AutomaticSize.Y,
+				BackgroundTransparency=1,
+				Visible=false,
+				Parent=scrollFrame
+			})
+
+			create("UIListLayout",{
+				Parent=tabPage,
+				Padding=UDim.new(0,6),
+				HorizontalAlignment=Enum.HorizontalAlignment.Center,
+				SortOrder=Enum.SortOrder.LayoutOrder
+			})
+
+			tabPage.Visible=false
+			Tab.Container=tabPage
+			tabMainButton.Visible=true
+		end
+
+		local baseComponents=getComponents(Tab)
+		for k,v in next,baseComponents do
+			Tab[k]=v
+		end
+
+		table.insert(Window.TabPages,Tab.Container)
+
+		getComponents({Gui=Window.Gui,SaveName=Window.SaveName,Container=tabContentHolder}):AddButton({
+			Text=options.Icon,
+			ImageTransparency=1,
+			FontFace=Font.new(Strs.BuilderIcons,Enum.FontWeight.Bold),
+			TextColor3=Color3.fromRGB(255,255,255),
+			TextScaled=true,
+			Callback=function()
+				Library.Containers[Window.SaveName]=Tab.Container
+				for _, tabPage in ipairs(Window.TabPages) do
+					if tabPage ~= Tab.Container then
+						tabPage.Visible = false
+					end
+				end
+				Tab.Container.Visible = true
+			end
+		})
+
+
+		return Tab
+	end
+
+	local mainTab = Window:CreateTab({
+		Icon="square-code",
+	})
+
+	
+	return mainTab
+end
+
+function Library:Notify(data)
+	data=(data ~= nil and typeof(data)=="table") and data or {}
+	local title,description,duration,icon=data.Title or data.Text, data.Description or data.Context, data.Duration or data.Cooldown or 25, data.Icon or data.Image or "rbxassetid://0"
+	local protectGui=Library:GetProtectGui()
+	local notificationGui=Library.Notifications
+	if not notificationGui then
+		for _,interface in ipairs(protectGui:GetChildren()) do
+			if interface.Name=="ProtectNotification" and interface.ClassName == "ScreenGui" then
+				if not notificationGui then
+					for _,frame in ipairs(interface:GetChildren()) do
+						if frame.Name == "Notifications" and frame.ClassName == "Frame" then
+							local uiListLayout = frame:FindFirstChildOfClass("UIListLayout")
+							local uiPadding = frame:FindFirstChildOfClass("UIPadding")
+							if uiListLayout and uiPadding then
+								notificationGui = interface
+								break
+							end
+						end
+					end
+				end
+				if notificationGui then
+					break
+				end
+			end
+		end
+		Library.Notifications=notificationGui
+	end
+	local notificationFrame = nil
+	if not notificationGui then
+		notificationGui = create("ScreenGui", {
+			Name = "ProtectNotification",
+			ResetOnSpawn = false,
+		})
+
+		notificationFrame=create("Frame", {
+			Name = "Notifications",
+			Size=UDim2.new(0,320,1,0),
+			Position=UDim2.new(1,-340,0,0),
+			BackgroundTransparency=1,
+			Parent=notificationGui
+		})
+
+		create("UIListLayout", {
+			SortOrder=Enum.SortOrder.LayoutOrder,
+			VerticalAlignment=Enum.VerticalAlignment.Bottom,
+			Padding=UDim.new(0,10),
+			Parent=notificationFrame
+		})
+
+		create("UIPadding", {
+			PaddingBottom=UDim.new(0,20),
+			Parent=notificationFrame
+		})
+
+		protectGui = Library:GetProtectGui(notificationGui)
+		notificationGui.Parent = protectGui
+	else
+		notificationFrame=notificationGui:FindFirstChild("Notifications")
+	end
+	local lIIIll=Instance.new("Frame")
+	lIIIll.Size=UDim2.new(1,0,0,80)
+	lIIIll.BackgroundTransparency=1;
+	lIIIll.Parent=notificationFrame;
+	local IlllII=Instance.new("Frame")
+	IlllII.Size=UDim2.new(1,0,1,0)
+	IlllII.Position=UDim2.new(1.2,0,0,0)
+	IlllII.BackgroundColor3=Color3.fromRGB(30,30,30)
+	IlllII.BorderSizePixel=0;
+	IlllII.Parent=lIIIll;
+	local lIlIlI=Instance.new("UICorner")
+	lIlIlI.CornerRadius=UDim.new(0,8)
+	lIlIlI.Parent=IlllII;
+	local IIlIIl=Instance.new("ImageLabel")
+	IIlIIl.Size=UDim2.new(0,60,0,60)
+	IIlIIl.Position=UDim2.new(0,10,0,10)
+	IIlIIl.BackgroundTransparency=1;
+	if icon ~= nil then
+		local iconId = tonumber(icon)
+		if iconId and iconId > 0 then 
+			IIlIIl.Image="rbxassetid://"..iconId 
+		elseif not iconId and typeof(icon) == "string" then
+			IIlIIl.Image=icon
+		end
+	else
+		IIlIIl.Image="rbxassetid://0"
+	end
+	IIlIIl.Parent=IlllII;
+	local IIllll=Instance.new("TextLabel")
+	IIllll.Size=UDim2.new(1,-110,0,20)
+	IIllll.Position=UDim2.new(0,80,0,10)
+	IIllll.BackgroundTransparency=1;
+	IIllll.Text=title;
+	IIllll.TextColor3=Color3.fromRGB(255,255,255)
+	IIllll.TextSize=16;
+	IIllll.Font=Enum.Font.GothamBold;
+	IIllll.TextXAlignment=Enum.TextXAlignment.Left;
+	IIllll.Parent=IlllII;
+	local IlIIlI=Instance.new("TextLabel")
+	IlIIlI.Size=UDim2.new(1,-90,0,40)
+	IlIIlI.Position=UDim2.new(0,80,0,30)
+	IlIIlI.BackgroundTransparency=1;
+	IlIIlI.Text=description;
+	IlIIlI.TextColor3=Color3.fromRGB(200,200,200)
+	IlIIlI.TextSize=14;
+	IlIIlI.Font=Enum.Font.Gotham;
+	IlIIlI.TextXAlignment=Enum.TextXAlignment.Left;
+	IlIIlI.TextWrapped=true;
+	IlIIlI.Parent=IlllII;
+	local lIlIll=Instance.new("TextButton")
+	lIlIll.Size=UDim2.new(0,24,0,24)
+	lIlIll.Position=UDim2.new(1,-30,0,8)
+	lIlIll.BackgroundTransparency=1;
+	lIlIll.Text="X";
+	lIlIll.TextColor3=Color3.fromRGB(255,80,80)
+	lIlIll.TextSize=18;
+	lIlIll.Font=Enum.Font.GothamBold;
+	lIlIll.Parent=IlllII;
+	local IIIlll=TweenService:create(IlllII,TweenInfo.new(0.5,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),{Position=UDim2.new(0,0,0,0)})
+	IIIlll:Play()
+	local timeoutThread = nil
+	local function OnFinished()
+		lIlIll.Active=false;
+		if timeoutThread and coroutine.status(timeoutThread)~="dead" then
+			task.cancel(timeoutThread)
+			timeoutThread = nil
+		end
+		local IIlIII=TweenService:create(IlllII,TweenInfo.new(0.4,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.new(1.2,0,0,0)})
+		IIlIII:Play()
+		IIlIII.Completed:Wait()
+		local lIllIl=TweenService:create(lIIIll,TweenInfo.new(0.3,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Size=UDim2.new(1,0,0,0)})
+		lIllIl:Play()
+		lIllIl.Completed:Wait()
+		lIIIll:Destroy()
+	end
+	if duration>0 then
+		task.delay(duration, OnFinished)
+	end
+	lIlIll.MouseButton1Click:Connect(OnFinished)
 end
 
 function Library:CreateKeySystem(keyInfo)
@@ -3376,526 +4123,6 @@ function Library:CreateKeySystem(keyInfo)
 			return nil
 		end
 	})
-end
-
-function Library:CreateWindow(config)
-	if config and type(config)=="string" then
-		config={Name=config}
-	end
-	config=typeof(config)=="table" and config or {}
-	local Window={}
-	if config.Name~=nil then
-		Window.Name=config.Name.."_Sampluy"
-	else
-		Window.Name="Sampluy"
-	end
-	Window.OldName=config.Name.."-Old"
-	Window.SaveName=Window.Name
-	Window.Text=config.Text or config.Title or config.Name or "Panel"
-	Window.MaxHeight=config.MaxHeight or 340
-	Window.Size=config.Size or UDim2.new(0,230,0,40)
-	Window.Open=config.Open or true
-	Window.Destroying=config.Destroying or nil
-	Window.Style=config.Style or "Crokyreo"
-	Window.AutoMaxHeight = config.AutoMaxHeight or true
-	Window.TabIcon=config.TabIcon or "controller"
-	Window.ConfigInfo=type(config.ConfigInfo)=="table" and config.ConfigInfo or {Enabled=false,Path=""}
-	Window.Theme="Crokyreo"
-	
-	if Window.ConfigInfo and Window.ConfigInfo.Enabled then
-		CPath=Window.ConfigInfo.Path
-		CEnabled=true
-	end
-
-	function Window:LoadConfig()
-		local data=nil
-		local success,result=pcall(function()
-			if not Strs.isEmpty(CPath) then 
-				if isfile then
-					if callSafely(isfile,CPath) and readfile then
-						data=loadConfig(callSafely(readfile,CPath))
-					end
-				end
-			end
-		end)
-		if not data and success then 
-			GlobalLoaded=true
-		end
-	end
-
-	local gui=create("ScreenGui",{
-		Name=Window.Name,
-		ResetOnSpawn=false
-	})
-
-	local protectGui=Library:GetProtectGui(gui)
-
-	for _,interface in ipairs(protectGui:GetChildren()) do
-		if interface.Name==Window.Name and interface~=gui then
-			interface.Enabled=false
-			interface.Name=Window.OldName
-		end
-	end
-
-	gui.Parent=protectGui
-
-	local mainFrame=create("ImageLabel",{
-		Name="Main",
-		BackgroundTransparency=1,
-		BorderSizePixel=0,
-		Size=Window.Size,
-		Position=UDim2.new(0,20,0,20),
-		Image="rbxassetid://3570695787",
-		ImageColor3=Color3.fromRGB(10,10,10),
-		ScaleType=Enum.ScaleType.Slice,
-		SliceCenter=Rect.new(100,100,100,100),
-		SliceScale=0.04,
-		ClipsDescendants=false,
-		Parent=gui
-	})
-
-	for _,interface in ipairs(protectGui:GetChildren()) do
-		if interface~=gui then
-			for _,lastMainFrame in ipairs(interface:GetChildren()) do
-				if lastMainFrame.ClassName=="ImageLabel" and lastMainFrame.Name=="Main" and isUIOverlapping(mainFrame,lastMainFrame) then
-					lastMainFrame.Position=mainFrame.Position+OFFSET
-				end
-			end
-		end
-	end
-
-	local titleBar=create("TextLabel",{
-		Name="Title",
-		Size=UDim2.new(1,0,0,40),
-		BackgroundTransparency=1,
-		BorderSizePixel=0,
-		Text=Window.Text,
-		TextColor3=Theme.Text,
-		Font=Enum.Font.LuckiestGuy,
-		TextSize=12,
-		Parent=mainFrame
-	})
-
-	local tabMainButton=create("TextButton",{
-		AnchorPoint=Vector2.new(0.5,0),
-		Name="Title",
-		Size=UDim2.new(0,200,0,38),
-		Position=UDim2.new(0.5,0,-0.8,0),
-		BackgroundTransparency=1,
-		BorderSizePixel=0,
-		Text="three-dots-horizontal",
-		FontFace=Font.new(Strs.BuilderIcons,Enum.FontWeight.Bold),
-		TextColor3=Color3.fromRGB(0,0,0),
-		TextSize=12,
-		Parent=titleBar
-	})
-
-	create("UITextSizeConstraint",{
-		MaxTextSize=100,
-		MinTextSize=50,
-		Parent=tabMainButton
-	})
-
-	local closeHolder=create("Frame",{
-		Name="Close",
-		Position=UDim2.new(1,0,0,0),
-		Size=UDim2.new(-1,0,1,0),
-		SizeConstraint=Enum.SizeConstraint.RelativeYY,
-		BackgroundTransparency=1,
-		Parent=titleBar
-	})
-
-	local close=create("ImageLabel",{
-		Name="Icon",
-		AnchorPoint=Vector2.new(0.5,0.5),
-		Position=UDim2.new(0.5,0,0.5,0),
-		Size=UDim2.new(1,-Window.Size.Y.Offset-10,1,-Window.Size.Y.Offset-10),
-		BackgroundTransparency=1,
-		Rotation=Window.Open and 90 or 180,
-		Image="rbxassetid://4918373417",
-		ImageColor3=Color3.fromRGB(255,255,255),
-		ScaleType=Enum.ScaleType.Fit,
-		Parent=closeHolder
-	})
-
-	local scrollFrame=create("ScrollingFrame",{
-		Size=UDim2.new(1,0,0,0),
-		Position=UDim2.new(0,0,0,40),
-		BackgroundTransparency=0,
-		BackgroundColor3=Color3.fromRGB(20,20,20),
-		BorderSizePixel=0,
-		ScrollBarThickness=4,
-		ScrollBarImageColor3=Color3.fromRGB(100,100,110),
-		ClipsDescendants=true,
-		CanvasSize=UDim2.new(0,0,0,0),
-		Parent=mainFrame
-	})
-
-	local contentHolder=create("Frame",{
-		AnchorPoint=Vector2.new(0.5,0),
-		Size=UDim2.new(1,-16,0,0),
-		Position=UDim2.new(0.5,0,0,0),
-		AutomaticSize=Enum.AutomaticSize.Y,
-		BackgroundTransparency=1,
-		Parent=scrollFrame
-	})
-
-	create("UIListLayout",{
-		Parent=contentHolder,
-		Padding=UDim.new(0,6),
-		HorizontalAlignment=Enum.HorizontalAlignment.Center,
-		SortOrder=Enum.SortOrder.LayoutOrder
-	})
-
-	local tabScrollFrame=create("ScrollingFrame",{
-		Name="Tabs",
-		Size=UDim2.new(0.225,0,0,0),
-		Position=UDim2.new(-0.2,0,0,40),
-		BackgroundTransparency=0,
-		BackgroundColor3=Color3.fromRGB(20,20,20),
-		BorderSizePixel=0,
-		ScrollBarThickness=4,
-		ScrollBarImageColor3=Color3.fromRGB(100,100,110),
-		ClipsDescendants=true,
-		CanvasSize=UDim2.new(0,0,0,0),
-		Parent=mainFrame
-	})
-
-	local tabContentHolder=create("Frame",{
-		AnchorPoint=Vector2.new(0.5,0),
-		Size=UDim2.new(1,-16,0,0),
-		Position=UDim2.new(0.5,0,0,0),
-		AutomaticSize=Enum.AutomaticSize.Y,
-		BackgroundTransparency=1,
-		Parent=tabScrollFrame
-	})
-
-	create("UIListLayout",{
-		Parent=tabContentHolder,
-		Padding=UDim.new(0,6),
-		HorizontalAlignment=Enum.HorizontalAlignment.Center,
-		SortOrder=Enum.SortOrder.LayoutOrder
-	})
-
-	local cleanDraggable=Library:MakeDraggable(titleBar,mainFrame)
-
-	Window.Main=mainFrame
-	Window.Container=contentHolder
-	Window.Gui=gui
-	Window.TabButtons={}
-	Window.TabPages={}
-	Window.Parent=true
-	Window.TabActive=false
-	Library.Container=contentHolder
-
-	local savedMaxHeight = Window.MaxHeight
-	
-	function Window:Resize(animated)
-		local screenType = Library:GetScreenType()
-
-		if Window.AutoMaxHeight or savedMaxHeight==340 then
-			if screenType == "720p" or screenType == "1280x500" then
-				print(screenType)
-				Window.MaxHeight = 500
-			elseif screenType == "1080p" then
-				Window.MaxHeight = 600
-			elseif screenType == "4K" then
-				Window.MaxHeight = 600
-			else
-				Window.MaxHeight = 340
-			end
-		end
-
-		local contentHeight=Library.Container.AbsoluteSize.Y
-		local targetMainSize,targetScrollSize
-
-		if not Window.Open then
-			targetMainSize=Window.Size
-			targetScrollSize=UDim2.new(1,0,0,0)
-		else
-			local allowedContentHeight=math.min(contentHeight+6,Window.MaxHeight-Window.Size.Y.Offset)
-			targetMainSize=UDim2.new(Window.Size.X.Scale,Window.Size.X.Offset,Window.Size.Y.Scale,Window.Size.Y.Offset+allowedContentHeight)
-			targetScrollSize=UDim2.new(1,0,0,allowedContentHeight)
-		end
-
-		if animated then
-			tween(mainFrame,TweenCache.Default,{Size=targetMainSize})
-			tween(scrollFrame,TweenCache.Default,{Size=targetScrollSize})
-			tween(tabScrollFrame,TweenCache.Default,{Size=UDim2.new(0.225,0,0,targetScrollSize.Y.Offset)})
-		else
-			mainFrame.Size=targetMainSize
-			scrollFrame.Size=targetScrollSize
-			tabScrollFrame.Size=UDim2.new(0.225,0,0,targetScrollSize.Y.Offset)
-		end
-	end
-
-	tabScrollFrame.Visible=false
-
-	local absoluteCinema=tabMainButton.Activated:Connect(function()
-		if tabMainButton.Visible then
-			tabScrollFrame.Visible = not tabScrollFrame.Visible
-		end
-	end)
-
-	local absoluteSizeChanged=contentHolder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-		scrollFrame.CanvasSize=UDim2.new(0,0,0,Library.Container.AbsoluteSize.Y+6)
-		Window:Resize(true)
-	end)
-	
-	local function updateWindowScroll()
-		Window.Open=not Window.Open
-		scrollFrame.Visible=Window.Open
-		tween(close,TweenCache.Default,{Rotation=Window.Open and 90 or 180})
-		Window:Resize(true)
-	end
-	
-	updateWindowScroll()
-	
-	local inputBegan=closeHolder.InputBegan:connect(function(input)
-		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
-			updateWindowScroll()
-		end
-	end)
-
-	function Window:Destroy()
-		if not self.Parent then return end
-		self.Parent=nil
-		callSafely(self.Destroying)
-		absoluteSizeChanged:Disconnect()
-		inputBegan:Disconnect()
-		absoluteCinema:Disconnect()
-		cleanDraggable()
-		self.Open=false
-		if self.Gui.Parent then
-			tween(close,TweenCache.Default,{Rotation=180})
-			Window:Resize(false)
-			self.Gui.Enabled=false
-			self.Gui.Name=self.OldName or self.GuiName.."-Old"
-		end
-	end
-
-	connectDestroying(Window.Gui,Window.SaveName,function()
-		Window:Destroy()
-	end)
-
-	Window.FirstTab=false
-
-	function Window:CreateTab(options)
-		options=missing("table",options,{})
-		options.Icon=options.Icon or options.Image or ""
-
-		local isFirtTab=false
-		local Tab={}
-
-		for key,value in pairs(Window) do
-			Tab[key]=value
-		end
-		Tab.Resize=Window.Resize
-		
-		if not Window.FirstTab then
-			Window.FirstTab=true
-			isFirtTab = true
-			Tab.Container=contentHolder
-			tabMainButton.Visible=false
-			tabScrollFrame.Visible=false
-			Tab.CreateTab=Window.CreateTab
-			
-		else
-			local tabPage=create("Frame",{
-				AnchorPoint=Vector2.new(0.5,0),
-				Size=UDim2.new(1,-16,0,0),
-				Position=UDim2.new(0.5,0,0,0),
-				AutomaticSize=Enum.AutomaticSize.Y,
-				BackgroundTransparency=1,
-				Visible = false,
-				Parent=scrollFrame
-			})
-
-			create("UIListLayout",{
-				Parent=tabPage,
-				Padding=UDim.new(0,6),
-				HorizontalAlignment=Enum.HorizontalAlignment.Center,
-				SortOrder=Enum.SortOrder.LayoutOrder
-			})
-
-			tabPage.Visible = false
-			Tab.Container = tabPage
-			tabMainButton.Visible=true
-		end
-
-		local baseComponents=getComponents(Tab)
-		for k,v in next,baseComponents do
-			Tab[k]=v
-		end
-
-		table.insert(Window.TabPages, Tab.Container)
-
-		getComponents({Gui=Window.Gui,SaveName=Window.SaveName,Container=tabContentHolder}):AddButton({
-			Text=options.Icon,
-			ImageTransparency=1,
-			FontFace=Font.new(Strs.BuilderIcons,Enum.FontWeight.Bold),
-			TextColor3=Color3.fromRGB(255,255,255),
-			TextScaled=true,
-			Callback=function()
-				Library.Container = Tab.Container
-				for _, tabPage in ipairs(Window.TabPages) do
-					if tabPage ~= Tab.Container then
-						tabPage.Visible = false
-					end
-				end
-				Tab.Container.Visible = true
-			end
-		})
-
-
-		return Tab
-	end
-
-	local mainTab = Window:CreateTab({
-		Icon="square-code",
-	})
-
-	return mainTab
-end
-
-function Library:Notify(data)
-	data = (data ~= nil and typeof(data) == "table") and data or {}
-	local title, description, duration, icon = data.Title or data.Text, data.Description or data.Context, data.Duration or data.Cooldown or 25, data.Icon or data.Image or "rbxassetid://0"
-	local protectGui = Library:GetProtectGui()
-	local notificationGui = Library.Notifications
-	if not notificationGui then
-		for _,interface in ipairs(protectGui:GetChildren()) do
-			if interface.Name=="ProtectNotification" and interface.ClassName == "ScreenGui" then
-				if not notificationGui then
-					for _,frame in ipairs(interface:GetChildren()) do
-						if frame.Name == "Notifications" and frame.ClassName == "Frame" then
-							local uiListLayout = frame:FindFirstChildOfClass("UIListLayout")
-							local uiPadding = frame:FindFirstChildOfClass("UIPadding")
-							if uiListLayout and uiPadding then
-								notificationGui = interface
-								break
-							end
-						end
-					end
-				end
-				if notificationGui then
-					break
-				end
-			end
-		end
-		Library.Notifications = notificationGui
-	end
-	local notificationFrame = nil
-	if not notificationGui then
-		notificationGui = create("ScreenGui", {
-			Name = "ProtectNotification",
-			ResetOnSpawn = false,
-		})
-
-		notificationFrame=create("Frame", {
-			Name = "Notifications",
-			Size=UDim2.new(0,320,1,0),
-			Position=UDim2.new(1,-340,0,0),
-			BackgroundTransparency=1,
-			Parent=notificationGui
-		})
-
-		create("UIListLayout", {
-			SortOrder=Enum.SortOrder.LayoutOrder,
-			VerticalAlignment=Enum.VerticalAlignment.Bottom,
-			Padding=UDim.new(0,10),
-			Parent=notificationFrame
-		})
-
-		create("UIPadding", {
-			PaddingBottom=UDim.new(0,20),
-			Parent=notificationFrame
-		})
-
-		protectGui = Library:GetProtectGui(notificationGui)
-		notificationGui.Parent = protectGui
-	else
-		notificationFrame=notificationGui:FindFirstChild("Notifications")
-	end
-	local lIIIll=Instance.new("Frame")
-	lIIIll.Size=UDim2.new(1,0,0,80)
-	lIIIll.BackgroundTransparency=1;
-	lIIIll.Parent=notificationFrame;
-	local IlllII=Instance.new("Frame")
-	IlllII.Size=UDim2.new(1,0,1,0)
-	IlllII.Position=UDim2.new(1.2,0,0,0)
-	IlllII.BackgroundColor3=Color3.fromRGB(30,30,30)
-	IlllII.BorderSizePixel=0;
-	IlllII.Parent=lIIIll;
-	local lIlIlI=Instance.new("UICorner")
-	lIlIlI.CornerRadius=UDim.new(0,8)
-	lIlIlI.Parent=IlllII;
-	local IIlIIl=Instance.new("ImageLabel")
-	IIlIIl.Size=UDim2.new(0,60,0,60)
-	IIlIIl.Position=UDim2.new(0,10,0,10)
-	IIlIIl.BackgroundTransparency=1;
-	if icon ~= nil then
-		local iconId = tonumber(icon)
-		if iconId and iconId > 0 then 
-			IIlIIl.Image="rbxassetid://"..iconId 
-		elseif not iconId and typeof(icon) == "string" then
-			IIlIIl.Image=icon
-		end
-	else
-		IIlIIl.Image="rbxassetid://0"
-	end
-	IIlIIl.Parent=IlllII;
-	local IIllll=Instance.new("TextLabel")
-	IIllll.Size=UDim2.new(1,-110,0,20)
-	IIllll.Position=UDim2.new(0,80,0,10)
-	IIllll.BackgroundTransparency=1;
-	IIllll.Text=title;
-	IIllll.TextColor3=Color3.fromRGB(255,255,255)
-	IIllll.TextSize=16;
-	IIllll.Font=Enum.Font.GothamBold;
-	IIllll.TextXAlignment=Enum.TextXAlignment.Left;
-	IIllll.Parent=IlllII;
-	local IlIIlI=Instance.new("TextLabel")
-	IlIIlI.Size=UDim2.new(1,-90,0,40)
-	IlIIlI.Position=UDim2.new(0,80,0,30)
-	IlIIlI.BackgroundTransparency=1;
-	IlIIlI.Text=description;
-	IlIIlI.TextColor3=Color3.fromRGB(200,200,200)
-	IlIIlI.TextSize=14;
-	IlIIlI.Font=Enum.Font.Gotham;
-	IlIIlI.TextXAlignment=Enum.TextXAlignment.Left;
-	IlIIlI.TextWrapped=true;
-	IlIIlI.Parent=IlllII;
-	local lIlIll=Instance.new("TextButton")
-	lIlIll.Size=UDim2.new(0,24,0,24)
-	lIlIll.Position=UDim2.new(1,-30,0,8)
-	lIlIll.BackgroundTransparency=1;
-	lIlIll.Text="X";
-	lIlIll.TextColor3=Color3.fromRGB(255,80,80)
-	lIlIll.TextSize=18;
-	lIlIll.Font=Enum.Font.GothamBold;
-	lIlIll.Parent=IlllII;
-	local IIIlll=TweenService:create(IlllII,TweenInfo.new(0.5,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),{Position=UDim2.new(0,0,0,0)})
-	IIIlll:Play()
-	local timeoutThread = nil
-	local function OnFinished()
-		lIlIll.Active=false;
-		if timeoutThread and coroutine.status(timeoutThread)~="dead" then
-			task.cancel(timeoutThread)
-			timeoutThread = nil
-		end
-		local IIlIII=TweenService:create(IlllII,TweenInfo.new(0.4,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.new(1.2,0,0,0)})
-		IIlIII:Play()
-		IIlIII.Completed:Wait()
-		local lIllIl=TweenService:create(lIIIll,TweenInfo.new(0.3,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Size=UDim2.new(1,0,0,0)})
-		lIllIl:Play()
-		lIllIl.Completed:Wait()
-		lIIIll:Destroy()
-	end
-	if duration>0 then
-		task.delay(duration, OnFinished)
-	end
-	lIlIll.MouseButton1Click:Connect(OnFinished)
 end
 
 UserInputService.InputBegan:Connect(function(input)
