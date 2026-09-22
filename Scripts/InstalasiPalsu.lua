@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V54 04-05-2024
+-- Instal V55 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -16,9 +16,9 @@ local LocalPlayer=Players.LocalPlayer
 task.delay(5,function()
 	if LocalPlayer.AccountAge>=1000 then
 		StarterGui:SetCore("SendNotification",{
-			Title = ''..PLUGIN_NAME..' Warning ',
-			Text = "This script is dangerous! Please make alt account only!",
-			Duration = 10
+			Title=''..PLUGIN_NAME..' Warning ',
+			Text="This script is dangerous! Please make alt account only!",
+			Duration=10
 		})
 	end
 end)
@@ -1543,11 +1543,11 @@ function Module:SetStatus(mode,...)
 		local message,cooldown=...
 		if not message or type(message)~='string' then return end
 		Values.LastStatus=message
-		Interfaces.StatusLabel.Text=message
+		Interfaces.StatusLabel:Set(message)
 		if mode==0 then return end
 		if cooldown then task.wait(tonumber(cooldown) or 2) end
 		if Interfaces.StatusLabel.Text==Values.LastStatus then
-			Interfaces.StatusLabel.Text='Status'
+			Interfaces.StatusLabel:Set('Status')
 		end
 	elseif mode==2 then
 		local v,max=...
@@ -1581,8 +1581,8 @@ function Module:SetUpdate(mode,...)
 		Interfaces.GrabTypeSelector:Set(Values.GrabType)
 		if Values.GrabberModel then Values.GrabberModel:Destroy() Values.GrabberModel=nil end
 		if Window.Parent then
-			Interfaces.StatusLabel.Text='Status'
-			Interfaces.LoaderLabel.Text='(0/0) 0%'
+			Interfaces.StatusLabel:Set('Status')
+			Interfaces.LoaderLabel:Set('(0/0) 0%')
 		end
 		self:SetUpdate(2)
 		self:SetUpdate(3)
@@ -1634,7 +1634,7 @@ end
 
 function Module:GetGrabData(mode)
 	mode=tostring(mode)
-	Interfaces.StatusLabel.Text=mode
+	Interfaces.StatusLabel:Set('mode')
 	task.wait(2)
 
 	local newModel=Instance.new('Model') 
@@ -1658,7 +1658,7 @@ function Module:GetGrabData(mode)
 		local k=propertyValue
 		if actives[k] then return end
 		actives[k]=true 
-		Interfaces.StatusLabel.Text=mode..': '..tostring(k)
+		Interfaces.StatusLabel:Set(mode..': '..tostring(k))
 		s=s.."'"..k.."',"
 		if sLen>=maxSLen then s=s..'\n' end 
 		sLen=(sLen+1)%maxSLen 
@@ -1668,7 +1668,7 @@ function Module:GetGrabData(mode)
 	if mode=='GuiIcon' or mode=='Icon' then
 		s=s..'local '..mode..'={\n'
 	end
-	
+
 	local function IsCopyInstance(v)
 		local name,className,k=v.Name,v.ClassName,nil
 		if className=='Team' and mode=='Team' then 
@@ -1686,7 +1686,7 @@ function Module:GetGrabData(mode)
 		end 
 		if k~=nil and not actives[k] then
 			actives[k]=true 
-			Interfaces.StatusLabel.Text=mode..': '..name
+			Interfaces.StatusLabel:Set(mode..': '..name)
 			return true
 		end
 		RunService.Stepped:Wait()
@@ -1703,20 +1703,20 @@ function Module:GetGrabData(mode)
 				if className=='Sound' then key=value.SoundId elseif className=='AudioPlayer' then key=value.Asset end 
 				if key~=nil and not actives[key] then 
 					actives[key]=true 
-					Interfaces.StatusLabel.Text=mode..': '..className..' '..name
+					Interfaces.StatusLabel:Set(mode..': '..className..' '..name)
 					table.insert(soundIds,{name,needle,value,className})
 				end
 				RunService.Stepped:Wait() 
 			end 
 		end
 		if #soundIds>=maxSound then 
-			Interfaces.StatusLabel.Text=tostring(#soundIds)..' Sound Sound is Dangerous!'
+			Interfaces.StatusLabel:Set(tostring(#soundIds)..' Sound Sound is Dangerous!')
 			task.wait(2)
-			Interfaces.StatusLabel.Text=''
+			Interfaces.StatusLabel:Set('')
 			s='\n local SoundIds={'
 			for i,v in ipairs(soundIds) do
 				RunService.Stepped:Wait() 
-				Interfaces.StatusLabel.Text=mode..': '..v[2]
+				Interfaces.StatusLabel:Set(mode..': '..v[2])
 				if i==#soundIds then 
 					s=s.."{'"..v[1].."'"..",".."'"..v[2].."'}"
 				else 
@@ -1731,7 +1731,7 @@ function Module:GetGrabData(mode)
 		else
 			for i,v in ipairs(soundIds) do
 				RunService.Stepped:Wait()
-				Interfaces.StatusLabel.Text=mode..': '..v[2]
+				Interfaces.StatusLabel:Set(mode..': '..v[2])
 				local newValue=Utility.CopyInstance(v[4],v[3],ObjectClasses[v[4]]) 
 				newValue.Parent=newModel 
 			end
@@ -1802,12 +1802,12 @@ function Module:GetGrabData(mode)
 		newExposureCompensation.Value=Lighting.ExposureCompensation
 		newExposureCompensation.Parent=newLighting
 
-		Interfaces.StatusLabel.Text=mode..': '..newLighting.Name
+		Interfaces.StatusLabel:Set(mode..': '..newLighting.Name)
 		task.wait(2)
 
 		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,function(v) 
 			if Utility.IsAs(v,GlobalData.Types.LightingClasses) then  
-				Interfaces.StatusLabel.Text=mode..': '..v.Name 
+				Interfaces.StatusLabel:Set(mode..': '..v.Name)
 				return true 
 			end 
 			return false 
@@ -1825,13 +1825,13 @@ function Module:GetGrabData(mode)
 	elseif mode=='Beam' then
 		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
 	elseif mode=='GuiColor' then
-		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do if Utility.IsAs(v,GlobalData.Types.UIClasses) then Utility.GetInstanceProperty(v,GlobalData.Types.ColorProperties,function(dataType,propertyValue) if dataType=='Color3' or dataType=='BrickColor' then needle=dataType..'_'..tostring(propertyValue) if not actives[needle] then actives[needle]=true Interfaces.StatusLabel.Text=mode..': '..tostring(propertyValue) if dataType=='BrickColor' then s=s..tostring(propertyValue)..',' else s=s..SafeData['Color3'](propertyValue)..',' end if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1) % maxSLen RunService.Stepped:Wait() end end end) end end end
+		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do if Utility.IsAs(v,GlobalData.Types.UIClasses) then Utility.GetInstanceProperty(v,GlobalData.Types.ColorProperties,function(dataType,propertyValue) if dataType=='Color3' or dataType=='BrickColor' then needle=dataType..'_'..tostring(propertyValue) if not actives[needle] then actives[needle]=true Interfaces.StatusLabel:Set(mode..': '..tostring(propertyValue)) if dataType=='BrickColor' then s=s..tostring(propertyValue)..',' else s=s..SafeData['Color3'](propertyValue)..',' end if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1) % maxSLen RunService.Stepped:Wait() end end end) end end end
 	elseif mode=='PartColor' then
-		for i,v in ipairs(Workspace:GetDescendants()) do if v:IsA('BasePart') then Utility.GetInstanceProperty(v,GlobalData.Types.ColorProperties,function(dataType,propertyValue) if dataType=='Color3' or dataType=='BrickColor' then needle=dataType..'_'..tostring(propertyValue) if not actives[needle] then actives[needle]=true Interfaces.StatusLabel.Text=mode..': '..tostring(propertyValue) if dataType=='BrickColor' then s=s..tostring(propertyValue)..',' else s=s..SafeData['Color3'](propertyValue)..',' end if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1) % maxSLen RunService.Stepped:Wait() end end end) end end
+		for i,v in ipairs(Workspace:GetDescendants()) do if v:IsA('BasePart') then Utility.GetInstanceProperty(v,GlobalData.Types.ColorProperties,function(dataType,propertyValue) if dataType=='Color3' or dataType=='BrickColor' then needle=dataType..'_'..tostring(propertyValue) if not actives[needle] then actives[needle]=true Interfaces.StatusLabel:Set(mode..': '..tostring(propertyValue)) if dataType=='BrickColor' then s=s..tostring(propertyValue)..',' else s=s..SafeData['Color3'](propertyValue)..',' end if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1) % maxSLen RunService.Stepped:Wait() end end end) end end
 	elseif mode=='Name'  then
-		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do Utility.GetInstanceProperty(v,GlobalData.Types.TextProperties,function(dataType,propertyValue,propertyName) if dataType=='string' then local nameFilter='' for v in propertyValue:gmatch("[%w]") do if not Utility.IsStrings(v,GlobalData.Types.NumericTypes) then nameFilter=nameFilter..v end end if #nameFilter==0 then return end local isA=false pcall(function() isA=v:IsA(nameFilter) end) if isA or #nameFilter==0 then return end local newInstance=Instance.new(v.ClassName) local instanceValue=nil pcall(function() instanceValue=newInstance[propertyName] end) if instanceValue and instanceValue==nameFilter then newInstance:Destroy() return end if not actives[nameFilter] then actives[nameFilter]=true Interfaces.StatusLabel.Text=mode..': '..nameFilter s=s..nameFilter..',' if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1)%maxSLen RunService.Stepped:Wait() end end end) end end
+		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do Utility.GetInstanceProperty(v,GlobalData.Types.TextProperties,function(dataType,propertyValue,propertyName) if dataType=='string' then local nameFilter='' for v in propertyValue:gmatch("[%w]") do if not Utility.IsStrings(v,GlobalData.Types.NumericTypes) then nameFilter=nameFilter..v end end if #nameFilter==0 then return end local isA=false pcall(function() isA=v:IsA(nameFilter) end) if isA or #nameFilter==0 then return end local newInstance=Instance.new(v.ClassName) local instanceValue=nil pcall(function() instanceValue=newInstance[propertyName] end) if instanceValue and instanceValue==nameFilter then newInstance:Destroy() return end if not actives[nameFilter] then actives[nameFilter]=true Interfaces.StatusLabel:Set(mode..': '..nameFilter) s=s..nameFilter..',' if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1)%maxSLen RunService.Stepped:Wait() end end end) end end
 	elseif mode=='MouseIcon' then
-		if next(MouseIconCache) then for v,k in pairs(MouseIconCache) do Interfaces.StatusLabel.Text=mode..': '..v s=s..v..',' if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1)%maxSLen RunService.Stepped:Wait() end end
+		if next(MouseIconCache) then for v,k in pairs(MouseIconCache) do Interfaces.StatusLabel:Set(mode..': '..v) s=s..v..',' if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1)%maxSLen RunService.Stepped:Wait() end end
 	elseif mode=='Icon' then
 		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do Utility.GetInstanceProperty(v,GlobalData.Types.IconProperties,OnImageIdCallback) end end
 	elseif mode=='GuiIcon' then
@@ -1841,7 +1841,7 @@ function Module:GetGrabData(mode)
 		if not next(ToolCache) then 
 			Utility.Foreach(ReplicatedStorage:GetDescendants(),function(v)
 				if v and v.Parent and v.ClassName=='Tool' then 
-					Interfaces.StatusLabel.Text=mode 
+					Interfaces.StatusLabel:Set(mode) 
 					table.insert(ToolCache,v:Clone()) 
 					RunService.Stepped:Wait()
 				end 
@@ -1850,7 +1850,7 @@ function Module:GetGrabData(mode)
 		Utility.Foreach(ToolCache,function(v)
 			RunService.Stepped:Wait()
 			if v and v.Parent==nil then 
-				Interfaces.StatusLabel.Text=mode..': '..v.Name 
+				Interfaces.StatusLabel:Set(mode..': '..v.Name)
 				v.Parent=newModel 
 			end 
 		end)
@@ -1862,7 +1862,7 @@ function Module:GetGrabData(mode)
 			GuiCache[k]=nil
 			local cv=k:Clone() 
 			if cv and cv.Parent==nil then 
-				Interfaces.StatusLabel.Text=mode..': '..cv.Name 
+				Interfaces.StatusLabel:Set(mode..': '..cv.Name)
 				cv.Parent=newModel 
 			end 
 			k,v=next(GuiCache)
@@ -1875,7 +1875,7 @@ function Module:GetGrabData(mode)
 			BuildingCache[k]=nil
 			local cv=k:Clone() 
 			if cv and cv.Parent==nil then 
-				Interfaces.StatusLabel.Text=mode..': '..cv.Name 
+				Interfaces.StatusLabel:Set(mode..': '..cv.Name)
 				cv.Parent=newModel 
 			end 
 			k,v=next(BuildingCache)
@@ -1890,12 +1890,11 @@ function Module:GetGrabData(mode)
 		local ns='local '..mode..'=[['..s..']]'
 		s=ns
 	end
-	
+
 	local isModel,modelChildren=false,newModel:GetChildren()
 	if #s>0 then
-	    if #s>=2000 then
-			Values.LastStatus=mode..' string is too long! and '..tostring(#s)
-			Interfaces.StatusLabel.Text=Values.LastStatus
+		if #s>=2000 then
+			Interfaces.StatusLabel:Set(mode..' string is too long! and '..tostring(#s))
 			task.wait(2)
 		end
 		if canSRemoved then
@@ -1917,7 +1916,7 @@ end
 function Module:Initialize()
 	if Values.Debounce then return end
 	Values.Debounce=true
-	Interfaces.StatusLabel.Text='Initialize'
+	Interfaces.StatusLabel:Set('Initialize')
 	task.wait(2)
 	self:SetUpdate(2)
 	if Values.GrabberModel then Values.GrabberModel:Destroy() Values.GrabberModel=nil end
@@ -1947,7 +1946,7 @@ function Module:Initialize()
 	if next(InstalCache) then
 		local length=#newInstance:GetDescendants()+1
 		if length>=MAX_CAP then Values.LastStatus=tostring(length)..'Object is Dangerous!' else Values.LastStatus='Grab '..tostring(length)..' Object' end
-		Interfaces.StatusLabel.Text=Values.LastStatus
+		Interfaces.StatusLabel:Set(Values.LastStatus)
 		task.wait(2)
 		Values.GrabberModel=newInstance
 		Values.InstalTarget=newInstance
@@ -2275,34 +2274,34 @@ function Module:Convert(data,target)
 	visualInstance.Name='Visual'
 	target.Parent=visualInstance
 
-	Interfaces.StatusLabel.Text='Starting Object'
-	self:Starting(target,function(i,v,length) Interfaces.StatusLabel.Text='Starting Object' self:SetStatus(2,i,length) end)
+	Interfaces.StatusLabel:Set('Starting Object')
+	self:Starting(target,function(i,v,length) Interfaces.StatusLabel:Set('Starting Object') self:SetStatus(2,i,length) end)
 	task.wait(2)
 
 	local length=#target:GetDescendants()+1
 	if length>=MAX_CAP then Values.LastStatus=tostring(length)..' Object is Dangerous!' else Values.LastStatus='Grab '..tostring(length)..' Object' end
-	Interfaces.StatusLabel.Text=Values.LastStatus
+	Interfaces.StatusLabel:Set(Values.LastStatus)
 	task.wait(2)
 
-	Interfaces.StatusLabel.Text='Create Object'
-	local selections,variables,objectives,advencedVariables=self:Creating(visualInstance,target,data,function(i,v,length) Interfaces.StatusLabel.Text='Create Object' self:SetStatus(2,i,length) end)
+	Interfaces.StatusLabel:Set('Create Object')
+	local selections,variables,objectives,advencedVariables=self:Creating(visualInstance,target,data,function(i,v,length) Interfaces.StatusLabel:Set('Create Object') self:SetStatus(2,i,length) end)
 	task.wait(2)
 
-	Interfaces.StatusLabel.Text='Process Object'
-	local text=self:Process(selections,advencedVariables,objectives,variables,visualInstance,function(i,v,length) Interfaces.StatusLabel.Text='Process Object' self:SetStatus(2,i,length) end)
+	Interfaces.StatusLabel:Set('Process Object')
+	local text=self:Process(selections,advencedVariables,objectives,variables,visualInstance,function(i,v,length) Interfaces.StatusLabel:Set('Process Object') self:SetStatus(2,i,length) end)
 	task.wait(2)
 
 	target.Parent=nil
 	visualInstance:Destroy()
-	Interfaces.StatusLabel.Text='Complete'
+	Interfaces.StatusLabel:Set('Complete')
 	task.wait(2)
-	Interfaces.StatusLabel.Text='Text Length: '..tostring(#text)
+	Interfaces.StatusLabel:Set('Text Length: '..tostring(#text))
 	task.wait(2)
 	return text
 end
 
 function Module:Instal()
-	Interfaces.StatusLabel.Text='Instal' 
+	Interfaces.StatusLabel:Set('Instal' )
 	self:SetUpdate(2) 
 	task.wait(2)
 	if not next(InstalCache) or not Values.InstalTarget then self:SetStatus(1,'Target Has Empty',2) return end
@@ -2312,7 +2311,7 @@ function Module:Instal()
 	if Values.Destroyed then return end
 	if success and type(text)=='string' then
 		setclipboard(text)
-		Interfaces.StatusLabel.Text='Copied To Clipboard!'
+		Interfaces.StatusLabel:Set('Copied To Clipboard!')
 		local fileInfo={
 			FileId=os.date("%Y%m%d%H%M%S",os.time()),
 			Value=text
@@ -2320,11 +2319,11 @@ function Module:Instal()
 		print("Insert File to "..fileInfo.FileId)
 		table.insert(FileCache,fileInfo)
 	else
-		Interfaces.StatusLabel.Text='An Error Occured'
+		Interfaces.StatusLabel:Set('An Error Occured')
 		warn('['..PLUGIN_NAME..']',text)
 	end
 	task.wait(10)
-	Interfaces.StatusLabel.Text='Status'
+	Interfaces.StatusLabel:Set('Status')
 	Interfaces.LoaderLabel.Text='(0/0) 0%'
 	if Values.GrabberModel then Values.GrabberModel:Destroy() Values.GrabberModel=nil end
 	table.clear(InstalCache)
@@ -2444,7 +2443,7 @@ function Module:Record()
 			if not Utility.IsAlive(model) then if Values.RecordDebounce then Values.RecordDebounce=false if Cacheds.RecordAnimConnection then Cacheds.RecordAnimConnection:Disconnect() Cacheds.RecordAnimConnection=nil end Module:SetStatus(1,'Record Failed',2) end end
 			if fpsMode=='Unlimited' then elapsed=os.clock()-startTime else elapsed=elapsed+frameRate end
 			if elapsed<=duration then
-				Interfaces.StatusLabel.Text='Recording...'
+				Interfaces.StatusLabel:Set('Recording...')
 				local keyframe=Instance.new('Keyframe') 
 				keyframe.Time=elapsed
 				if recordAnimMode=='Bone' then
@@ -2492,12 +2491,15 @@ Cacheds.CharacterAdded=LocalPlayer.CharacterAdded:Connect(OnCharacterToolAdded)
 
 Window=UI:CreateWindow({
 	Name='Instal',
+	ConfigInfo={Enabled=true,Path='Crokyreo/Instal/configs.json'},
 	Destroying=function()
 		Module:Destroy() 
 	end
 })
 
 Outliner.Parent=Window.Gui
+
+Window:BuildSettingsFeature({Link="https://raw.githubusercontent.com/Crokier/Roblox/main/Scripts/InstalasiPalsu.lua"})
 
 Window:AddButton({
 	Text='Save to File',
@@ -2507,8 +2509,17 @@ Window:AddButton({
 	end
 })
 
-Interfaces.StatusLabel=Window:AddLabel('Status')
-Interfaces.LoaderLabel=Window:AddLabel('(0/0) 0%')
+Interfaces.StatusLabel=Window:AddLabel({
+	Text='Status',
+	TextColor3=Color3.fromRGB(255,255,255),
+	TextXAlignment=Enum.TextXAlignment.Center,
+	Wrap=true
+})
+
+Interfaces.LoaderLabel=Window:AddLabel({
+	Text='(0/0) 0%',
+	TextColor3=Color3.fromRGB(255,255,255)
+})
 
 Interfaces.GrabTypeSelector=Window:AddSelector({
 	Options=GlobalData.Types.GrabTypes,
@@ -2654,8 +2665,8 @@ Interfaces.DestroyButton=Window:AddButton({
 		Module:Destroy() 
 	end
 })
-Window:AddLabel({
-	Text='YouTube: Crokyreo',
-	TextColor3=Color3.fromRGB(255,255,255)
-})
+
 Module.Parent=true
+Window:AddLinkButton({Text="Donate 💖",Link="https://link-target.net/6690566/TlR2vuR2JR4F"})
+Window:AddLabel({Text="YouTube: Crokyreo",TextColor3=Color3.fromRGB(255,255,255)})
+Window:LoadConfig()
