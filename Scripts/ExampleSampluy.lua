@@ -51,6 +51,7 @@ local Window = UI:CreateWindow({
 	end,
 })
 
+Window:BuildSettingsFeature({Link="https://raw.githubusercontent.com/Crokier/Roblox/main/Scripts/ExampleSampluy.lua"})
 
 -- Button
 local Button = nil
@@ -124,7 +125,7 @@ local RandomLists ={
 local Dropdown = nil
 Dropdown = Window:AddDropdown({
 	Name = "Fruit (Empty = All)",
-	Options = {"Apple", "Banana", "Avocado", "Mango", "Durian", "Pineapple", "Peach", "Pear", "Grape", "Watermelon", "Strawberry", "Blueberry", "Orange"},
+	Options = RandomLists[1],
 	Option = {"Apple", "Banana"},
 	Multi = true,
 	Flag = "fruit_options",
@@ -185,6 +186,10 @@ InfoFolder:AddLabel({
 	Wrap=true
 })
 
+task.delay(10, function()
+	print("OK")
+	Dropdown:Set({"Apple", "Banana", "Avocado", "Mango"})
+end)
 -- Folder 1 and Folder 2 Structure
 local FolderC = Window:AddFolder("Folder1")
 FolderC:Set(false)
