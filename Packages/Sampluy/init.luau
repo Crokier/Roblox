@@ -2996,20 +2996,22 @@ function Library:CreateWindow(config)
 	Window.FirstTab=false
 	Window.FirstSettings=false
 	
-	function Window:BuildSettingsFeature(settingInfo)
+function Window:BuildSettingsFeature(settingInfo)
 		if Window.FirstSettings then return end
 		Window.FirstSettings=true
 		
 		settingInfo=missing("table",settingInfo,{})
+		
+		if GuiService==nil then GuiService=Services.GuiService end
 		
 		local SettingTab=Window:CreateTab({Icon="gear"})
 
 		local GameplayPausedToggle=SettingTab:AddToggle({
 			Text="Gameplay Paused",
 			Value=false,
-			Flag="gameplay_paused",
+			Flag="gameplay_paused_enabled",
 			Callback=function(value)
-				Services.GuiService:SetGameplayPausedNotificationEnabled(value)
+				GuiService:SetGameplayPausedNotificationEnabled(value)
 			end
 		})
 		GameplayPausedToggle:Set(false)
@@ -3040,7 +3042,7 @@ function Library:CreateWindow(config)
 		local Disable3DRenderingToggle=SettingTab:AddToggle({
 			Text="Disable 3D Rendering",
 			Value=false,
-			Flag="disable_3d_rendering",
+			Flag="3d_rendering_enabled",
 			Callback=function(value)
 				fullScreenGui.Enabled=value
 			end
@@ -3050,7 +3052,7 @@ function Library:CreateWindow(config)
 		
 		local AntiAFKToggle=SettingTab:AddToggle({
 			Text="Anti AFK",
-			Value=false,
+			Value=true,
 			Flag="anti_afk_enabled",
 			Callback=function(value)
 				if value then
@@ -3072,6 +3074,7 @@ function Library:CreateWindow(config)
 				end
 			end
 		})
+		AntiAFKToggle:Set(true)
 		
 		if TeleportService==nil then TeleportService=Services.TeleportService end
 		if HttpService==nil then HttpService=Services.HttpService end
@@ -3123,49 +3126,100 @@ function Library:CreateWindow(config)
 			Text="Server Hop",
 			Open=false
 		})
+		
+		local GetServerHop=function(mode)
+			local servers={}
+			local req=game:HttpGet("https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
+			local body=HttpService:JSONDecode(req)
+			
+			if body and body.data then
+				for i,v in next,body.data do
+					if type(v)=="table" and v.playing and v.maxPlayers and v.id then
+						local playing,maxPlayers=tonumber(v.playing),tonumber()
+						if playing and maxPlayers and playing<maxPlayers and v.id~=JOB_ID and playing>0 then
+							table.insert(servers,1,{["id"]=v.id,["playing"]=playing,["ping"]=v.ping~=nil and tonumber(v.ping) or 9999})
+						end
+					end
+				end
+				
+				if #servers>0 then
+					if not mode or mode==0 then
+						return servers[math.random(1,#servers)].id
+					elseif mode==1 then
+						table.sort(servers,function(a,b) return a.playing < b.playing end) return servers[1].id
+					elseif mode==2 then
+						table.sort(servers,function(a,b) return a.ping<b.ping end) return servers[1].id
+					end
+				end
+			end
+			
+			return nil
+		end
+		
 		ServerHopFolder:AddButton({
 			Text="Random Server",
 			DebounceClick=true,
 			DoubleClick=true,
 			Callback=function()
-				local servers={}
-				local req=game:HttpGet("https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
-				local body=HttpService:JSONDecode(req)
-				if body and body.data then
-					for i,v in next,body.data do
-						if type(v)=="table" and tonumber(v.playing) and tonumber(v.maxPlayers) and v.playing<v.maxPlayers and v.id~=JOB_ID then
-							table.insert(servers,1,v.id)
-						end
-					end
-				end
-				if #servers>0 then
-					TeleportService:TeleportToPlaceInstance(PLACE_ID, servers[math.random(1, #servers)], Players.LocalPlayer)
+				local serverId=GetServerHop(0)
+				if serverId~=nil then
+					TeleportService:TeleportToPlaceInstance(PLACE_ID,serverId,Players.LocalPlayer)
 				else
-					ServerHopLabel.Visible=true
-					task.wait(2)
-					ServerHopLabel.Visible=false
+					if not ServerHopLabel.Visible then
+						ServerHopLabel.Visible=true
+						task.wait(2)
+						ServerHopLabel.Visible=false
+					end
 				end
 			end
 		})
 		ServerHopFolder:AddButton({
 			Text="Small Server",
 			MethodType="DoubleClick",
-			Callback=function() end
+			Callback=function()
+				local serverId=GetServerHop(1)
+				if serverId~=nil then
+					TeleportService:TeleportToPlaceInstance(PLACE_ID,serverId,Players.LocalPlayer)
+				else
+					if not ServerHopLabel.Visible then
+						ServerHopLabel.Visible=true
+						task.wait(2)
+						ServerHopLabel.Visible=false
+					end
+				end
+			end
+		})
+		ServerHopFolder:AddButton({
+			Text="Best Ping Server",
+			MethodType="DoubleClick",
+			Callback=function()
+				local serverId=GetServerHop(2)
+				if serverId~=nil then
+					TeleportService:TeleportToPlaceInstance(PLACE_ID,serverId,Players.LocalPlayer)
+				else
+					if not ServerHopLabel.Visible then
+						ServerHopLabel.Visible=true
+						task.wait(2)
+						ServerHopLabel.Visible=false
+					end
+				end
+			end
 		})
 		
-		local AutoExecute=SettingTab:AddToggle({
-			Text="Auto Execute (WIP)",
-			Value=false,
+		local executeEnabled=true
+		local ExecuteToggle=SettingTab:AddToggle({
+			Text="Auto Execute",
+			Value=true,
 			Flag="execute_enabled",
 			Callback=function(value)
-				
+				executeEnabled=value
 			end
 		})
 		
 		if settingInfo.Link~=nil or settingInfo.TeleportLink~=nil then
 			local TeleportCheck, TeleportLink = false, settingInfo.Link or settingInfo.TeleportLink
-			Players.LocalPlayer.OnTeleport:Connect(function(State)
-				if (not TeleportCheck) and queueteleport and TeleportLink then
+			LocalPlayer.OnTeleport:Connect(function(State)
+				if (not TeleportCheck) and queueteleport and TeleportLink and executeEnabled then
 					TeleportCheck = true
 					queueteleport("loadstring(game:HttpGet('"..TeleportLink.."'))()")
 				end
