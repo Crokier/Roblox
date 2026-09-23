@@ -2607,13 +2607,5 @@ Module.Parent=true
 
 Window:AddLinkButton({Text='Donate 💖',Link='https://link-target.net/6690566/TlR2vuR2JR4F'})
 Window:AddLabel({Text='YouTube: Crokyreo',TextColor3=Color3.fromRGB(255,255,255)})
+Window:BuildSettingsFeature({Link='https://raw.githubusercontent.com/Crokier/Roblox/main/Scripts/InstalasiPalsu.lua'})
 Window:LoadConfig()
-
-queueteleport=Missing('function',queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport), function() end)
-
-Cacheds.OnTeleport=Players.LocalPlayer.OnTeleport:Connect(function(State)
-	if not Values.TeleportDone and queueteleport then
-		Values.TeleportDone=true
-		queueteleport("loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Scripts/InstalasiPalsu.lua'))()")
-	end
-end)
