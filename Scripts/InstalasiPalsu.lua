@@ -24,7 +24,7 @@ task.delay(5,function()
 end)
 
 local Tabler=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Tabler/init.luau'))()
-local Instancer=require(game.ReplicatedStorage.Packages.SharedInstancer) --loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Instancer/init.luau'))()
+local Instancer=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Instancer/init.luau'))()
 local Strs=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Strs/init.luau'))()
 local UI=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Sampluy/init.luau'))()
 
