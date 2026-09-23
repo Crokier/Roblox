@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V56 04-05-2024
+-- Instal V57 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
