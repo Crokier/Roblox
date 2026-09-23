@@ -3,7 +3,7 @@
    Crokyreo | Programming
    Gemini AI | Just help and fix
 ]]
---[[ Version: 69 ]]
+--[[ Version: 70 ]]
 --[[ Info
 	Feature
 	- Can fit to the height of all devices with AutoMaxHeight
@@ -2716,7 +2716,7 @@ function Library:CreateWindow(config)
 	Window.TabIcon=config.TabIcon or "controller"
 	Window.ConfigInfo=type(config.ConfigInfo)=="table" and config.ConfigInfo or {Enabled=false,Path=""}
 	Window.Theme="Crokyreo"
-
+	
 	if Window.ConfigInfo and Window.ConfigInfo.Enabled then
 		CPath=Window.ConfigInfo.Path
 		CEnabled=true
@@ -2946,17 +2946,12 @@ function Library:CreateWindow(config)
 
 	tabScrollFrame.Visible=false
 
-	local absoluteCinema=tabMainButton.Activated:Connect(function()
-		if tabMainButton.Visible then
-			tabScrollFrame.Visible = not tabScrollFrame.Visible
-		end
-	end)
 
 	local absoluteSizeChanged=contentHolder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 		scrollFrame.CanvasSize=UDim2.new(0,0,0,Library.Containers[Window.SaveName].AbsoluteSize.Y+6)
 		Window:Resize(true)
 	end)
-
+	
 	local function updateWindowScroll()
 		Window.Open=not Window.Open
 		scrollFrame.Visible=Window.Open
@@ -2965,7 +2960,16 @@ function Library:CreateWindow(config)
 	end
 
 	updateWindowScroll()
-
+	
+	local absoluteCinema=tabMainButton.Activated:Connect(function()
+		if tabMainButton.Visible then
+			if not tabScrollFrame.Visible and not scrollFrame.Visible then
+				updateWindowScroll()
+			end
+			tabScrollFrame.Visible = not tabScrollFrame.Visible
+		end
+	end)
+	
 	local inputBegan=closeHolder.InputBegan:connect(function(input)
 		if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
 			updateWindowScroll()
@@ -2995,7 +2999,7 @@ function Library:CreateWindow(config)
 
 	Window.FirstTab=false
 	Window.FirstSettings=false
-
+	
 	function Window:BuildSettingsFeature(settingInfo)
 		if Window.FirstSettings then return end
 		Window.FirstSettings=true
@@ -3131,28 +3135,25 @@ function Library:CreateWindow(config)
 			local servers={}
 			local req=game:HttpGet("https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
 			local body=HttpService:JSONDecode(req)
-
 			if body and body.data then
 				for i,v in next,body.data do
 					if type(v)=="table" and v.playing and v.maxPlayers and v.id then
-						local playing,maxPlayers=tonumber(v.playing),tonumber()
+						local playing,maxPlayers=tonumber(v.playing),tonumber(v.maxPlayers)
 						if playing and maxPlayers and playing<maxPlayers and v.id~=JOB_ID and playing>0 then
 							table.insert(servers,1,{["id"]=v.id,["playing"]=playing,["ping"]=v.ping~=nil and tonumber(v.ping) or 9999})
 						end
 					end
 				end
-
 				if #servers>0 then
-					if not mode or mode==0 then
+					if not mode or mode==0 and #servers>=2 then
 						return servers[math.random(1,#servers)].id
 					elseif mode==1 then
-						table.sort(servers,function(a,b) return a.playing < b.playing end) return servers[1].id
+						table.sort(servers,function(a,b) return a.playing<b.playing end)  return servers[1].id
 					elseif mode==2 then
 						table.sort(servers,function(a,b) return a.ping<b.ping end) return servers[1].id
 					end
 				end
 			end
-
 			return nil
 		end
 
@@ -3226,7 +3227,7 @@ function Library:CreateWindow(config)
 			end)
 		end
 	end
-
+	
 	function Window:CreateTab(options)
 		options=missing("table",options,{})
 		options.Icon=options.Icon or options.Image or ""
@@ -3245,7 +3246,6 @@ function Library:CreateWindow(config)
 			Tab.Container=contentHolder
 			tabMainButton.Visible=false
 			tabScrollFrame.Visible=false
-			--Tab.CreateTab=Window.CreateTab
 		else
 			local tabPage=create("Frame",{
 				AnchorPoint=Vector2.new(0.5,0),
@@ -3300,7 +3300,6 @@ function Library:CreateWindow(config)
 	local mainTab = Window:CreateTab({
 		Icon="square-code",
 	})
-
 
 	return mainTab
 end
