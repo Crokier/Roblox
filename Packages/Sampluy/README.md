@@ -101,7 +101,6 @@ local Dropdown = Folder:AddDropdown({
 	Options = {"Red", "Green", "Blue"},
 	Option = "Green" or {"Green", "Red"},
 	Multi = false,
-	SortOrder = nil,
 	Flag = "color_option",
 	Callback = function(option)
 		print("Selected color:", unpack(option))
