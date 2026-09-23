@@ -3,7 +3,7 @@
    Crokyreo | Programming
    Gemini AI | Just help and fix
 ]]
-
+--[[ Version: 69 ]]
 --[[ Info
 	Feature
 	- Can fit to the height of all devices with AutoMaxHeight
@@ -2995,15 +2995,15 @@ function Library:CreateWindow(config)
 
 	Window.FirstTab=false
 	Window.FirstSettings=false
-	
-function Window:BuildSettingsFeature(settingInfo)
+
+	function Window:BuildSettingsFeature(settingInfo)
 		if Window.FirstSettings then return end
 		Window.FirstSettings=true
-		
+
 		settingInfo=missing("table",settingInfo,{})
-		
+
 		if GuiService==nil then GuiService=Services.GuiService end
-		
+
 		local SettingTab=Window:CreateTab({Icon="gear"})
 
 		local GameplayPausedToggle=SettingTab:AddToggle({
@@ -3015,7 +3015,7 @@ function Window:BuildSettingsFeature(settingInfo)
 			end
 		})
 		GameplayPausedToggle:Set(true)
-		
+
 		local fullScreenGui=create("ScreenGui",{
 			Name="",
 			ResetOnSpawn=false,
@@ -3023,9 +3023,9 @@ function Window:BuildSettingsFeature(settingInfo)
 			DisplayOrder=998,
 			Enabled=false
 		})
-	
+
 		local protectGui=Library:GetProtectGui(fullScreenGui)
-		
+
 		local coverFrame=create("Frame",{
 			Name="",
 			Size=UDim2.new(1,0,1,0),
@@ -3034,12 +3034,12 @@ function Window:BuildSettingsFeature(settingInfo)
 			BorderSizePixel=0,
 			BackgroundTransparency=0
 		})
-		
+
 		coverFrame.Parent=fullScreenGui
 		fullScreenGui.Parent=protectGui
 		gui.Parent=protectGui
 
-		local 3DRenderingToggle=SettingTab:AddToggle({
+		SettingTab:AddToggle({
 			Text="Disable 3D Rendering",
 			Value=false,
 			Flag="3d_rendering_enabled",
@@ -3047,9 +3047,9 @@ function Window:BuildSettingsFeature(settingInfo)
 				fullScreenGui.Enabled=value
 			end
 		})
-		
+
 		local antiAfkCon=nil
-		
+
 		local AntiAFKToggle=SettingTab:AddToggle({
 			Text="Anti AFK",
 			Value=true,
@@ -3075,10 +3075,10 @@ function Window:BuildSettingsFeature(settingInfo)
 			end
 		})
 		AntiAFKToggle:Set(true)
-		
+
 		if TeleportService==nil then TeleportService=Services.TeleportService end
 		if HttpService==nil then HttpService=Services.HttpService end
-		
+
 		local RejoinLabel=SettingTab:AddLabel({
 			Text="Incompatible Exploit Your exploit does not support this argument (missing queue_on_teleport)",
 			TextColor3=Color3.fromRGB(255,255,255),
@@ -3086,14 +3086,14 @@ function Window:BuildSettingsFeature(settingInfo)
 			Wrap=true,
 			Visible=false
 		})
-		
+
 		SettingTab:AddButton({
 			Text="Rejoin",
 			DebounceClick=true,
 			DoubleClick=true,
 			Callback=function()
 				local data = nil
-				
+
 				if queueteleport then
 					if LocalPlayer.Character then
 						data = LocalPlayer.Character:GetPivot()
@@ -3116,7 +3116,7 @@ function Window:BuildSettingsFeature(settingInfo)
 				end
 			end
 		})
-		
+
 		local ServerHopLabel=SettingTab:AddLabel({
 			Text="Couldn't find a server.",
 			TextColor3=Color3.fromRGB(255,255,255),
@@ -3126,12 +3126,12 @@ function Window:BuildSettingsFeature(settingInfo)
 			Text="Server Hop",
 			Open=false
 		})
-		
+
 		local GetServerHop=function(mode)
 			local servers={}
 			local req=game:HttpGet("https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
 			local body=HttpService:JSONDecode(req)
-			
+
 			if body and body.data then
 				for i,v in next,body.data do
 					if type(v)=="table" and v.playing and v.maxPlayers and v.id then
@@ -3141,7 +3141,7 @@ function Window:BuildSettingsFeature(settingInfo)
 						end
 					end
 				end
-				
+
 				if #servers>0 then
 					if not mode or mode==0 then
 						return servers[math.random(1,#servers)].id
@@ -3152,10 +3152,10 @@ function Window:BuildSettingsFeature(settingInfo)
 					end
 				end
 			end
-			
+
 			return nil
 		end
-		
+
 		ServerHopFolder:AddButton({
 			Text="Random Server",
 			DebounceClick=true,
@@ -3205,7 +3205,7 @@ function Window:BuildSettingsFeature(settingInfo)
 				end
 			end
 		})
-		
+
 		local executeEnabled=true
 		local ExecuteToggle=SettingTab:AddToggle({
 			Text="Auto Execute",
@@ -3215,7 +3215,7 @@ function Window:BuildSettingsFeature(settingInfo)
 				executeEnabled=value
 			end
 		})
-		
+
 		if settingInfo.Link~=nil or settingInfo.TeleportLink~=nil then
 			local TeleportCheck, TeleportLink = false, settingInfo.Link or settingInfo.TeleportLink
 			LocalPlayer.OnTeleport:Connect(function(State)
@@ -3226,7 +3226,7 @@ function Window:BuildSettingsFeature(settingInfo)
 			end)
 		end
 	end
-	
+
 	function Window:CreateTab(options)
 		options=missing("table",options,{})
 		options.Icon=options.Icon or options.Image or ""
@@ -3301,7 +3301,7 @@ function Window:BuildSettingsFeature(settingInfo)
 		Icon="square-code",
 	})
 
-	
+
 	return mainTab
 end
 
