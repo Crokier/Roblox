@@ -3007,14 +3007,14 @@ function Window:BuildSettingsFeature(settingInfo)
 		local SettingTab=Window:CreateTab({Icon="gear"})
 
 		local GameplayPausedToggle=SettingTab:AddToggle({
-			Text="Gameplay Paused",
-			Value=false,
+			Text="Disable Gameplay Paused",
+			Value=true,
 			Flag="gameplay_paused_enabled",
 			Callback=function(value)
-				GuiService:SetGameplayPausedNotificationEnabled(value)
+				GuiService:SetGameplayPausedNotificationEnabled(not value)
 			end
 		})
-		GameplayPausedToggle:Set(false)
+		GameplayPausedToggle:Set(true)
 		
 		local fullScreenGui=create("ScreenGui",{
 			Name="",
@@ -3039,7 +3039,7 @@ function Window:BuildSettingsFeature(settingInfo)
 		fullScreenGui.Parent=protectGui
 		gui.Parent=protectGui
 
-		local Disable3DRenderingToggle=SettingTab:AddToggle({
+		local 3DRenderingToggle=SettingTab:AddToggle({
 			Text="Disable 3D Rendering",
 			Value=false,
 			Flag="3d_rendering_enabled",
