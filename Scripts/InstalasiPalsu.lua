@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V55 04-05-2024
+-- Instal V56 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -24,7 +24,7 @@ task.delay(5,function()
 end)
 
 local Tabler=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Tabler/init.luau'))()
-local Instancer=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Instancer/init.luau'))()
+local Instancer=require(game.ReplicatedStorage.Packages.SharedInstancer) --loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Instancer/init.luau'))()
 local Strs=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Strs/init.luau'))()
 local UI=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Sampluy/init.luau'))()
 
@@ -39,7 +39,8 @@ local Values={
 	['LastStatus']='',
 	['BuildingTarget']=nil,['InstalTarget']=nil,['GuiTarget']=nil,['ToolTarget']=nil,['GrabberModel']=nil,
 	['Destroyed']=false,
-	['NoCapIcon']=false,
+	['MaxSound']=200,
+	['MaxIcon']=100
 }
 
 local Templates={
@@ -60,6 +61,7 @@ local Interfaces={
 	['GrabTypeSelector']=nil,
 	['AnimationSelector']=nil,
 	['FPSSelector']=nil,
+	['SoundSlider']=nil
 
 }
 
@@ -288,7 +290,6 @@ local GlobalData={
 	},
 	['Explorers']={
 		['Event']={Workspace,ReplicatedStorage,ReplicatedFirst},
-		['Sound']={Workspace,ReplicatedStorage,SoundService,LocalPlayer},
 		['Lighting']={Lighting},
 		['GuiColor']={PlayerGui,ReplicatedStorage},
 		['Effect']={Workspace,ReplicatedStorage},
@@ -1595,6 +1596,7 @@ function Module:SetUpdate(mode,...)
 		end
 	elseif mode==3 then
 		local lastGrabType=Values.GrabType
+		Interfaces.SoundSlider.Visible=lastGrabType=='Sound'
 		Interfaces.InitializeButton.Visible=lastGrabType=='None'
 		Interfaces.InstalButton.Visible=lastGrabType=='None'
 		for i,v in ipairs({Interfaces.DestroyButton,Interfaces.ResetButton}) do v.Visible=lastGrabType=='None' end
@@ -1634,42 +1636,34 @@ end
 
 function Module:GetGrabData(mode)
 	mode=tostring(mode)
-	Interfaces.StatusLabel:Set('mode')
+	Interfaces.StatusLabel:Set(mode)
 	task.wait(2)
-
-	local newModel=Instance.new('Model') 
-	newModel.Name=mode
-
-	local s,sLen,maxSLen,maxSound,canSRemoved='',0,100,200,true
-	local needle=nil
-	local actives,needles,explorers={},{},GlobalData.Explorers[mode] or {}
-	local imageIds={}
-	local lastNoCapImage=Values.NoCapIcon
-
+	local newModel=Instance.new('Model') newModel.Name=mode
+	local objectLength,textValue,textLength,maxText,textRemoved,needle,needles,list,actives,explorers=0,'',0,100,true,nil,GlobalData.Explorers[mode] or {},{},{},{}
 	if mode=='Texture' or mode=='Effect' or mode=='Decal' or mode=='Trail' or mode=='Beam' then
 		explorers=GlobalData.Explorers['Effect']
 	elseif mode=='Team' then
 		explorers={Teams}
+	elseif mode=='Sound' then
+		explorers={Workspace,ReplicatedStorage,SoundService,LocalPlayer,LocalPlayer.Character}
 	end
-
-	local function OnImageIdCallback(propertyType,propertyValue)
+	if mode=='GuiIcon' or mode=='Icon' then
+		textValue=textValue..'\n do \n local icons={'
+	end
+	local OnImageIdCallback=function(propertyType,propertyValue)
 		if propertyType~='string' then return end 
 		RunService.Stepped:Wait()
 		local k=propertyValue
 		if actives[k] then return end
 		actives[k]=true 
 		Interfaces.StatusLabel:Set(mode..': '..tostring(k))
-		s=s.."'"..k.."',"
-		if sLen>=maxSLen then s=s..'\n' end 
-		sLen=(sLen+1)%maxSLen 
-		table.insert(imageIds,k)
+		textValue=textValue.."'"..k.."',"
+		objectLength=objectLength+1
+		if textLength>=Values.MaxSound then textValue=textValue..'\n' end 
+		textLength=(textLength+1)%Values.MaxSound 
 	end
-
-	if mode=='GuiIcon' or mode=='Icon' then
-		s=s..'local '..mode..'={\n'
-	end
-
-	local function IsCopyInstance(v)
+	local IsCopyInstance=function(v)
+		RunService.Stepped:Wait()
 		local name,className,k=v.Name,v.ClassName,nil
 		if className=='Team' and mode=='Team' then 
 			k=name..'_'..tostring(v.TeamColor)
@@ -1684,134 +1678,106 @@ function Module:GetGrabData(mode)
 		elseif Utility.IsAs(v,GlobalData.Types.PacketClasses) and mode=='Event' then
 			k=name..'_'..className
 		end 
-		if k~=nil and not actives[k] then
+		if k~=nil and actives[k]==nil then
 			actives[k]=true 
 			Interfaces.StatusLabel:Set(mode..': '..name)
 			return true
 		end
-		RunService.Stepped:Wait()
 		return false
 	end
-
 	if mode=='Sound' then
-		local soundIds={}
-		for _, explorer in ipairs(explorers) do
-			if not (explorer and explorer.Parent) then continue end
-			for _, value in ipairs(explorer:GetDescendants()) do
-				if not (value and value.Parent) then continue end
-				local name,className,key=value.Name,value.ClassName,nil
-				if className=='Sound' then key=value.SoundId elseif className=='AudioPlayer' then key=value.Asset end 
-				if key~=nil and not actives[key] then 
-					actives[key]=true 
-					Interfaces.StatusLabel:Set(mode..': '..className..' '..name)
-					table.insert(soundIds,{name,needle,value,className})
-				end
-				RunService.Stepped:Wait() 
-			end 
-		end
-		if #soundIds>=maxSound then 
-			Interfaces.StatusLabel:Set(tostring(#soundIds)..' Sound Sound is Dangerous!')
-			task.wait(2)
-			Interfaces.StatusLabel:Set('')
-			s='\n local SoundIds={'
-			for i,v in ipairs(soundIds) do
-				RunService.Stepped:Wait() 
-				Interfaces.StatusLabel:Set(mode..': '..v[2])
-				if i==#soundIds then 
-					s=s.."{'"..v[1].."'"..",".."'"..v[2].."'}"
-				else 
-					s=s.."{'"..v[1].."'"..",".."'"..v[2].."'},"
-				end 
-				sLen=(sLen+1)%maxSLen 
-				if sLen==0 then s=s.."\n" end  
-			end
-			s=s.."}\n"
-			s=s.. [[for i,v in ipairs(SoundIds) do local nv=e('Sound') nv.Name=v[1] nv.SoundId=v[2] nv.Parent=%s end]] .."\n"
-			canSRemoved=false
+		textValue='\n local SoundIds={' 
+		for _, explorer in ipairs(explorers) do if explorer and explorer.Parent then for _, child in ipairs(explorer:GetDescendants()) do if child and child.Parent then local name,className,key=child.Name,child.ClassName,nil if className=='Sound' then key=child.SoundId elseif className=='AudioPlayer' then key=child.Asset end if key~=nil and actives[key]==nil then actives[key]=true RunService.Stepped:Wait() Interfaces.StatusLabel:Set(mode..': '..name..' '..key) textValue=textValue.."{'"..name.."'"..",".."'"..key.."'}," textLength=(textLength+1)%maxText if textLength==0 then textValue=textValue.."\n" end table.insert(list,{name,key,child,className}) end end end end end
+		textValue=textValue.."}\n" 
+		textValue=textValue.. [[for i,v in ipairs(SoundIds) do local nv=e('Sound') nv.Name=v[1] nv.SoundId=v[2] nv.Parent=%s end]] .."\n" 
+		if #list>=Values.MaxSound then
+			textRemoved=false
 		else
-			for i,v in ipairs(soundIds) do
-				RunService.Stepped:Wait()
-				Interfaces.StatusLabel:Set(mode..': '..v[2])
-				local newValue=Utility.CopyInstance(v[4],v[3],ObjectClasses[v[4]]) 
-				newValue.Parent=newModel 
-			end
+			textValue='' for i,v in ipairs(list) do RunService.Stepped:Wait() Interfaces.StatusLabel:Set(mode..': '..v[2]) local newValue=Utility.CopyInstance(v[4],v[3],ObjectClasses[v[4]]) newValue.Parent=newModel end
 		end
-		table.clear(soundIds)
+		table.clear(list)
 	elseif mode=='Lighting' then
-		local newLighting=Instance.new("Model")
-		newLighting.Name='Lighting'
-		newLighting.Parent=newModel
-
-		local newAmbient=Instance.new("Color3Value")
-		newAmbient.Name='Ambient'
-		newAmbient.Value=Lighting.Ambient
-		newAmbient.Parent=newLighting
-
-		local newBrightness=Instance.new('NumberValue')
-		newBrightness.Name='Brightness'
-		newBrightness.Value=Lighting.Brightness
-		newBrightness.Parent=newLighting
-
-		local newColorShift_Bottom=Instance.new('Color3Value')
-		newColorShift_Bottom.Name='ColorShift_Bottom'
-		newColorShift_Bottom.Value=Lighting.ColorShift_Bottom
-		newColorShift_Bottom.Parent=newLighting
-
-		local newColorShift_Top=Instance.new('Color3Value')
-		newColorShift_Top.Name='ColorShift_Top'
-		newColorShift_Top.Value=Lighting.ColorShift_Top
-		newColorShift_Top.Parent=newLighting
-
-		local newEnvironmentDiffuseScale=Instance.new('NumberValue')
-		newEnvironmentDiffuseScale.Name='EnvironmentDiffuseScale'
-		newEnvironmentDiffuseScale.Value=Lighting.EnvironmentDiffuseScale
-		newEnvironmentDiffuseScale.Parent=newLighting
-
-		local newEnvironmentSpecularScale=Instance.new('NumberValue')
-		newEnvironmentSpecularScale.Name='EnvironmentSpecularScale'
-		newEnvironmentSpecularScale.Value=Lighting.EnvironmentSpecularScale
-		newEnvironmentSpecularScale.Parent=newLighting
-
-		local newGlobalShadows=Instance.new('BoolValue')
-		newGlobalShadows.Name='GlobalShadows'
-		newGlobalShadows.Value=Lighting.GlobalShadows
-		newGlobalShadows.Parent=newLighting
-
-		local newOutdoorAmbient=Instance.new('Color3Value')
-		newOutdoorAmbient.Name='OutdoorAmbient'
-		newOutdoorAmbient.Value=Lighting.OutdoorAmbient
-		newOutdoorAmbient.Parent=newLighting
-
-		local newShadowSoftness=Instance.new('NumberValue')
-		newShadowSoftness.Name='ShadowSoftness'
-		newShadowSoftness.Value=Lighting.ShadowSoftness
-		newShadowSoftness.Parent=newLighting
-
-		local newClockTime=Instance.new('NumberValue')
-		newClockTime.Name='ClockTime'
-		newClockTime.Value=Lighting.ClockTime
-		newClockTime.Parent=newLighting
-
-		local newGeographicLatitude=Instance.new('NumberValue')
-		newGeographicLatitude.Name='GeographicLatitude'
-		newGeographicLatitude.Value=Lighting.GeographicLatitude
-		newGeographicLatitude.Parent=newLighting
-
-		local newExposureCompensation=Instance.new('NumberValue')
-		newExposureCompensation.Name='ExposureCompensation'
-		newExposureCompensation.Value=Lighting.ExposureCompensation
-		newExposureCompensation.Parent=newLighting
+		local newLighting=Utility.Create('Model',{
+			Name='Lighting',
+			Parent=newModel
+		})
+		
+		local newBrightness=Utility.Create('NumberValue',{
+			Name='Brightness',
+			Value=Lighting.Brightness,
+			Parent=newLighting
+		})
+		
+		local newAmbient=Utility.Create('Color3Value',{
+			Name='Ambient',
+			Value=Lighting.Ambient,
+			Parent=newLighting
+		})
+		
+		local newColorShift_Bottom=Utility.Create('Color3Value',{
+			Name='ColorShift_Bottom',
+			Value=Lighting.ColorShift_Bottom,
+			Parent=newLighting
+		})
+		
+		local newColorShift_Top=Utility.Create('Color3Value',{
+			Name='ColorShift_Top',
+			Value=Lighting.ColorShift_Top,
+			Parent=newLighting
+		})
+		
+		local newOutdoorAmbient=Utility.Create('Color3Value',{
+			Name='OutdoorAmbient',
+			Value=Lighting.OutdoorAmbient,
+			Parent=newLighting
+		})
+		
+		local newEnvironmentDiffuseScale=Utility.Create('NumberValue',{
+			Name='EnvironmentDiffuseScale',
+			Value=Lighting.EnvironmentDiffuseScale,
+			Parent=newLighting
+		})
+		
+		local newEnvironmentSpecularScale=Utility.Create('NumberValue',{
+			Name='EnvironmentSpecularScale',
+			Value=Lighting.EnvironmentSpecularScale,
+			Parent=newLighting
+		})
+		
+		local newGlobalShadows=Utility.Create('BoolValue',{
+			Name='GlobalShadows',
+			Value=Lighting.GlobalShadows,
+			Parent=newLighting
+		})
+		
+		local newShadowSoftness=Utility.Create('BoolValue',{
+			Name='ShadowSoftness',
+			Value=Lighting.ShadowSoftness,
+			Parent=newLighting
+		})
+		
+		local newClockTime=Utility.Create('NumberValue',{
+			Name='ClockTime',
+			Value=Lighting.ClockTime,
+			Parent=newLighting
+		})
+		
+		local newGeographicLatitude=Utility.Create('NumberValue',{
+			Name='GeographicLatitude',
+			Value=Lighting.GeographicLatitude,
+			Parent=newLighting
+		})
+		
+		local newExposureCompensation=Utility.Create('NumberValue',{
+			Name='ExposureCompensation',
+			Value=Lighting.ExposureCompensation,
+			Parent=newLighting
+		})
 
 		Interfaces.StatusLabel:Set(mode..': '..newLighting.Name)
 		task.wait(2)
 
-		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,function(v) 
-			if Utility.IsAs(v,GlobalData.Types.LightingClasses) then  
-				Interfaces.StatusLabel:Set(mode..': '..v.Name)
-				return true 
-			end 
-			return false 
-		end)
+		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,function(v) if Utility.IsAs(v,GlobalData.Types.LightingClasses) then Interfaces.StatusLabel:Set(mode..': '..v.Name) return true end return false end)
 	elseif mode=='Event' then
 		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
 	elseif mode=='Team' then
@@ -1825,91 +1791,49 @@ function Module:GetGrabData(mode)
 	elseif mode=='Beam' then
 		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
 	elseif mode=='GuiColor' then
-		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do if Utility.IsAs(v,GlobalData.Types.UIClasses) then Utility.GetInstanceProperty(v,GlobalData.Types.ColorProperties,function(dataType,propertyValue) if dataType=='Color3' or dataType=='BrickColor' then needle=dataType..'_'..tostring(propertyValue) if not actives[needle] then actives[needle]=true Interfaces.StatusLabel:Set(mode..': '..tostring(propertyValue)) if dataType=='BrickColor' then s=s..tostring(propertyValue)..',' else s=s..SafeData['Color3'](propertyValue)..',' end if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1) % maxSLen RunService.Stepped:Wait() end end end) end end end
+		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do if Utility.IsAs(v,GlobalData.Types.UIClasses) then Utility.GetInstanceProperty(v,GlobalData.Types.ColorProperties,function(dataType,propertyValue) if dataType=='Color3' or dataType=='BrickColor' then needle=dataType..'_'..tostring(propertyValue) if not actives[needle] then actives[needle]=true Interfaces.StatusLabel:Set(mode..': '..tostring(propertyValue)) if dataType=='BrickColor' then textValue=textValue..tostring(propertyValue)..',' else textValue=textValue..SafeData['Color3'](propertyValue)..',' end if textLength>=maxText then textValue=textValue..'\n' end textLength=(textLength+1)%maxText RunService.Stepped:Wait() end end end) end end end
 	elseif mode=='PartColor' then
-		for i,v in ipairs(Workspace:GetDescendants()) do if v:IsA('BasePart') then Utility.GetInstanceProperty(v,GlobalData.Types.ColorProperties,function(dataType,propertyValue) if dataType=='Color3' or dataType=='BrickColor' then needle=dataType..'_'..tostring(propertyValue) if not actives[needle] then actives[needle]=true Interfaces.StatusLabel:Set(mode..': '..tostring(propertyValue)) if dataType=='BrickColor' then s=s..tostring(propertyValue)..',' else s=s..SafeData['Color3'](propertyValue)..',' end if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1) % maxSLen RunService.Stepped:Wait() end end end) end end
+		for i,v in ipairs(Workspace:GetDescendants()) do if v:IsA('BasePart') then Utility.GetInstanceProperty(v,GlobalData.Types.ColorProperties,function(dataType,propertyValue) if dataType=='Color3' or dataType=='BrickColor' then needle=dataType..'_'..tostring(propertyValue) if not actives[needle] then actives[needle]=true Interfaces.StatusLabel:Set(mode..': '..tostring(propertyValue)) if dataType=='BrickColor' then textValue=textValue..tostring(propertyValue)..',' else textValue=textValue..SafeData['Color3'](propertyValue)..',' end if textLength>=maxText then textValue=textValue..'\n' end textLength=(textLength+1)%maxText RunService.Stepped:Wait() end end end) end end
 	elseif mode=='Name'  then
-		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do Utility.GetInstanceProperty(v,GlobalData.Types.TextProperties,function(dataType,propertyValue,propertyName) if dataType=='string' then local nameFilter='' for v in propertyValue:gmatch("[%w]") do if not Utility.IsStrings(v,GlobalData.Types.NumericTypes) then nameFilter=nameFilter..v end end if #nameFilter==0 then return end local isA=false pcall(function() isA=v:IsA(nameFilter) end) if isA or #nameFilter==0 then return end local newInstance=Instance.new(v.ClassName) local instanceValue=nil pcall(function() instanceValue=newInstance[propertyName] end) if instanceValue and instanceValue==nameFilter then newInstance:Destroy() return end if not actives[nameFilter] then actives[nameFilter]=true Interfaces.StatusLabel:Set(mode..': '..nameFilter) s=s..nameFilter..',' if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1)%maxSLen RunService.Stepped:Wait() end end end) end end
+		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do Utility.GetInstanceProperty(v,GlobalData.Types.TextProperties,function(dataType,propertyValue,propertyName) if dataType=='string' then local nameFilter='' for v in propertyValue:gmatch("[%w]") do if not Utility.IsStrings(v,GlobalData.Types.NumericTypes) then nameFilter=nameFilter..v end end if #nameFilter<=0 or v:IsA(nameFilter) then return end local newInstance=Instance.new(v.ClassName) local instanceValue=nil pcall(function() instanceValue=newInstance[propertyName] end) if instanceValue and instanceValue==nameFilter then newInstance:Destroy() return end if not actives[nameFilter] then actives[nameFilter]=true Interfaces.StatusLabel:Set(mode..': '..nameFilter) textValue=textValue..nameFilter..',' if textLength>=maxText then textValue=textValue..'\n' end textLength=(textLength+1)%maxText RunService.Stepped:Wait() end end end) end end
 	elseif mode=='MouseIcon' then
-		if next(MouseIconCache) then for v,k in pairs(MouseIconCache) do Interfaces.StatusLabel:Set(mode..': '..v) s=s..v..',' if sLen>=maxSLen then s=s..'\n' end sLen=(sLen+1)%maxSLen RunService.Stepped:Wait() end end
+		if next(MouseIconCache) then for v,k in pairs(MouseIconCache) do Interfaces.StatusLabel:Set(mode..': '..v) textValue=textValue..v..',' if textLength>=maxText then textValue=textValue..'\n' end textLength=(textLength+1)%maxText RunService.Stepped:Wait() end end
 	elseif mode=='Icon' then
 		for j,k in ipairs(explorers) do for i,v in ipairs(k:GetDescendants()) do Utility.GetInstanceProperty(v,GlobalData.Types.IconProperties,OnImageIdCallback) end end
 	elseif mode=='GuiIcon' then
 		for i,v in ipairs(PlayerGui:GetDescendants()) do Utility.GetInstanceProperty(v,GlobalData.Types.IconProperties,OnImageIdCallback) end
 	elseif mode=='Tool' then
-		Values.ToolTarget=nil
-		if not next(ToolCache) then 
-			Utility.Foreach(ReplicatedStorage:GetDescendants(),function(v)
-				if v and v.Parent and v.ClassName=='Tool' then 
-					Interfaces.StatusLabel:Set(mode) 
-					table.insert(ToolCache,v:Clone()) 
-					RunService.Stepped:Wait()
-				end 
-			end)
-		end
-		Utility.Foreach(ToolCache,function(v)
-			RunService.Stepped:Wait()
-			if v and v.Parent==nil then 
-				Interfaces.StatusLabel:Set(mode..': '..v.Name)
-				v.Parent=newModel 
-			end 
-		end)
+		Values.ToolTarget=nil if not next(ToolCache) then for i, v in ipairs(ReplicatedStorage:GetDescendants()) do if v and v.Parent and v:IsA('Tool') then RunService.Stepped:Wait() Interfaces.StatusLabel:Set(mode) table.insert(ToolCache,v:Clone()) end end end
 	elseif mode=='Gui' then
-		Values.GuiTarget=nil
-		local k,v=next(GuiCache)
-		while k and v do
-			RunService.Stepped:Wait()
-			GuiCache[k]=nil
-			local cv=k:Clone() 
-			if cv and cv.Parent==nil then 
-				Interfaces.StatusLabel:Set(mode..': '..cv.Name)
-				cv.Parent=newModel 
-			end 
-			k,v=next(GuiCache)
-		end
+		Values.GuiTarget=nil local k,v=next(GuiCache) while k and v do RunService.Stepped:Wait() GuiCache[k]=nil local cv=k:Clone() if cv and cv.Parent==nil then Interfaces.StatusLabel:Set(mode..': '..cv.Name) cv.Parent=newModel end k,v=next(GuiCache) end
 	elseif mode=='Building' then
-		Values.BuildingTarget=nil 
-		local k,v=next(BuildingCache)
-		while k and v do
-			RunService.Stepped:Wait()
-			BuildingCache[k]=nil
-			local cv=k:Clone() 
-			if cv and cv.Parent==nil then 
-				Interfaces.StatusLabel:Set(mode..': '..cv.Name)
-				cv.Parent=newModel 
-			end 
-			k,v=next(BuildingCache)
-		end
+		Values.BuildingTarget=nil local k,v=next(BuildingCache) while k and v do RunService.Stepped:Wait() BuildingCache[k]=nil local cv=k:Clone() if cv and cv.Parent==nil then Interfaces.StatusLabel:Set(mode..': '..cv.Name) cv.Parent=newModel end k,v=next(BuildingCache) end
 	else
 		return false,nil
 	end
-
 	if mode=='GuiIcon' or mode=='Icon' then
-		s=s..'}\n'
-	elseif #s>0 then
-		local ns='local '..mode..'=[['..s..']]'
-		s=ns
+		textValue=textValue..'}\n'
+		local columns=math.ceil(math.sqrt(objectLength))
+		local rows=math.ceil(objectLength/columns);
+		local newTextBonus="local i,size,origin,color1,color2,folder,len,columns,rows=1,Vector3.new(4,1,4),Vector3.new(0,0.5,0),BrickColor.new('Black'),BrickColor.new('White'),V['1'] or V['2'],"..tostring(objectLength)..","..tostring(columns)..","..tostring(rows).." "
+		local newTextValue=[[for x=1,columns do for z=1,rows do if i<=len then local image=icons[i] local p=Instance.new('Part') p:SetAttribute('Tier',i) p.Name=image p.Size=size p.Anchored=true p.TopSurface=Enum.SurfaceType.Smooth p.BottomSurface=Enum.SurfaceType.Smooth  p.Position=Vector3.new(origin.X+((x-1)*size.X),origin.Y,origin.Z+((z-1)*size.Z)) p.BrickColor=(x+z)%2==0 and color1 or color2 p.Material=Enum.Material.SmoothPlastic p.Parent=folder local sg=Instance.new('SurfaceGui') sg.Face=Enum.NormalId.Top sg.LightInfluence=1 sg.Parent=p local label=Instance.new('ImageLabel') label.Size=UDim2.new(1,0,1,0) label.Position=UDim2.new(0,0,0,0) label.BackgroundTransparency=1 label.Image=image label.Parent=sg i=i+1 end task.wait() end task.wait() end]]
+		textValue=textValue..newTextBonus..'\n'
+		textValue=textValue..newTextValue..'\n end'
+	elseif #textValue>0 and mode~='Sound' then
+		local newTextValue='local '..mode..'=[['..textValue..']]'
+		textValue=newTextValue..'\n'
 	end
-
 	local isModel,modelChildren=false,newModel:GetChildren()
-	if #s>0 then
-		if #s>=2000 then
-			Interfaces.StatusLabel:Set(mode..' string is too long! and '..tostring(#s))
-			task.wait(2)
-		end
-		if canSRemoved then
-			newModel:SetAttribute('Coding',true)
-		end
-		InstalCache[mode]={s}
-	elseif #s<=0 and not next(modelChildren) then
-		self:SetStatus(0,mode..' Has Empty')
-		newModel:Destroy()
-		newModel=nil
-		task.wait(2)
+	if #textValue>0 then
+		if #textValue>=2000 then Interfaces.StatusLabel:Set(mode..' string is too long! and '..tostring(#textValue)) task.wait(2) end 
+		if textRemoved then newModel:SetAttribute('Coding',true) end 
+		InstalCache[mode]={textValue}
+	elseif #textValue<=0 and not next(modelChildren) then
+		self:SetStatus(0,mode..' Has Empty') newModel:Destroy() newModel=nil task.wait(2)
 	else
 		isModel=true
 	end
-	s='' sLen=0 needle=nil actives,explorers,needles={},{},{}
+	textValue='' textLength=0 needle=nil actives,explorers,needles={},{},{}
 	return isModel,newModel
 end
 
@@ -2311,7 +2235,7 @@ function Module:Instal()
 	if Values.Destroyed then return end
 	if success and type(text)=='string' then
 		setclipboard(text)
-		Interfaces.StatusLabel:Set('Copied To Clipboard!')
+		Interfaces.StatusLabel:Set('Save To File!')
 		local fileInfo={
 			FileId=os.date("%Y%m%d%H%M%S",os.time()),
 			Value=text
@@ -2499,8 +2423,6 @@ Window=UI:CreateWindow({
 
 Outliner.Parent=Window.Gui
 
-Window:BuildSettingsFeature({Link="https://raw.githubusercontent.com/Crokier/Roblox/main/Scripts/InstalasiPalsu.lua"})
-
 Window:AddButton({
 	Text='Save to File',
 	MethodType="DoubleClick",
@@ -2525,7 +2447,7 @@ Interfaces.GrabTypeSelector=Window:AddSelector({
 	Options=GlobalData.Types.GrabTypes,
 	Value=GlobalData.Types.GrabTypes[1],
 	NoCap=true,
-	ApplyOnInit=true,
+	Flag='grab_type',
 	Callback=function(value,key) 
 		Values.GrabType=value 
 		Module:SetUpdate(3) 
@@ -2572,18 +2494,21 @@ Interfaces.TopSelect=Window:AddSelect({
 	Deactivated=function() Module:SetUpdate(2) Module:SetStatus(1,Interfaces.StatusLabel.Text) end
 })
 Interfaces.AnimationSelector=Window:AddSelector({
-	Visible=false,
 	Options=GlobalData.Types.RecordAnimTypes,
 	Value=Values.RecordAnimType,
-	NoCap=true,Callback=function(value,key) 
+	NoCap=true,
+	Visible=false,
+	Flag='record_animation_type',
+	Callback=function(value,key) 
 		Values.RecordAnimType=value 
 	end
 })
 Interfaces.FPSSelector=Window:AddSelector({
-	Visible=false,
 	Options=GlobalData.Types.FPSTypes,
 	Value=Values.FPSType,
 	NoCap=true,
+	Visible=false,
+	Flag='frame_per_second_type',
 	Callback=function(value,key) 
 		Values.FPSType=value 
 	end
@@ -2629,6 +2554,18 @@ Interfaces.StopButton=Window:AddButton({
 		Module:Stop() 
 	end
 })
+Interfaces.SoundSlider=Window:AddSlider({
+	Text='Max Sound',
+	Range={0,1000},
+	Value=Values.MaxSound,
+	Increment=1,
+	Visible=false,
+	Callback=function(amount)
+		if Values.GrabType=='Sound' then 
+			Values.MaxSound=math.max(amount,0)
+		end
+	end
+})
 Interfaces.AddButton=Window:AddButton({
 	Text='Add',
 	Visible=false,
@@ -2667,6 +2604,16 @@ Interfaces.DestroyButton=Window:AddButton({
 })
 
 Module.Parent=true
-Window:AddLinkButton({Text="Donate 💖",Link="https://link-target.net/6690566/TlR2vuR2JR4F"})
-Window:AddLabel({Text="YouTube: Crokyreo",TextColor3=Color3.fromRGB(255,255,255)})
+
+Window:AddLinkButton({Text='Donate 💖',Link='https://link-target.net/6690566/TlR2vuR2JR4F'})
+Window:AddLabel({Text='YouTube: Crokyreo',TextColor3=Color3.fromRGB(255,255,255)})
 Window:LoadConfig()
+
+queueteleport=Missing('function',queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport), function() end)
+
+Cacheds.OnTeleport=Players.LocalPlayer.OnTeleport:Connect(function(State)
+	if not Values.TeleportDone and queueteleport then
+		Values.TeleportDone=true
+		queueteleport("loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Scripts/InstalasiPalsu.lua'))()")
+	end
+end)
