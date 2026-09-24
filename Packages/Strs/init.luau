@@ -95,8 +95,10 @@ function Strs.ToBoolean(s:string)
 	return Strs.BoolData[string.lower(s)]
 end
 
+-- Deprecated
 -- Example: '    upper      ' > 'upper' > "UPPER"
 function Strs.Normalize(s:string):string
+	if true then error("Strs.Normalize is deprecated, use Strs.Trim instead") end
 	if s==nil or type(s)~="string" then return "" end
 	local ns = string.match(s,"^%s*(.-)%s*$")
 	return string.upper(ns) or ""
@@ -203,6 +205,18 @@ function Strs.Random()
 		array[i]=string.char(math.random(32,126))
 	end
 	return table.concat(array)
+end
+
+-- Decimal Place Function --
+function Strs.GetDecimalPlace(x:number):string
+	local str = tostring(x)
+	local _, decimalPart = math.modf(x) 
+
+	-- If no decimal part, return 0
+	if decimalPart == 0 then return 0 end
+
+	-- Remove the leading "0." and return length
+	return #string.sub(tostring(decimalPart), 3)
 end
 
 return Strs
