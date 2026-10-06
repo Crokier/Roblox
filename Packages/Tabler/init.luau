@@ -1,4 +1,8 @@
-local Tabler={}
+local Tabler={
+	WeightEmptyFunction=function(v,k) return v.Weight end,
+	MatchEmptyFunction=function(...) return true end,
+	rng=Random.new()
+}
 
 function Tabler.GetProperties(t:{[any]:any}):(any,any,number)
 	local i=0
@@ -30,6 +34,22 @@ function Tabler.DeepCopy(t:{[any]:any}):{[any]:any}
 	return copyTable
 end
 
+function Tabler.Reconcile(target:{[any]:any},template:{[any]:any}):{[any]:any} 
+	for k,v in pairs(template) do
+		if type(k)=="string" then
+			if target[k]==nil then
+				if type(v)=="table" then
+					target[k]=Tabler.DeepCopy(v)
+				else
+					target[k]=v
+				end
+			elseif type(target[k])=="table" and type(v)=="table" then
+				Tabler.Reconcile(target[k],v)
+			end
+		end
+	end
+end
+
 function Tabler.DeepFreeze(t:{[any]:any}):{[any]:any} 
 	table.freeze(t)
 	for _,v in pairs(t) do
@@ -46,35 +66,32 @@ function Tabler.IndexOf(t:{[any]:any},value:any):(number,...any)
 	return -1
 end
 
-function Tabler.RandomByRarity(t:{{["Weight"]:number,["Reward"]:{}}},getWeight:(reward:any)->(number)?)
-	if not getWeight or type(getWeight)~="function" then
-		getWeight=function(v,k)
-			return v.Weight
-		end
-	end
+function Tabler.RandomByRarity(t:{{["Weight"]:number,["Reward"]:{[any]:any},[string]:any}},callback:(t:{{["Weight"]:number,["Reward"]:{[any]:any},[string]:any}},index:number)->(number)?,rng:any?):(any,any)
+	if callback==nil or type(callback)~="function" then callback=Tabler.WeightEmptyFunction end
+	if rng==nil then rng=Tabler.rng end
 	local totalWeight=0
 	for k,v in pairs(t) do
 		totalWeight=totalWeight+v.Weight
 	end
-	local firstValue=t[1]
 	local randomWeight=rng:NextNumber(0,totalWeight)
 	local cumulative=0
 	for k,v in pairs(t) do
-		local weight=getWeight(v,k)
+		local weight=callback(v,k)
 		if not weight then weight=v.Weight end
 		cumulative+=weight
 		if randomWeight<=cumulative then
-			return v
+			return v,k
 		end
 	end
-	return firstValue
+	return t[1],1
 end
 
-function Tabler.RandomNoSame(t:{any},length:number?,match:(value:any,index:number)->(boolean)?):{any}
-	if type(length)~="number" or length<=0 then length=0 end
-	if type(match)~="function" then match=function(v,k) return true end end
+function Tabler.RandomNoSame(t:{any},length:number?,match:(value:any,index:number)->(boolean)?,rng:any?):{any}
+	if length==nil or type(length)~="number" or length<=0 then length=0 end
+	if match==nil or type(match)~="function" then match=Tabler.MatchEmptyFunction end
+	if rng==nil then rng=Tabler.rng end
 	local values=nil
-	if #t~=0 then
+	if #t>0 then
 		local list={}
 		for i,v in ipairs(t) do
 			local can=match(v,i)
@@ -84,14 +101,15 @@ function Tabler.RandomNoSame(t:{any},length:number?,match:(value:any,index:numbe
 		end
 		values={}
 		if not length or length<=0 or length>=#list then length=#list end
-		local index,limit=1,#list;
+		local index,limit,waitingIndex=1,#list,0
 		while #list>0 do
-			if #list>=5 then
+			waitingIndex=(waitingIndex+1)%5
+			if #list>=5 or waitingIndex==0 then
 				task.wait()
 			end
 			index=1
 			if #list>1 then
-				index=math.random(1,#list)
+				index=rng:NextInteger(1,#list)
 			end
 			local value=table.remove(list,index)
 			table.insert(values,value)
@@ -105,15 +123,16 @@ function Tabler.RandomNoSame(t:{any},length:number?,match:(value:any,index:numbe
 	return values
 end
 
--- Author: @Sleitnick
-local success,tableUtil=pcall(function()
-	if game:GetService("RunService"):IsStudio() then return nil end
-	local func=loadstring(game:HttpGet('https://raw.githubusercontent.com/Sleitnick/RbxUtil/refs/heads/main/modules/table-util/init.luau'))
-	if func then return func() end return nil
-end)
-
-if success and tableUtil then
-	for k,v in pairs(tableUtil) do if Tabler[k]==nil then Tabler[k]=v end end
+function Tabler.Generate(match:()->(boolean),randomizer:()->(string),target:{[string]:{any}})
+	local key=nil
+	while match() do
+		key=randomizer()
+		if target[key]==nil then
+			break
+		end
+		task.wait()
+	end
+	return key
 end
 
 return Tabler
