@@ -1,3 +1,5 @@
+local HttpService=nil
+
 local InfNumber=math.huge
 
 local Strs={
@@ -130,11 +132,15 @@ function Strs.ToNumber(v,maxFloat)
 	return s
 end
 
-function Strs.FormatNumber(x:number):string?
+function Strs.FormatNumber(x:number,noNegative:boolean?):string?
 	if x==nil then return nil end
 	local check=Strs.ToInf(x) or Strs.ToNaN(x)
 	if check then return check end
+	if x==0 then return "0" end
 	local isNegative=x<=0
+	if noNegative then
+		isNegative=false
+	end
 	x=math.abs(x)
 	local s=tostring(x)
 	for i=1,#Strs.Suffixes do
@@ -165,6 +171,65 @@ function Strs.FormatTime(x:number):string
 	else
 		return string.format('%02i:%02i:%02i:%02i',days,hours,minutes,seconds)
 	end
+end
+
+function Strs.ToDuration(s:string):(number?,string?)
+	if Strs.IsEmpty(s) then return -1,"permanent" end
+	
+	local lower=string.lower(s)
+
+	if lower=="server" or lower=="sv" or lower=="0" or lower=="kick" then
+		return 0,"server"
+	end
+
+	if lower=="-1" or lower=="perm" or lower=="permanent" then
+		return -1,"permanent"
+	end
+	
+	local numInput=tonumber(s)
+	if numInput then return math.max(numInput,0),"time" end
+	
+	local x,unit=string.match(lower,"^(%d+)([smhd])$")
+	if not (x~=nil and unit~=nil) then return nil,nil end
+
+	x=tonumber(x)
+	if unit == "s" then
+		return x,"time"
+	elseif unit=="m" then 
+		return x*60,"time"
+	elseif unit=="h" then 
+		return x*3600,"time"
+	elseif unit=="d" then 
+		return x*86400,"time"
+	end
+
+	return nil, nil
+end
+
+function Strs.ToTable(text,httpService)
+	if HttpService==nil then
+		if httpService~=nil then
+			HttpService=httpService
+		else
+			HttpService=game:GetService("HttpService")
+		end
+	end
+
+	if Strs.IsEmpty(text) then
+		return nil
+	end
+
+	local jsonString = text:gsub("{", "["):gsub("}", "]"):gsub("nil", "null")
+
+	local success, result = pcall(function()
+		return HttpService:JSONDecode(jsonString)
+	end)
+
+	if success and type(result) == "table" then
+		return result
+	end
+
+	return nil
 end
 
 function Strs.ToMS(x:number):string
