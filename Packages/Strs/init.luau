@@ -1,5 +1,3 @@
-local HttpService=nil
-
 local InfNumber=math.huge
 
 local Strs={
@@ -75,21 +73,21 @@ function Strs.ToPersentase(x:number,max:number?,maxFloat:number?,reverse:boolean
 	if (x>=InfNumber or x<=-InfNumber) then return "∞%" end
 	maxFloat=if type(maxFloat)=="number" and maxFloat>0 then maxFloat else 2
 	local percentage=math.floor(x)*100
-	if not reverse then
-		if max then percentage=math.floor(x/max)*100 end
-	else
-		if max then
-			percentage=(1/max)*x
-			if percentage>=1 then 
-				return "100%"
-			else
-				percentage=percentage*100
+	if reverse~=nil then
+		if not reverse then
+			if max then percentage=math.floor(x/max)*100 end
+		else
+			if max then
+				percentage=(1/max)*x
+				if percentage>=1 then 
+					return "100%"
+				end
 			end
 		end
 	end
 	local s=string.format(`%.{maxFloat}f`,percentage)
 	s=s.."%"
-	if max and x>=max then s="100%" end
+	if max then if x>=max then s="100%" end end
 	return s
 end
 
@@ -97,10 +95,12 @@ function Strs.ToBoolean(s:string)
 	return Strs.BoolData[string.lower(s)]
 end
 
--- Deprecated
+function Strs.ToHex(color:Color3|{["R"]:number,["G"]:number,["B"]:number}):string
+	return string.format("#%02X%02X%02X",color.R*0xFF,color.G*0xFF,color.B*0xFF)
+end
+
 -- Example: '    upper      ' > 'upper' > "UPPER"
 function Strs.Normalize(s:string):string
-	if true then error("Strs.Normalize is deprecated, use Strs.Trim instead") end
 	if s==nil or type(s)~="string" then return "" end
 	local ns = string.match(s,"^%s*(.-)%s*$")
 	return string.upper(ns) or ""
@@ -121,8 +121,8 @@ end
 
 function Strs.ToNumber(v,maxFloat)
 	local x=type(v)=="string" and tonumber(v) or v
-	if x == nil or type(x)~="number" then return "nil" end
-	if maxFloat == nil or type(maxFloat)~="number" or maxFloat<=0 then 
+	if x==nil or type(x)~="number" then return "nil" end
+	if maxFloat==nil or type(maxFloat)~="number" or maxFloat<=0 then 
 		maxFloat=3
 	end
 	local xFloor=math.floor(x)
@@ -173,27 +173,21 @@ function Strs.FormatTime(x:number):string
 	end
 end
 
-function Strs.ToDuration(s:string):(number?,string?)
+function Strs.ToDuration(s:string):(number,string)
 	if Strs.IsEmpty(s) then return -1,"permanent" end
-	
 	local lower=string.lower(s)
-
 	if lower=="server" or lower=="sv" or lower=="0" or lower=="kick" then
 		return 0,"server"
 	end
-
 	if lower=="-1" or lower=="perm" or lower=="permanent" then
 		return -1,"permanent"
 	end
-	
 	local numInput=tonumber(s)
 	if numInput then return math.max(numInput,0),"time" end
-	
 	local x,unit=string.match(lower,"^(%d+)([smhd])$")
 	if not (x~=nil and unit~=nil) then return nil,nil end
-
 	x=tonumber(x)
-	if unit == "s" then
+	if unit=="s" then
 		return x,"time"
 	elseif unit=="m" then 
 		return x*60,"time"
@@ -202,34 +196,7 @@ function Strs.ToDuration(s:string):(number?,string?)
 	elseif unit=="d" then 
 		return x*86400,"time"
 	end
-
-	return nil, nil
-end
-
-function Strs.ToTable(text,httpService)
-	if HttpService==nil then
-		if httpService~=nil then
-			HttpService=httpService
-		else
-			HttpService=game:GetService("HttpService")
-		end
-	end
-
-	if Strs.IsEmpty(text) then
-		return nil
-	end
-
-	local jsonString = text:gsub("{", "["):gsub("}", "]"):gsub("nil", "null")
-
-	local success, result = pcall(function()
-		return HttpService:JSONDecode(jsonString)
-	end)
-
-	if success and type(result) == "table" then
-		return result
-	end
-
-	return nil
+	return 0,"failed"
 end
 
 function Strs.ToMS(x:number):string
@@ -262,6 +229,7 @@ function Strs.ToDHMS(x:number):string
 	return  string.format('%02i:%02i:%02i:%02i',days,hours,minutes,seconds)
 end
 
+
 -- Random Function --
 function Strs.Random()
 	local length=math.random(10,20)
@@ -278,10 +246,39 @@ function Strs.GetDecimalPlace(x:number):string
 	local _, decimalPart = math.modf(x) 
 
 	-- If no decimal part, return 0
-	if decimalPart == 0 then return 0 end
+	if decimalPart==0 then return 0 end
 
 	-- Remove the leading "0." and return length
 	return #string.sub(tostring(decimalPart), 3)
+end
+
+-- Reference Function --
+local HttpService=nil
+
+function Strs.ToTable(text,httpService)
+	if HttpService==nil then
+		if httpService~=nil then
+			HttpService=httpService
+		else
+			HttpService=game:GetService("HttpService")
+		end
+	end
+
+	if Strs.IsEmpty(text) then
+		return nil
+	end
+
+	local jsonString = text:gsub("{", "["):gsub("}", "]"):gsub("nil", "null")
+
+	local success, result = pcall(function()
+		return HttpService:JSONDecode(jsonString)
+	end)
+
+	if success and type(result)=="table" then
+		return result
+	end
+
+	return nil
 end
 
 return Strs
