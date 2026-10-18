@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V57 04-05-2024
+-- Instal V58 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -40,7 +40,8 @@ local Values={
 	['BuildingTarget']=nil,['InstalTarget']=nil,['GuiTarget']=nil,['ToolTarget']=nil,['GrabberModel']=nil,
 	['Destroyed']=false,
 	['MaxSound']=200,
-	['MaxIcon']=100
+	['MaxIcon']=100,
+	['NoName']=false
 }
 
 local Templates={
@@ -67,9 +68,7 @@ local Interfaces={
 
 local Utility={
 	-- Instancer --
-	IsAlive=Instancer.IsAlive,
 	IsAs=Instancer.IsAs,
-	AddInstance=Instancer.AddInstance,
 	CopyInstanceWith=Instancer.CopyInstanceWith,
 	CopyInstance=Instancer.CopyInstance,
 	GetInstanceProperty=Instancer.GetInstanceProperty,
@@ -77,13 +76,18 @@ local Utility={
 	ConvertMeshPartToSpecialMesh=Instancer.ConvertMeshPartToSpecialMesh,
 	SetChildrenParent=Instancer.SetChildrenParent,
 	GetAncestorsAndSelf=Instancer.GetAncestorsAndSelf,
-	Create=function(className,properties)
-		properties=typeof(properties)=="table" and properties or {}
-		local obj=Instance.new(className)
+	Create=function(className,properties,parent)
+		properties=typeof(properties)=='table' and properties or {}
+		local instance=Instance.new(className)
 		for property,value in next,properties do
-			obj[property]=value
+			if property=='Parent' and parent==nil then
+				parent=value
+				continue
+			end
+			instance[property]=value
 		end
-		return obj
+		instance.Parent=parent
+		return instance
 	end,
 	AddPose=function(name,cframe,parent)
 		local pose=Instance.new('Pose') pose.Name=name pose.CFrame=cframe pose.Parent=parent
@@ -409,6 +413,7 @@ Frame
 	Color3 BackgroundColor3
 	float BackgroundTransparency
 	Color3 BorderColor3
+	EnumItem BorderMode
 	int BorderSizePixel
 	bool ClipsDescendants
 	bool Draggable
@@ -439,6 +444,7 @@ ImageButton
 	Color3 BackgroundColor3
 	float BackgroundTransparency
 	Color3 BorderColor3
+	EnumItem BorderMode
 	int BorderSizePixel
 	bool ClipsDescendants
 	bool Draggable
@@ -482,6 +488,7 @@ ImageLabel
 	Color3 BackgroundColor3
 	float BackgroundTransparency
 	Color3 BorderColor3
+	EnumItem BorderMode
 	int BorderSizePixel
 	bool ClipsDescendants
 	bool Draggable
@@ -520,6 +527,7 @@ ScrollingFrame
 	Color3 BackgroundColor3
 	float BackgroundTransparency
 	Color3 BorderColor3
+	EnumItem BorderMode
 	int BorderSizePixel
 	bool ClipsDescendants
 	bool Draggable
@@ -538,16 +546,21 @@ ScrollingFrame
 	int ZIndex
 	bool ClipsDescendants
 -	[ ScrollingFrame ]
+    EnumItem AutomaticCanvasSize
 	Content BottomImage
 	Vector2 CanvasPosition
 	UDim2 CanvasSize
-	ScrollBarInset HorizontalScrollBarInset
+	EnumItem ElasticBehavior
+	EnumItem HorizontalScrollBarInset
 	Content MidImage
+	Color3 ScrollBarImageColor3
+	number ScrollBarImageTransparency
 	int ScrollBarThickness
+	EnumItem ScrollingDirection
 	bool ScrollingEnabled
 	Content TopImage
-	ScrollBarInset VerticalScrollBarInset
-	VerticalScrollBarPosition VerticalScrollBarPosition
+	EnumItem VerticalScrollBarInset
+	EnumItem VerticalScrollBarPosition
 SurfaceGui
 -	[ Instance ]
 	bool Archivable
@@ -576,6 +589,7 @@ TextBox
 	Color3 BackgroundColor3
 	float BackgroundTransparency
 	Color3 BorderColor3
+	EnumItem BorderMode
 	int BorderSizePixel
 	bool ClipsDescendants
 	bool Draggable
@@ -622,6 +636,7 @@ TextButton
 	Color3 BackgroundColor3
 	float BackgroundTransparency
 	Color3 BorderColor3
+	EnumItem BorderMode
 	int BorderSizePixel
 	bool ClipsDescendants
 	bool Draggable
@@ -668,6 +683,7 @@ TextLabel
 	Color3 BackgroundColor3
 	float BackgroundTransparency
 	Color3 BorderColor3
+	EnumItem BorderMode
 	int BorderSizePixel
 	bool ClipsDescendants
 	bool Draggable
@@ -803,6 +819,11 @@ UITextSizeConstraint
 	int MaxTextSize
 	int MinTextSize
 ViewportFrame
+-	[ Instance ]
+	bool Archivable
+	string Name
+	Object Parent
+-	[ ViewportFrame ]
 	Color3 Ambient
 	Color3 LightColor
 	Vector3 LightDirection
@@ -814,8 +835,6 @@ ViewportFrame
 	Color3 BorderColor3
 	Object CurrentCamera
 	int LayoutOrder
-	string Name
-	Object Parent
 	UDim2 Position
 	int Rotation
 	bool Visible
@@ -824,28 +843,47 @@ ViewportFrame
 	Color3 ImageColor3
 	float ImageTransparency
 UIGradient
+-	[ Instance ]
+	bool Archivable
+	string Name
+	Object Parent
+-	[ UIGradient ]
 	ColorSequence Color
 	Vector2 Offset
 	int Rotation
 	NumberSequence Transparency
-	string Name
-	Object Parent
-	bool Archivable
 UICorner
-	UDim CornerRadius
+-	[ Instance ]
+	bool Archivable
 	string Name
 	Object Parent
-	bool Archivable
+-	[ UICorner ]
+	UDim CornerRadius
 UIStroke
+-	[ Instance ]
+	bool Archivable
+	string Name
+	Object Parent
+-	[ UIStroke ]
 	ApplyStrokeMode ApplyStrokeMode
 	Color3 Color
 	LineJoinMode LineJoinMode
 	number Thickness
 	number Transparency
+	number ZIndex
 	bool Enabled
+UIShadow
+-	[ Instance ]
+	bool Archivable
 	string Name
 	Object Parent
-	bool Archivable
+-	[ UIShadow ]
+	UDim BlurRadius
+	Color3 Color
+	UDim2 Offset
+	UDim2 Spread
+	number Transparency
+	number ZIndex
 ]]
 
 GlobalData.Propertys.Building=[[
@@ -1150,6 +1188,20 @@ Team
 	string Name
 	Object Parent
 	BrickColor TeamColor
+SurfaceAppearance
+-	[ Instance ]
+	bool Archivable
+	string Name
+	Object Parent
+-	[ SurfaceAppearance ]
+	string AlphaMode
+	Color3 Color
+	Content ColorMapContent
+	Content MetalnessMapContent
+	Content NormalMapContent
+	Content EmissiveMaskContent
+	number EmissiveStrength
+	Color3 EmissiveTint
 Texture
 -	[ Instance ]
 	bool Archivable
@@ -1287,9 +1339,6 @@ do
 	SafeData['RollOffMode']=SafeData['bool']
 	SafeData['AspectType']=SafeData['bool']
 	SafeData['ButtonStyle']=SafeData['bool']
-	SafeData['Content']=function(value)
-		return SafeData['string'](tostring(value))
-	end
 	SafeData['DominantAxis']=SafeData['bool']
 	SafeData['EasingDirection']=SafeData['bool']
 	SafeData['EasingStyle']=SafeData['bool']
@@ -1373,7 +1422,10 @@ do
 
 		return hierarchy
 	end
-
+	
+	SafeData['Content']=function(value)
+		return value.Uri
+	end
 	SafeData['PhysicalProperties']=function(value)
 		return ('PhyProp(%s,%s,%s,%s,%s)'):format(Utility.ToNumber(value.Density,3),Utility.ToNumber(value.Friction,3),Utility.ToNumber(value.Elasticity,3),Utility.ToNumber(value.FrictionWeight,3),Utility.ToNumber(value.ElasticityWeight,3))
 	end
@@ -1597,6 +1649,7 @@ function Module:SetUpdate(mode,...)
 	elseif mode==3 then
 		local lastGrabType=Values.GrabType
 		Interfaces.SoundSlider.Visible=lastGrabType=='Sound'
+		Interfaces.UseNameToggle.Visible=lastGrabType=='None'
 		Interfaces.InitializeButton.Visible=lastGrabType=='None'
 		Interfaces.InstalButton.Visible=lastGrabType=='None'
 		for i,v in ipairs({Interfaces.DestroyButton,Interfaces.ResetButton}) do v.Visible=lastGrabType=='None' end
@@ -1911,6 +1964,9 @@ function Module:Scan(instance,func,list)
 			if v.AlphaMode~=dv.AlphaMode then
 				Utility.Create('StringValue',{Name='AlphaMode',Value=SafeData['EnumItem'](v.AlphaMode),Parent=folder})
 			end
+			if v.EmissiveTint~=dv.EmissiveTint then
+				Utility.Create('Color3Value',{Name='EmissiveTint',Value=v.EmissiveTint,Parent=folder})
+			end
 			if v.EmissiveStrength~=dv.EmissiveStrength then
 				Utility.Create('NumberValue',{Name='EmissiveStrength',Value=v.EmissiveStrength,Parent=folder})
 			end
@@ -1924,18 +1980,13 @@ function Module:Scan(instance,func,list)
 				v:Destroy()
 				list.Count+=1
 				list.Max+=#folderChildren+1
-				if parent==nil then
-					folder:Destroy() 
-					return
-				else
-					folder.Parent=parent
-				end
+				folder.Parent=parent
 			end
 		end
 		local info=ObjectClasses[className]
-		if not info then
+		if info==nil then
 			list.Max-=1
-			for j,k in ipairs(v:GetChildren()) do k.Parent=parent end
+			for _,k in ipairs(v:GetChildren()) do k.Parent=parent end
 			v:Destroy()
 			func(list.Count,nil,list.Max)
 			return
@@ -1950,45 +2001,31 @@ end
 
 function Module:Starting(instance,func)
 	self:Scan(instance,func)
-	local progress,maxProgress,waitCount,meshParts=0,0,0,{}
+	local progress,maxProgress,meshParts=0,0,{}
 	local packList={instance:FindFirstChild('Building'),instance:FindFirstChild('Tool'),instance:FindFirstChild('Gui')}
-	for _,model in ipairs(packList) do 
-		if model then 
-			Utility.Foreach(model:GetDescendants(),function(v)
-				task.wait()
-				if v:IsA('MeshPart') then 
-					maxProgress+=1 
-					table.insert(meshParts,v) 
-				end 
-			end)
-		end 
-	end
+	for _,model in ipairs(packList) do if model then Utility.Foreach(model:GetDescendants(),function(v) if v:IsA('MeshPart') then maxProgress+=1 table.insert(meshParts,v) end end) end end
+	maxProgress=#instance:GetDescendants()
+	progress=maxProgress
 	if next(meshParts) then
-		waitCount=0
-		maxProgress+=#meshParts
 		for i,v in ipairs(meshParts) do 
-			progress+=2 
-			waitCount=(waitCount+1)%30 
-			if waitCount==0 then 
-				RunService.Stepped:Wait()
-			end 
+			progress+=1
+			maxProgress+=1
+			if i%30==0 then RunService.Stepped:Wait() end
 			Utility.ConvertMeshPartToSpecialMesh(v)
 			func(progress,v,maxProgress) 
 		end 
-	else
-		maxProgress=#instance:GetDescendants()
 	end
-	func(maxProgress,nil,maxProgress) 
+	func(progress,nil,maxProgress) 
 end
 
 function Module:Creating(instance,visualInstance,data,func)
 	local selections,variables,objectives,advencedVariables={},{},{},{}
-	local count,progress,maxProgress,waitCount=0,0,0,0
+	local count,progress,maxProgress=0,0,0
 	local descendants=instance:GetDescendants()
 	for mode,list in pairs(data) do for j,k in ipairs(list) do if type(k)=='string' then maxProgress+=1 end end end
 	maxProgress+=#descendants
-	Utility.Foreach(descendants,function(v)
-		RunService.Stepped:Wait()
+	for i,v in ipairs(descendants) do
+		if i%30 then RunService.Stepped:Wait() end
 		if ObjectClasses[v.ClassName] then 
 			progress+=1
 			count=count+1
@@ -1998,13 +2035,13 @@ function Module:Creating(instance,visualInstance,data,func)
 			table.insert(selections,v)
 			func(progress,v,maxProgress)
 		end
-	end)
+	end
+	table.clear(descendants)
 	for mode,list in pairs(data) do
-		Utility.Foreach(list,function(k)
-			if type(k)~='string' then return end
+		for i,k in ipairs(list) do
+			if k==nil or type(k)~='string' then continue end
 			progress+=1
-			waitCount=(waitCount+1)%30
-			if waitCount==0 then RunService.Stepped:Wait() end 
+			if i%30==0 then RunService.Stepped:Wait() end 
 			local v=visualInstance:FindFirstChild(mode)
 			if v then
 				local coding=v:GetAttribute('Coding')
@@ -2028,7 +2065,8 @@ function Module:Creating(instance,visualInstance,data,func)
 				end
 			end
 			func(progress,k,maxProgress)
-		end)
+		end
+		table.clear(list)
 	end
 	func(maxProgress,nil,maxProgress) 
 	return selections,variables,objectives,advencedVariables
@@ -2038,117 +2076,120 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 	local isLimit,isProperty=#selections>=MAX_CAP,false
 	local textLocal,textCoding,textProperty,textInstance,textPrefix,textValue='','','','local V={\n','',''
 	local foundLocals,localCache={},{}
-	local progress,maxProgress,instanceIndex,maxInstance=0,#selections,0,0
+	local progress,maxProgress,instanceIndex,maxInstance,noName=0,#selections,0,0,Values.NoName
 	func(progress,nil,maxProgress)
-	for i,v in ipairs(selections) do if not v or typeof(v)~='Instance' then continue end maxInstance+=1 end
-	Utility.Foreach(selections, function(v)
-		if v then
-			RunService.Stepped:Wait()
-			progress+=1
-			if type(v)=='string' then
-				textCoding=textCoding..v..'\n'
-			else
-				instanceIndex+=1
-				if GlobalData.Locals['Instance'] and not foundLocals['Instance'] then
-					foundLocals['Instance']=true
-					table.insert(foundLocals,'Instance')
-				end
-				local variable,name,className=variables[v],v.Name,v.ClassName
-				local isPart=v:IsA('BasePart')
-				local data=InstalCache[name]
-				if GlobalData.Locals['Instance'] and not foundLocals['Instance'] then
-					foundLocals['Instance']=true
-					table.insert(foundLocals,'Instance')
-				end
-				local instanceStr=string.sub(variable,2,#variable).."=e('"..className.."')"
-				textInstance=textInstance..(instanceIndex==maxInstance and instanceStr or instanceStr..',') 
-				if not isLimit then textProperty=textProperty..'\n' end
-				local needle,actives,defaultPropertyAdds=nil,{},{}
-				local particleEmitter=v:IsA('ParticleEmitter') and v or nil
-				if particleEmitter~=nil then
-					pcall(function()
-						local rv=nil
-						if particleEmitter.FlipbookLayout==Enum.ParticleFlipbookLayout.None then
-							rv={'FlipbookBlendFrames','FlipbookFramerate','FlipbookMode','FlipbookSizeY','FlipbookSizeX','FlipbookStartRandom'}
-						elseif Utility.IsEnums(particleEmitter.FlipbookLayout,{Enum.ParticleFlipbookLayout.Grid2x2,Enum.ParticleFlipbookLayout.Grid4x4,Enum.ParticleFlipbookLayout.Grid8x8}) then
-							rv={'FlipbookSizeY','FlipbookSizeX'}
-						end
-						if rv then for j,k in ipairs(rv) do if not defaultPropertyAdds[k] then defaultPropertyAdds[k]=true end end end
-					end)
-				end
-				for propertyName,property in Utility.GetProperties(ObjectClasses[className]) do
-					RunService.Stepped:Wait()
-					local propertyType,propertyValue,propertyDefaultValue=property.DataType,nil,property.DefaultValue
-					local success,err=pcall(function() propertyValue=v[propertyName] end)
-					if not success then continue end
-					if defaultPropertyAdds[propertyName] then
-						propertyValue=propertyDefaultValue
+	for i=1,maxProgress do local v=selections[i] if v and typeof(v)=='Instance' then maxInstance+=1 end end
+	local isInstanceLocal=GlobalData.Locals['Instance']
+	for i=1,maxProgress do
+		local v=selections[i]
+		if not v then continue end
+		if i%20==0 then RunService.Stepped:Wait() end
+		progress+=1
+		if type(v)=='string' then
+			textCoding=textCoding..v..'\n'
+		else
+			instanceIndex+=1
+			if isInstanceLocal and not foundLocals['Instance'] then
+				foundLocals['Instance']=true
+				table.insert(foundLocals,'Instance')
+			end
+			local variable,name,className=variables[v],v.Name,v.ClassName
+			local isPart=v:IsA('BasePart')
+			local data=InstalCache[name]
+			if GlobalData.Locals['Instance'] and not foundLocals['Instance'] then
+				foundLocals['Instance']=true
+				table.insert(foundLocals,'Instance')
+			end
+			local instanceStr=string.sub(variable,2,#variable).."=e('"..className.."')"
+			textInstance=textInstance..(instanceIndex==maxInstance and instanceStr or instanceStr..',') 
+			if not isLimit then textProperty=textProperty..'\n' end
+			local needle,actives,defaultPropertyAdds=nil,{},{}
+			local particleEmitter=v:IsA('ParticleEmitter') and v or nil
+			if particleEmitter~=nil then
+				pcall(function()
+					local rv=nil
+					if particleEmitter.FlipbookLayout==Enum.ParticleFlipbookLayout.None then
+						rv={'FlipbookBlendFrames','FlipbookFramerate','FlipbookMode','FlipbookSizeY','FlipbookSizeX','FlipbookStartRandom'}
+					elseif Utility.IsEnums(particleEmitter.FlipbookLayout,{Enum.ParticleFlipbookLayout.Grid2x2,Enum.ParticleFlipbookLayout.Grid4x4,Enum.ParticleFlipbookLayout.Grid8x8}) then
+						rv={'FlipbookSizeY','FlipbookSizeX'}
 					end
-					if isLimit and propertyType=='string' and propertyName=='Name' then propertyValue=propertyDefaultValue end
-					if propertyValue==propertyDefaultValue then continue end
-					if isLimit and (propertyType=='CFrame' or propertyType=='PhysicalProperties') then continue end
-					if isLimit and (propertyType=='string' or propertyType=='bool') and (propertyName=='Name' or (isPart and propertyName=='Anchored')) then continue end
-					if isLimit and propertyType=='boolean' and propertyName=='Archivable' then continue end
-					needle=propertyType..'_'..propertyName 
-					if actives[needle] then continue end 
-					actives[needle]=true
-					isProperty=false
-					if GlobalData.Locals[propertyType] and not foundLocals[propertyType] then
-						foundLocals[propertyType]=true
-						table.insert(foundLocals,propertyType)
-						local secondPropertyType=''
-						if propertyType=='ColorSequence' or propertyType=='NumberSequence' or propertyType=='FloatSequence' then
-							secondPropertyType=propertyType..'Keypoint'
-						end
-						if #secondPropertyType~=0 and not foundLocals[secondPropertyType] then
-							foundLocals[secondPropertyType]=true
-							table.insert(foundLocals,secondPropertyType)
-						end
+					if rv then for j,k in ipairs(rv) do if not defaultPropertyAdds[k] then defaultPropertyAdds[k]=true end end end
+				end)
+			end
+			local propertyIndex=0
+			for propertyName,property in Utility.GetProperties(ObjectClasses[className]) do
+				propertyIndex=(propertyIndex+1)%5
+				if propertyIndex==0 then RunService.Stepped:Wait() end
+				local propertyType,propertyValue,propertyDefaultValue=property.DataType,nil,property.DefaultValue
+				local success,err=pcall(function() propertyValue=v[propertyName] end)
+				if not success then continue end
+				if defaultPropertyAdds[propertyName] then
+					propertyValue=propertyDefaultValue
+				end
+				if isLimit and propertyType=='string' and propertyName=='Name' then propertyValue=propertyDefaultValue end
+				if noName then propertyValue=propertyDefaultValue end
+				if propertyValue==propertyDefaultValue then continue end
+				if isLimit and (propertyType=='CFrame' or propertyType=='PhysicalProperties') then continue end
+				if isLimit and (propertyType=='string' or propertyType=='bool') and (propertyName=='Name' or (isPart and propertyName=='Anchored')) then continue end
+				if isLimit and propertyType=='boolean' and propertyName=='Archivable' then continue end
+				needle=propertyType..'_'..propertyName 
+				if actives[needle] then continue end 
+				actives[needle]=true
+				isProperty=false
+				if GlobalData.Locals[propertyType] and not foundLocals[propertyType] then
+					foundLocals[propertyType]=true
+					table.insert(foundLocals,propertyType)
+					local secondPropertyType=''
+					if propertyType=='ColorSequence' or propertyType=='NumberSequence' or propertyType=='FloatSequence' then
+						secondPropertyType=propertyType..'Keypoint'
 					end
-					if Utility.IsStrings(propertyType,{'number','float','int','short','double'}) and type(propertyValue)=='number' then 
-						isProperty=true
-						if propertyValue~=propertyValue then
-							textProperty=textProperty..variable..'.'..propertyName..'=0/0;'
-						elseif propertyValue>=Values.Inf then
-							textProperty=textProperty..variable..'.'..propertyName..'=math.huge;'
-						elseif propertyValue<=-Values.Inf then
-							textProperty=textProperty..variable..'.'..propertyName..'=-math.huge;'
+					if #secondPropertyType~=0 and not foundLocals[secondPropertyType] then
+						foundLocals[secondPropertyType]=true
+						table.insert(foundLocals,secondPropertyType)
+					end
+				end
+				if Utility.IsStrings(propertyType,{'number','float','int','short','double'}) and type(propertyValue)=='number' then 
+					isProperty=true
+					if propertyValue~=propertyValue then
+						textProperty=textProperty..variable..'.'..propertyName..'=0/0;'
+					elseif propertyValue>=Values.Inf then
+						textProperty=textProperty..variable..'.'..propertyName..'=math.huge;'
+					elseif propertyValue<=-Values.Inf then
+						textProperty=textProperty..variable..'.'..propertyName..'=-math.huge;'
+					else
+						isProperty=false 
+					end
+				elseif propertyType=='Object' and propertyName=='Parent' and v.Parent==instance then 
+					isProperty=true 
+					textProperty=textProperty..variable..'.Parent=workspace;'
+				end
+				if not isProperty then
+					if propertyType=='Object' then
+						if variables[propertyValue] then
+							textProperty=textProperty..variable..'.'..propertyName..'='..variables[propertyValue]..';'
+						elseif variables[v] then
+							textProperty=textProperty..variable..'.'..propertyName..'='..variables[v]..';'
 						else
-							isProperty=false 
+							warn('['..PLUGIN_NAME..'] PROCESS FAILED: Object '..name..' '..className..'.'..propertyName..' '..tostring(objectives[targets[propertyValue]]))
 						end
-					elseif propertyType=='Object' and propertyName=='Parent' and v.Parent==instance then 
-						isProperty=true 
-						textProperty=textProperty..variable..'.Parent=workspace;'
-					end
-					if not isProperty then
-						if propertyType=='Object' then
-							if variables[propertyValue] then
-								textProperty=textProperty..variable..'.'..propertyName..'='..variables[propertyValue]..';'
-							elseif variables[v] then
-								textProperty=textProperty..variable..'.'..propertyName..'='..variables[v]..';'
-							else
-								warn('['..PLUGIN_NAME..'] PROCESS FAILED: Object '..name..' '..className..'.'..propertyName..' '..tostring(objectives[targets[propertyValue]]))
-							end
+					else
+						local result=nil
+						local success,err=pcall(function() result=SafeData[propertyType](propertyValue) end)
+						if not success or result==nil then
+							warn('['..PLUGIN_NAME..'] PROCESS FAILED: '..propertyValue..' '..className..'.'..propertyName)
 						else
-							local result=nil
-							local success,err=pcall(function() result=SafeData[propertyType](propertyValue) end)
-							if not success or result==nil then
-								warn('['..PLUGIN_NAME..'] PROCESS FAILED: '..propertyValue..' '..className..'.'..propertyName)
-							else
-								textProperty=textProperty..variable..'.'..propertyName..'='..result..';'
-							end
+							textProperty=textProperty..variable..'.'..propertyName..'='..result..';'
 						end
 					end
 				end
 			end
-			func(progress,v,maxProgress)
 		end
-	end)
+		func(progress,v,maxProgress)
+	end
 	textInstance=textInstance..'\n}'
 	for i,k in ipairs(foundLocals) do
 		local v=GlobalData.Locals[k] 
 		if v then
-			RunService.Stepped:Wait()
 			local prefix,value,vLength=v.Prefix,v.Value,v.Length
 			if type(vLength)=='number' then
 				for j=1,vLength do
@@ -2160,17 +2201,6 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 				continue
 			end
 			table.insert(localCache,{prefix,value})
-		end
-	end
-	for i,v in ipairs(localCache) do
-		RunService.Stepped:Wait()
-		local prefix,value=v[1],v[2]
-		if i==#localCache then
-			textPrefix=textPrefix..prefix
-			textValue=textValue..value
-		else
-			textPrefix=textPrefix..prefix..','
-			textValue=textValue..value..','
 		end
 	end
 	table.clear(localCache) table.clear(foundLocals)
@@ -2319,7 +2349,7 @@ end
 function Module:Stop()
 	if Values.GrabType=='Building' then
 		local model=Values.BuildingTarget
-		if not Utility.IsAlive(model) then self:SetStatus(1,'No Building Target',2) return end
+		if not (model and model.Parent) then self:SetStatus(1,'No Building Target',2) return end
 		local animators=model:QueryDescendants('Animator')
 		if not next(animators) then self:SetStatus(1,'Animator not found',2) return end
 		for i,k in ipairs(animators) do local playingTracks=k:GetPlayingAnimationTracks() for j,v in ipairs(playingTracks) do v.TimePosition=0 v:Stop() end end
@@ -2331,7 +2361,7 @@ function Module:Record()
 	if Values.GrabType=='Animation' then
 		if Values.RecordDebounce then self:SetStatus(1,'Waiting',2) return end
 		local model=Values.BuildingTarget
-		if not Utility.IsAlive(model) then self:SetStatus(1,'No Building Target',2) return end
+		if not (model and model.Parent) then self:SetStatus(1,'No Building Target',2) return end
 		local animators=model:QueryDescendants('Animator')
 		if not next(animators) then self:SetStatus(1,'Animator not found',2) return end
 		local animator=animators[1]
@@ -2364,7 +2394,7 @@ function Module:Record()
 		targetTrack.TimePosition=0 
 		local frameRate,elapsed=GlobalData.FPSRates[fpsMode] or 1/30,0
 		Cacheds.RecordAnimConnection=RunService.Stepped:Connect(function()
-			if not Utility.IsAlive(model) then if Values.RecordDebounce then Values.RecordDebounce=false if Cacheds.RecordAnimConnection then Cacheds.RecordAnimConnection:Disconnect() Cacheds.RecordAnimConnection=nil end Module:SetStatus(1,'Record Failed',2) end end
+			if not (model and model.Parent) then if Values.RecordDebounce then Values.RecordDebounce=false if Cacheds.RecordAnimConnection then Cacheds.RecordAnimConnection:Disconnect() Cacheds.RecordAnimConnection=nil end Module:SetStatus(1,'Record Failed',2) end end
 			if fpsMode=='Unlimited' then elapsed=os.clock()-startTime else elapsed=elapsed+frameRate end
 			if elapsed<=duration then
 				Interfaces.StatusLabel:Set('Recording...')
@@ -2387,17 +2417,19 @@ function Module:SaveToFile()
 	if isfile and writefile and isfolder and makefolder then
 		if not Values.SaveDebounce then
 			Values.SaveDebounce=true
-			if not isfolder(Values.FolderName) then
-				makefolder(Values.FolderName)
-				task.wait(1)
+			if #FileCache>0 then
+				if not isfolder(Values.FolderName) then
+					makefolder(Values.FolderName)
+					task.wait(1)
+				end
+				Utility.Foreach(FileCache,function(info)
+					local path=Values.FolderName..'/'..info.FileId..'.txt'
+					writefile(path,info.Value)
+					print("File Path:"..path)
+					task.wait()
+				end)
+				Module:SetStatus(1,'Save Completed',2)
 			end
-			Utility.Foreach(FileCache,function(info)
-				local path=Values.FolderName..'/'..info.FileId..'.txt'
-				writefile(path,info.Value)
-				print("File Path:"..path)
-				task.wait()
-			end)
-			Module:SetStatus(1,'Save Completed',2)
 			Values.SaveDebounce=false
 		end
 	end
@@ -2574,6 +2606,13 @@ Interfaces.AddButton=Window:AddButton({
 		Module:Add() 
 	end
 })
+Interfaces.UseNameToggle=Window:AddToggle({
+	Text='No Name',
+	Value=false,
+	Callback=function(value) 
+		Values.NoName=value
+	end
+})
 Interfaces.InitializeButton=Window:AddButton({
 	Text='Initialize',
 	MethodType='DoubleClick',
@@ -2607,5 +2646,14 @@ Module.Parent=true
 
 Window:AddLinkButton({Text='Donate 💖',Link='https://link-target.net/6690566/TlR2vuR2JR4F'})
 Window:AddLabel({Text='YouTube: Crokyreo',TextColor3=Color3.fromRGB(255,255,255)})
-Window:BuildSettingsFeature({Link='https://raw.githubusercontent.com/Crokier/Roblox/main/Scripts/InstalasiPalsu.lua'})
 Window:LoadConfig()
+
+queueteleport=Missing('function',queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport), function() end)
+
+Cacheds.OnTeleport=Players.LocalPlayer.OnTeleport:Connect(function(State)
+	if not Values.TeleportDone and queueteleport then
+		Values.TeleportDone=true
+		Module:Destroy()
+		queueteleport("loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Scripts/InstalasiPalsu.lua'))()")
+	end
+end)
