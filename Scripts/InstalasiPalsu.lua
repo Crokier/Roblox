@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V58 04-05-2024
+-- Instal V60 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -2075,7 +2075,7 @@ end
 function Module:Process(selections,variables,objectives,targets,instance,func)
 	local isLimit,isProperty=#selections>=MAX_CAP,false
 	local textLocal,textCoding,textProperty,textInstance,textPrefix,textValue='','','','local V={\n','',''
-	local foundLocals,localCache={},{}
+	local foundLocals={}
 	local progress,maxProgress,instanceIndex,maxInstance,noName=0,#selections,0,0,Values.NoName
 	func(progress,nil,maxProgress)
 	for i=1,maxProgress do local v=selections[i] if v and typeof(v)=='Instance' then maxInstance+=1 end end
@@ -2096,7 +2096,7 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 			local variable,name,className=variables[v],v.Name,v.ClassName
 			local isPart=v:IsA('BasePart')
 			local data=InstalCache[name]
-			if GlobalData.Locals['Instance'] and not foundLocals['Instance'] then
+			if isInstanceLocal and not foundLocals['Instance'] then
 				foundLocals['Instance']=true
 				table.insert(foundLocals,'Instance')
 			end
@@ -2118,16 +2118,18 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 			end
 			local propertyIndex=0
 			for propertyName,property in Utility.GetProperties(ObjectClasses[className]) do
-				propertyIndex=(propertyIndex+1)%5
+				propertyIndex=(propertyIndex+1)%10
 				if propertyIndex==0 then RunService.Stepped:Wait() end
 				local propertyType,propertyValue,propertyDefaultValue=property.DataType,nil,property.DefaultValue
-				local success,err=pcall(function() propertyValue=v[propertyName] end)
-				if not success then continue end
+				   --local success=pcall(function() propertyValue=v[propertyName] end)
+				   --if not success then continue end
+				propertyValue=v[propertyName]
 				if defaultPropertyAdds[propertyName] then
 					propertyValue=propertyDefaultValue
 				end
-				if isLimit and propertyType=='string' and propertyName=='Name' then propertyValue=propertyDefaultValue end
-				if noName then propertyValue=propertyDefaultValue end
+				if noName and propertyType=='string' and propertyName=='Name' then 
+					propertyValue=propertyDefaultValue 
+				end
 				if propertyValue==propertyDefaultValue then continue end
 				if isLimit and (propertyType=='CFrame' or propertyType=='PhysicalProperties') then continue end
 				if isLimit and (propertyType=='string' or propertyType=='bool') and (propertyName=='Name' or (isPart and propertyName=='Anchored')) then continue end
@@ -2148,7 +2150,7 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 						table.insert(foundLocals,secondPropertyType)
 					end
 				end
-				if Utility.IsStrings(propertyType,{'number','float','int','short','double'}) and type(propertyValue)=='number' then 
+				if Utility.IsStrings(propertyType,{'number','float','int','short','double'}) then 
 					isProperty=true
 					if propertyValue~=propertyValue then
 						textProperty=textProperty..variable..'.'..propertyName..'=0/0;'
@@ -2173,12 +2175,18 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 							warn('['..PLUGIN_NAME..'] PROCESS FAILED: Object '..name..' '..className..'.'..propertyName..' '..tostring(objectives[targets[propertyValue]]))
 						end
 					else
-						local result=nil
-						local success,err=pcall(function() result=SafeData[propertyType](propertyValue) end)
-						if not success or result==nil then
-							warn('['..PLUGIN_NAME..'] PROCESS FAILED: '..propertyValue..' '..className..'.'..propertyName)
-						else
-							textProperty=textProperty..variable..'.'..propertyName..'='..result..';'
+						local callback=SafeData[propertyType]
+						if callback~=nil then
+							local result=nil
+							local success=pcall(function() 
+								result=callback(propertyValue)
+								if result then
+								    textProperty=textProperty..variable..'.'..propertyName..'='..result..';'
+								end
+							end)
+							if not success or result==nil then
+							   warn('['..PLUGIN_NAME..'] PROCESS FAILED: '..propertyValue..' '..className..'.'..propertyName)
+							end
 						end
 					end
 				end
@@ -2187,23 +2195,34 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 		func(progress,v,maxProgress)
 	end
 	textInstance=textInstance..'\n}'
+	local foundLocalsLen=#foundLocals
 	for i,k in ipairs(foundLocals) do
 		local v=GlobalData.Locals[k] 
 		if v then
-			local prefix,value,vLength=v.Prefix,v.Value,v.Length
-			if type(vLength)=='number' then
-				for j=1,vLength do
+			local prefix,value,vLen=v.Prefix,v.Value,v.Length
+			if vLen and type(vLen)=='number' then
+				for j=1,v.Length do
 					local prefix2,value2=prefix[j],value[j]
 					if prefix2~=nil and value2~=nil then
-						table.insert(localCache,{prefix2,value2})
+						textPrefix=textPrefix..prefix2
+						textValue=textValue..value2
+						if j<vLen then
+						   textPrefix=textPrefix..','
+						   textValue=textValue..','
+						end
 					end
 				end
-				continue
+			else
+				textPrefix=textPrefix..prefix
+				textValue=textValue..value
+				if i<foundLocalsLen then
+					textPrefix=textPrefix..','
+				    textValue=textValue..','
+				end
 			end
-			table.insert(localCache,{prefix,value})
 		end
 	end
-	table.clear(localCache) table.clear(foundLocals)
+	table.clear(foundLocals)
 	func(maxProgress,nil,maxProgress)
 	if #textPrefix>0 then
 		textLocal=textLocal..'local '..textPrefix..'='
