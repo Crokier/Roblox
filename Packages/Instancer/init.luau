@@ -495,11 +495,9 @@ function Instancer.FindByPath(instance,path,match)
 	return nil
 end
 
+--[[
 function Instancer.CreateVariable(instance,variables,name)
-	InvalidArgumentInstance(instance,1,"CreateVariable")
-	InvalidArgumentTable(variables,2,"CreateVariable")
-
-	local currentName=type(name)=="string" and name or instance.Name
+	local currentName=name or instance.Name
 
 	-- Remove symbols
 	local nameWithoutSymbols=""
@@ -509,7 +507,7 @@ function Instancer.CreateVariable(instance,variables,name)
 	local baseName=""
 	if #nameWithoutSymbols==0 then
 		baseName=instance.ClassName
-	elseif string.find(string.sub(nameWithoutSymbols,1,1),"%d") then
+	elseif string.find(nameWithoutSymbols,"%d",1,true) then
 		baseName="_"..nameWithoutSymbols
 	else
 		baseName=nameWithoutSymbols
@@ -526,11 +524,57 @@ function Instancer.CreateVariable(instance,variables,name)
 	while true do
 		isDuplicate=false
 		local mainBaseName=baseName.."_"..tostring(count)
-		for i,v in pairs(variables) do if v==mainBaseName then isDuplicate=true break end end
+		for i,v in pairs(variables) do 
+             if v==mainBaseName then 
+                isDuplicate=true 
+                break 
+              end 
+        end
 		count=count+1
 		if not isDuplicate then variables[instance]=mainBaseName return end
 		task.wait()
 	end
+end
+]]
+
+function Instancer.CreateVariable(instance, variables, name)
+	local currentName = name or instance.Name
+
+	-- Remove symbols
+	local baseName = currentName:gsub("[^%w_]", "")
+
+	-- Validate name
+	if baseName == "" then
+		baseName = instance.ClassName
+	elseif baseName:match("^%d") then
+		baseName = "_" .. baseName
+	end
+
+	-- Create lookup table for used names
+	local usedNames = {}
+
+	for _, value in pairs(variables) do
+		usedNames[value] = true
+	end
+
+	-- Use original name if available
+	if not usedNames[baseName] then
+		variables[instance] = baseName
+		return baseName
+	end
+
+	-- Find unique name
+	local count = 1
+	local newName
+
+	repeat
+		newName = baseName .. "_" .. count
+		count += 1
+        if count%50==0 then task.wait() end
+	until not usedNames[newName]
+
+	variables[instance] = newName
+	return newName
 end
 
 function Instancer.ConvertMeshPartToSpecialMesh(instance)
