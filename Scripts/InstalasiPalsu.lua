@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V61 04-05-2024
+-- Instal V62 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -26,12 +26,6 @@ task.delay(5,function()
 			Duration=10,
 			Icon = "rbxassetid://9072920609",
 		})
-		--StarterGui:SetCore("SendNotification",{
-		--	Title=''..PLUGIN_NAME..' Warning ',
-		--	Text="This script is dangerous! Please make alt account only!",
-		--	Duration=10,
-		--	Icon = "rbxassetid://9072920609",
-		--})
 	end
 end)
 
@@ -48,7 +42,9 @@ local Values={
 	['Destroyed']=false,
 	['MaxSound']=200,
 	['MaxIcon']=100,
-	['NoName']=false
+	['NoName']=false,
+	['FileName']='',
+	['CanAutoSaveFile']=false
 }
 
 local Templates={
@@ -72,8 +68,8 @@ local Interfaces={
 	['SoundSlider']=nil
 
 }
-
-local Utility={
+local Utility={}
+Utility={
 	-- Instancer --
 	IsAs=Instancer.IsAs,
 	CopyInstanceWith=Instancer.CopyInstanceWith,
@@ -83,23 +79,7 @@ local Utility={
 	ConvertMeshPartToSpecialMesh=Instancer.ConvertMeshPartToSpecialMesh,
 	SetChildrenParent=Instancer.SetChildrenParent,
 	GetAncestorsAndSelf=Instancer.GetAncestorsAndSelf,
-	Create=function(className,properties,parent)
-		properties=typeof(properties)=='table' and properties or {}
-		local instance=Instance.new(className)
-		for property,value in next,properties do
-			if property=='Parent' and parent==nil then
-				parent=value
-				continue
-			end
-			instance[property]=value
-		end
-		instance.Parent=parent
-		return instance
-	end,
-	AddPose=function(name,cframe,parent)
-		local pose=Instance.new('Pose') pose.Name=name pose.CFrame=cframe pose.Parent=parent
-	end,
-
+	Create=Instancer.Create,
 	-- Strs --
 	IsEmpty=Strs.IsEmpty,
 	IsStrings=Strs.IsStrings,
@@ -308,7 +288,7 @@ local GlobalData={
 		['Icon']={Workspace,ReplicatedStorage,PlayerGui,Teams,ReplicatedFirst}
 	},
 	['Types']={
-		['GrabTypes']={'None','Building','Gui','Lighting','Sound','Tool','Icon','GuiIcon','MouseIcon','Animation','Team','Event','Texture','Decal','Beam','Trail','Name','GuiColor','PartColor'},
+		['GrabTypes']={'None','Building','Gui','Lighting','Sound','Tool','Icon','GuiIcon','MouseIcon','Animation','Team','Event','Texture','Decal','Beam','Trail','Name','GuiColor','PartColor','Settings'},
 		['BannedGrabTypes']={'None','Animation'},
 		['RecordAnimTypes']={'Motor','Bone'},
 		['FPSTypes']={'12 FPS','24 FPS','30 FPS','60 FPS','120 FPS','240 FPS','Unlimited'},
@@ -1665,7 +1645,9 @@ function Module:SetUpdate(mode,...)
 	elseif mode==3 then
 		local lastGrabType=Values.GrabType
 		Interfaces.SoundSlider.Visible=lastGrabType=='Sound'
-		Interfaces.UseNameToggle.Visible=lastGrabType=='None'
+		Interfaces.FileNameTextBox.Visible=lastGrabType=='Settings'
+		Interfaces.AutoSaveFileToggle.Visible=lastGrabType=='Settings'
+		Interfaces.UseNameToggle.Visible=lastGrabType=='Settings'
 		Interfaces.InitializeButton.Visible=lastGrabType=='None'
 		Interfaces.InstalButton.Visible=lastGrabType=='None'
 		for i,v in ipairs({Interfaces.DestroyButton,Interfaces.ResetButton}) do v.Visible=lastGrabType=='None' end
@@ -1675,7 +1657,7 @@ function Module:SetUpdate(mode,...)
 		if Cacheds.PlayerGuiAdded then Cacheds.PlayerGuiAdded:Disconnect() Cacheds.PlayerGuiAdded=nil end
 		Interfaces.TextBox.Visible=isBuilding
 		Interfaces.TextBox.Title=isBuilding and 'Building Index (0-'.. tostring(Values.BuildingIndex)..')' or ''
-		Interfaces.AddButton.Visible=lastGrabType~='None'
+		Interfaces.AddButton.Visible=lastGrabType~='None' and lastGrabType~='Settings'
 		if lastGrabType=='Gui' then
 			local originText,lastText="Use dex/explorer and Add StringValue and named 'Instal' to any ScreenGui in PlayerGui",''
 			Interfaces.MainLabel.Text=originText
@@ -1766,86 +1748,61 @@ function Module:GetGrabData(mode)
 		end
 		table.clear(list)
 	elseif mode=='Lighting' then
-		local newLighting=Utility.Create('Model',{
+		Utility.Create('Model',{
 			Name='Lighting',
 			Parent=newModel
+		},{
+			Utility.Create('NumberValue',{
+				Name='Brightness',
+				Value=Lighting.Brightness
+			}),
+			Utility.Create('Color3Value',{
+				Name='Ambient',
+				Value=Lighting.Ambient
+			}),
+			Utility.Create('Color3Value',{
+				Name='ColorShift_Bottom',
+				Value=Lighting.ColorShift_Bottom
+			}),
+			Utility.Create('Color3Value',{
+				Name='ColorShift_Top',
+				Value=Lighting.ColorShift_Top
+			}),
+			Utility.Create('Color3Value',{
+				Name='OutdoorAmbient',
+				Value=Lighting.OutdoorAmbient
+			}),
+			Utility.Create('NumberValue',{
+				Name='EnvironmentDiffuseScale',
+				Value=Lighting.EnvironmentDiffuseScale
+			}),
+			Utility.Create('NumberValue',{
+				Name='EnvironmentSpecularScale',
+				Value=Lighting.EnvironmentSpecularScale
+			}),
+			Utility.Create('BoolValue',{
+				Name='GlobalShadows',
+				Value=Lighting.GlobalShadows
+			}),
+			Utility.Create('BoolValue',{
+				Name='ShadowSoftness',
+				Value=Lighting.ShadowSoftness
+			}),
+			Utility.Create('NumberValue',{
+				Name='ClockTime',
+				Value=Lighting.ClockTime
+			}),
+			Utility.Create('NumberValue',{
+				Name='GeographicLatitude',
+				Value=Lighting.GeographicLatitude
+			}),
+			Utility.Create('NumberValue',{
+				Name='ExposureCompensation',
+				Value=Lighting.ExposureCompensation
+			})
 		})
-
-		local newBrightness=Utility.Create('NumberValue',{
-			Name='Brightness',
-			Value=Lighting.Brightness,
-			Parent=newLighting
-		})
-
-		local newAmbient=Utility.Create('Color3Value',{
-			Name='Ambient',
-			Value=Lighting.Ambient,
-			Parent=newLighting
-		})
-
-		local newColorShift_Bottom=Utility.Create('Color3Value',{
-			Name='ColorShift_Bottom',
-			Value=Lighting.ColorShift_Bottom,
-			Parent=newLighting
-		})
-
-		local newColorShift_Top=Utility.Create('Color3Value',{
-			Name='ColorShift_Top',
-			Value=Lighting.ColorShift_Top,
-			Parent=newLighting
-		})
-
-		local newOutdoorAmbient=Utility.Create('Color3Value',{
-			Name='OutdoorAmbient',
-			Value=Lighting.OutdoorAmbient,
-			Parent=newLighting
-		})
-
-		local newEnvironmentDiffuseScale=Utility.Create('NumberValue',{
-			Name='EnvironmentDiffuseScale',
-			Value=Lighting.EnvironmentDiffuseScale,
-			Parent=newLighting
-		})
-
-		local newEnvironmentSpecularScale=Utility.Create('NumberValue',{
-			Name='EnvironmentSpecularScale',
-			Value=Lighting.EnvironmentSpecularScale,
-			Parent=newLighting
-		})
-
-		local newGlobalShadows=Utility.Create('BoolValue',{
-			Name='GlobalShadows',
-			Value=Lighting.GlobalShadows,
-			Parent=newLighting
-		})
-
-		local newShadowSoftness=Utility.Create('BoolValue',{
-			Name='ShadowSoftness',
-			Value=Lighting.ShadowSoftness,
-			Parent=newLighting
-		})
-
-		local newClockTime=Utility.Create('NumberValue',{
-			Name='ClockTime',
-			Value=Lighting.ClockTime,
-			Parent=newLighting
-		})
-
-		local newGeographicLatitude=Utility.Create('NumberValue',{
-			Name='GeographicLatitude',
-			Value=Lighting.GeographicLatitude,
-			Parent=newLighting
-		})
-
-		local newExposureCompensation=Utility.Create('NumberValue',{
-			Name='ExposureCompensation',
-			Value=Lighting.ExposureCompensation,
-			Parent=newLighting
-		})
-
 		Interfaces.StatusLabel:Set(mode..': '..newLighting.Name)
 		task.wait(2)
-
 		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,function(v) if Utility.IsAs(v,GlobalData.Types.LightingClasses) then Interfaces.StatusLabel:Set(mode..': '..v.Name) return true end return false end)
 	elseif mode=='Event' then
 		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
@@ -2298,8 +2255,10 @@ function Module:Instal()
 			FileId=os.date("%Y%m%d%H%M%S",os.time()),
 			Value=text
 		}
-		print("Insert File to "..fileInfo.FileId)
 		table.insert(FileCache,fileInfo)
+		if Values.CanAutoSaveFile then
+			Module:SaveToFile()
+		end
 	else
 		Interfaces.StatusLabel:Set('An Error Occured')
 		warn('['..PLUGIN_NAME..']',text)
@@ -2429,9 +2388,9 @@ function Module:Record()
 				local keyframe=Instance.new('Keyframe') 
 				keyframe.Time=elapsed
 				if recordAnimMode=='Bone' then
-					for i,v in ipairs(bones) do Utility.AddPose(v.Name,v.Transform,keyframe) end
+					for i,v in ipairs(bones) do Utility.Create('Pose',{Name=v.Name,CFrame=v.Transform,Parent=keyframe}) end
 				else
-					for i,v in ipairs(motors) do Utility.AddPose(v.Part1.Name,v.Transform,keyframe) end
+					for i,v in ipairs(motors) do Utility.Create('Pose',{Name=v.Part1.Name,CFrame=v.Transform,Parent=keyframe}) end
 				end
 				keyframe.Parent=keyframeSequence
 			else
@@ -2451,7 +2410,8 @@ function Module:SaveToFile()
 					task.wait(1)
 				end
 				Utility.Foreach(FileCache,function(info)
-					local path=Values.FolderName..'/'..info.FileId..'.txt'
+					local fileId=#Values.FileName>0 and Values.FileName..'_'..info.FileId or info.FileId
+					local path=Values.FolderName..'/'..fileId..'.txt'
 					writefile(path,info.Value)
 					print("File Path:"..path)
 					task.wait()
@@ -2511,6 +2471,28 @@ Interfaces.GrabTypeSelector=Window:AddSelector({
 	Callback=function(value,key) 
 		Values.GrabType=value 
 		Module:SetUpdate(3) 
+	end
+})
+Interfaces.FileNameTextBox=Window:AddInput({
+	Text='File Name (Optional)',
+	Visible=false,
+	Callback=function(text)
+		Values.FileName=text
+	end
+})
+Interfaces.AutoSaveFileToggle=Window:AddToggle({
+	Text='Can Auto Save File',
+	Visible=false,
+	Value=false,
+	Callback=function(text)
+		Values.CanAutoSaveFile=text
+	end
+})
+Interfaces.UseNameToggle=Window:AddToggle({
+	Text='No Name',
+	Value=false,
+	Callback=function(value) 
+		Values.NoName=value
 	end
 })
 Interfaces.TopSelect=Window:AddSelect({
@@ -2632,13 +2614,6 @@ Interfaces.AddButton=Window:AddButton({
 	MethodType='DoubleClick',
 	Callback=function() 
 		Module:Add() 
-	end
-})
-Interfaces.UseNameToggle=Window:AddToggle({
-	Text='No Name',
-	Value=false,
-	Callback=function(value) 
-		Values.NoName=value
 	end
 })
 Interfaces.InitializeButton=Window:AddButton({
