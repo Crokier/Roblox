@@ -38,10 +38,14 @@ print(`Strs.ToNaN: {nan}`)
 local inf=Strs.ToInf(math.huge)
 print(`Strs.ToInf: {inf}`)
 
-local progress,maxProgress=5,300
-
-local percentaseDefault=Strs.ToPersentase(progress,maxProgress,2)
+-- Example: 10,300 -> 3.33%
+local progress,maxProgress=10,300
+local percentaseDefault=Strs.ToPersentase(progress,maxProgress,2,true)
 print(`Strs.ToPersentase Default: {percentaseDefault}`)
+
+-- Example: 0.20 -> 20%
+local percentage=0.20
+print(`Strs.ToPersentase Percentage: {Strs.ToPersentase(percentage,nil,nil,true)}`)
 
 local percentaseReverse=Strs.ToPersentase(progress,maxProgress,2,true)
 print(`Strs.ToPersentase Reverse: {percentaseReverse}`)
