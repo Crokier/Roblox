@@ -81,6 +81,8 @@ function Strs.ToPersentase(x:number,max:number?,maxFloat:number?,reverse:boolean
 				percentage=(1/max)*x
 				if percentage>=1 then 
 					return "100%"
+				else
+					percentage=percentage*100
 				end
 			end
 		end
