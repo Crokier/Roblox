@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V60 04-05-2024
+-- Instal V61 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -13,20 +13,27 @@ local Window=nil
 
 local LocalPlayer=Players.LocalPlayer
 
-task.delay(5,function()
-	if LocalPlayer.AccountAge>=1000 then
-		StarterGui:SetCore("SendNotification",{
-			Title=''..PLUGIN_NAME..' Warning ',
-			Text="This script is dangerous! Please make alt account only!",
-			Duration=10
-		})
-	end
-end)
-
 local Tabler=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Tabler/init.luau'))()
 local Instancer=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Instancer/init.luau'))()
 local Strs=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Strs/init.luau'))()
 local UI=loadstring(game:HttpGet('https://raw.githubusercontent.com/Crokier/Roblox/main/Packages/Sampluy/init.luau'))()
+
+task.delay(5,function()
+	if LocalPlayer.AccountAge>=1000 then
+		UI:Notify({
+			Title=''..PLUGIN_NAME..' Warning ',
+			Description="This script is dangerous! Please make alt account only!",
+			Duration=10,
+			Icon = "rbxassetid://9072920609",
+		})
+		--StarterGui:SetCore("SendNotification",{
+		--	Title=''..PLUGIN_NAME..' Warning ',
+		--	Text="This script is dangerous! Please make alt account only!",
+		--	Duration=10,
+		--	Icon = "rbxassetid://9072920609",
+		--})
+	end
+end)
 
 local PlayerGui=LocalPlayer:FindFirstChildOfClass("PlayerGui")
 
@@ -546,7 +553,7 @@ ScrollingFrame
 	int ZIndex
 	bool ClipsDescendants
 -	[ ScrollingFrame ]
-    EnumItem AutomaticCanvasSize
+	EnumItem AutomaticCanvasSize
 	Content BottomImage
 	Vector2 CanvasPosition
 	UDim2 CanvasSize
@@ -994,6 +1001,14 @@ Pose
 	CFrame CFrame
 	EnumItem EasingStyle
 	EnumItem EasingDirection
+Animator
+	bool Archivable
+	string Name
+	Object Parent
+AnimationController
+	bool Archivable
+	string Name
+	Object Parent
 ]]
 
 GlobalData.Propertys.Value=[[
@@ -1365,20 +1380,21 @@ do
 		local previousObjectUsedBrackets=true
 
 		for object in Utility.GetAncestorsAndSelf(value) do
+			local objectName=object.Name
 			local safeName=''
 			local shouldUseBrackets=false
 			local currentHierarchy=''
 
-			if #object.Name==0 then
+			if Strs.IsEmpty(objectName) then
 				shouldUseBrackets=true
 			else
-				if object.Name:match("[%a_ ]+")~=object.Name then
+				if objectName:match("[%a_ ]+")~=objectName then
 					shouldUseBrackets=true
 				end
 			end
 
 			if shouldUseBrackets then
-				safeName=object.Name:gsub("[\"\\]","\\%1"):gsub("\n","\\\\n")
+				safeName=objectName:gsub("[\"\\]","\\%1"):gsub("\n","\\\\n")
 			end
 
 			if object==game and previousObjectUsedBrackets then
@@ -1404,7 +1420,7 @@ do
 				hierarchy="[\""..safeName.."\"]".."."..hierarchy
 			elseif (not shouldUseBrackets) and previousObjectUsedBrackets then
 				previousObjectUsedBrackets=false
-				hierarchy=object.Name..hierarchy
+				hierarchy=objectName..hierarchy
 			elseif (not shouldUseBrackets) and (not previousObjectUsedBrackets) then
 				previousObjectUsedBrackets=false
 				if object==StarterGui or hierarchy=='StarterGui' then
@@ -1414,7 +1430,7 @@ do
 				elseif object==workspace or hierarchy=='workspace' then
 					currentHierarchy='workspace'
 				else
-					currentHierarchy=object.Name..'.'..hierarchy
+					currentHierarchy=objectName..'.'..hierarchy
 				end
 				hierarchy=currentHierarchy
 			end
@@ -1422,7 +1438,7 @@ do
 
 		return hierarchy
 	end
-	
+
 	SafeData['Content']=function(value)
 		return value.Uri
 	end
@@ -1754,73 +1770,73 @@ function Module:GetGrabData(mode)
 			Name='Lighting',
 			Parent=newModel
 		})
-		
+
 		local newBrightness=Utility.Create('NumberValue',{
 			Name='Brightness',
 			Value=Lighting.Brightness,
 			Parent=newLighting
 		})
-		
+
 		local newAmbient=Utility.Create('Color3Value',{
 			Name='Ambient',
 			Value=Lighting.Ambient,
 			Parent=newLighting
 		})
-		
+
 		local newColorShift_Bottom=Utility.Create('Color3Value',{
 			Name='ColorShift_Bottom',
 			Value=Lighting.ColorShift_Bottom,
 			Parent=newLighting
 		})
-		
+
 		local newColorShift_Top=Utility.Create('Color3Value',{
 			Name='ColorShift_Top',
 			Value=Lighting.ColorShift_Top,
 			Parent=newLighting
 		})
-		
+
 		local newOutdoorAmbient=Utility.Create('Color3Value',{
 			Name='OutdoorAmbient',
 			Value=Lighting.OutdoorAmbient,
 			Parent=newLighting
 		})
-		
+
 		local newEnvironmentDiffuseScale=Utility.Create('NumberValue',{
 			Name='EnvironmentDiffuseScale',
 			Value=Lighting.EnvironmentDiffuseScale,
 			Parent=newLighting
 		})
-		
+
 		local newEnvironmentSpecularScale=Utility.Create('NumberValue',{
 			Name='EnvironmentSpecularScale',
 			Value=Lighting.EnvironmentSpecularScale,
 			Parent=newLighting
 		})
-		
+
 		local newGlobalShadows=Utility.Create('BoolValue',{
 			Name='GlobalShadows',
 			Value=Lighting.GlobalShadows,
 			Parent=newLighting
 		})
-		
+
 		local newShadowSoftness=Utility.Create('BoolValue',{
 			Name='ShadowSoftness',
 			Value=Lighting.ShadowSoftness,
 			Parent=newLighting
 		})
-		
+
 		local newClockTime=Utility.Create('NumberValue',{
 			Name='ClockTime',
 			Value=Lighting.ClockTime,
 			Parent=newLighting
 		})
-		
+
 		local newGeographicLatitude=Utility.Create('NumberValue',{
 			Name='GeographicLatitude',
 			Value=Lighting.GeographicLatitude,
 			Parent=newLighting
 		})
-		
+
 		local newExposureCompensation=Utility.Create('NumberValue',{
 			Name='ExposureCompensation',
 			Value=Lighting.ExposureCompensation,
@@ -2075,7 +2091,7 @@ end
 function Module:Process(selections,variables,objectives,targets,instance,func)
 	local isLimit,isProperty=#selections>=MAX_CAP,false
 	local textLocal,textCoding,textProperty,textInstance,textPrefix,textValue='','','','local V={\n','',''
-	local foundLocals={}
+	local foundLocals,localCache={},{}
 	local progress,maxProgress,instanceIndex,maxInstance,noName=0,#selections,0,0,Values.NoName
 	func(progress,nil,maxProgress)
 	for i=1,maxProgress do local v=selections[i] if v and typeof(v)=='Instance' then maxInstance+=1 end end
@@ -2096,7 +2112,7 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 			local variable,name,className=variables[v],v.Name,v.ClassName
 			local isPart=v:IsA('BasePart')
 			local data=InstalCache[name]
-			if isInstanceLocal and not foundLocals['Instance'] then
+			if GlobalData.Locals['Instance'] and not foundLocals['Instance'] then
 				foundLocals['Instance']=true
 				table.insert(foundLocals,'Instance')
 			end
@@ -2118,18 +2134,16 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 			end
 			local propertyIndex=0
 			for propertyName,property in Utility.GetProperties(ObjectClasses[className]) do
-				propertyIndex=(propertyIndex+1)%10
+				propertyIndex=(propertyIndex+1)%5
 				if propertyIndex==0 then RunService.Stepped:Wait() end
 				local propertyType,propertyValue,propertyDefaultValue=property.DataType,nil,property.DefaultValue
-				   --local success=pcall(function() propertyValue=v[propertyName] end)
-				   --if not success then continue end
-				propertyValue=v[propertyName]
+				local success,err=pcall(function() propertyValue=v[propertyName] end)
+				if not success then continue end
 				if defaultPropertyAdds[propertyName] then
 					propertyValue=propertyDefaultValue
 				end
-				if noName and propertyType=='string' and propertyName=='Name' then 
-					propertyValue=propertyDefaultValue 
-				end
+				if isLimit and propertyType=='string' and propertyName=='Name' then propertyValue=propertyDefaultValue end
+				if noName then propertyValue=propertyDefaultValue end
 				if propertyValue==propertyDefaultValue then continue end
 				if isLimit and (propertyType=='CFrame' or propertyType=='PhysicalProperties') then continue end
 				if isLimit and (propertyType=='string' or propertyType=='bool') and (propertyName=='Name' or (isPart and propertyName=='Anchored')) then continue end
@@ -2150,7 +2164,7 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 						table.insert(foundLocals,secondPropertyType)
 					end
 				end
-				if Utility.IsStrings(propertyType,{'number','float','int','short','double'}) then 
+				if Utility.IsStrings(propertyType,{'number','float','int','short','double'}) and type(propertyValue)=='number' then 
 					isProperty=true
 					if propertyValue~=propertyValue then
 						textProperty=textProperty..variable..'.'..propertyName..'=0/0;'
@@ -2162,7 +2176,7 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 						isProperty=false 
 					end
 				elseif propertyType=='Object' and propertyName=='Parent' and v.Parent==instance then 
-					isProperty=true 
+					isProperty=true
 					textProperty=textProperty..variable..'.Parent=workspace;'
 				end
 				if not isProperty then
@@ -2175,18 +2189,12 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 							warn('['..PLUGIN_NAME..'] PROCESS FAILED: Object '..name..' '..className..'.'..propertyName..' '..tostring(objectives[targets[propertyValue]]))
 						end
 					else
-						local callback=SafeData[propertyType]
-						if callback~=nil then
-							local result=nil
-							local success=pcall(function() 
-								result=callback(propertyValue)
-								if result then
-								    textProperty=textProperty..variable..'.'..propertyName..'='..result..';'
-								end
-							end)
-							if not success or result==nil then
-							   warn('['..PLUGIN_NAME..'] PROCESS FAILED: '..propertyValue..' '..className..'.'..propertyName)
-							end
+						local result=nil
+						local success,err=pcall(function() result=SafeData[propertyType](propertyValue) end)
+						if not success or result==nil then
+							warn('['..PLUGIN_NAME..'] PROCESS FAILED: '..propertyValue..' '..className..'.'..propertyName)
+						else
+							textProperty=textProperty..variable..'.'..propertyName..'='..result..';'
 						end
 					end
 				end
@@ -2195,34 +2203,35 @@ function Module:Process(selections,variables,objectives,targets,instance,func)
 		func(progress,v,maxProgress)
 	end
 	textInstance=textInstance..'\n}'
-	local foundLocalsLen=#foundLocals
+	local foundLocalsLength=#foundLocals
 	for i,k in ipairs(foundLocals) do
 		local v=GlobalData.Locals[k] 
 		if v then
-			local prefix,value,vLen=v.Prefix,v.Value,v.Length
-			if vLen and type(vLen)=='number' then
-				for j=1,v.Length do
+			local prefix,value,vLength=v.Prefix,v.Value,v.Length
+			if vLength and type(vLength)=='number' then
+				for j=1,vLength do
 					local prefix2,value2=prefix[j],value[j]
 					if prefix2~=nil and value2~=nil then
 						textPrefix=textPrefix..prefix2
 						textValue=textValue..value2
-						if j<vLen then
-						   textPrefix=textPrefix..','
-						   textValue=textValue..','
+						if j<vLength then
+							textPrefix=textPrefix..","
+							textValue=textValue..","
 						end
 					end
 				end
 			else
 				textPrefix=textPrefix..prefix
 				textValue=textValue..value
-				if i<foundLocalsLen then
-					textPrefix=textPrefix..','
-				    textValue=textValue..','
+				if i<foundLocalsLength then
+					textPrefix=textPrefix..","
+					textValue=textValue..","
 				end
 			end
+			
 		end
 	end
-	table.clear(foundLocals)
+	table.clear(localCache) table.clear(foundLocals)
 	func(maxProgress,nil,maxProgress)
 	if #textPrefix>0 then
 		textLocal=textLocal..'local '..textPrefix..'='
