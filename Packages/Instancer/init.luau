@@ -5,6 +5,7 @@ local LocalPlayer=RunService:IsClient() and Players.LocalPlayer or nil
 
 local PartProperties={"Name","Anchored","Locked","CanCollide","Transparency","Color","Material","Reflectance","CFrame","BackSurface","BottomSurface","FrontSurface","LeftSurface","RightSurface","TopSurface","Size"}
 local AddNumberCallback,SpentNumberCallback=function(a,b) return a+b end,function(a,b) return a-b end
+local DefaultTimeOut,DefaultLength=60,1
 
 local function InvalidArgumentInstance(v,i,s)
 	assert(typeof(v)=="Instance",`Invalid argument #{i} (Instance expected, got {typeof(v)}) to Instancer.{s}`)
@@ -28,7 +29,7 @@ end
 
 local Instancer={}
 
--- Check Function --
+-- Check --
 function Instancer.IsAlive(instance)
 	if instance and instance.Parent then return true else return false end
 end
@@ -71,11 +72,11 @@ function Instancer.GetPlot(path,player,match)
 					for attributeName,attributeValue in pairs(attributes) do
 						if attributeValue==nil then continue end
 
-						local lowerAttributeName = string.lower(attributeName)
-						if lowerAttributeName=="owner" or lowerAttributeName == "ownerid" or lowerAttributeName=="owneruserid" or lowerAttributeName=="playerid" or lowerAttributeName=="playeruserid" and tonumber(attributeValue) and tostring(attributeValue)==tostring(userId) then
+						local lowerAttributeName=string.lower(attributeName)
+						if lowerAttributeName=="owner" or lowerAttributeName=="ownerid" or lowerAttributeName=="owneruserid" or lowerAttributeName=="playerid" or lowerAttributeName=="playeruserid" and tonumber(attributeValue) and tostring(attributeValue)==tostring(userId) then
 							return true
 						end
-						if lowerAttributeName=="owner" or lowerAttributeName == "ownername" and tostring(attributeValue)==tostring(userName) then
+						if lowerAttributeName=="owner" or lowerAttributeName=="ownername" and tostring(attributeValue)==tostring(userName) then
 							return true
 						end
 					end
@@ -100,7 +101,7 @@ function Instancer.GetPlot(path,player,match)
 	return nil
 end
 
--- Attribute Function --
+-- Attribute --
 function Instancer.AddAttribute(instance,attribute,value,callback)
 	InvalidArgumentInstance(instance,1)
 	InvalidArgumentString(attribute,2)
@@ -129,113 +130,193 @@ function Instancer.SpentAttribute(instance,attribute,value,callback)
 	end
 end
 
--- Child Function --
-function Instancer.FindOrCreateChild(instance,name,className,data)
-	InvalidArgumentInstance(instance,1,"FindOrCreateChild")
-	InvalidArgumentString(name,2,"FindOrCreateChild")
-	InvalidArgumentString(className,3,"FindOrCreateChild")
-	data=type(data)=="table" and data or {}
-	local c=nil
-	for i,v in ipairs(instance:GetChildren()) do if v~=nil and v.Parent~=nil and v.Name==name and v:IsA(className) then c=v break end end
-	if not c then
-		c=Instance.new(className)
-		c.Name=name
-		local parent=instance
-		for k,v in pairs(data) do
-			if type(k)=="string" then
-				if k=="Parent" then
-					parent=v
-				else
-					pcall(function() c[k]=v end)
-				end
+-- Make Instance --
+function Instancer.Create(className,properties,object)
+	InvalidArgumentString(className,1,"Instancer.Create")
+	InvalidArgumentTable(properties,2,"Instancer.Create")
+	local current=Instance.new(className)
+	local isTable=object~=nil and type(object)=="table"
+	local parent=nil
+	if not isTable then
+		parent=object
+	end
+	for property,value in next,properties or {} do
+		if property=="Parent" and parent==nil then
+			parent=value
+			continue
+		end
+		current[property]=value
+	end
+	if isTable then
+		for key,child in pairs(object) do
+			local childType=typeof(child)
+			if childType=="Instance" then
+				child.Parent=current
 			end
 		end
-		c.Parent=parent
 	end
-	return c
+	current.Parent=parent
+	return current
 end
 
--- Try
-function Instancer.TryQueryDescendants(instance, selector, length, timeOut, match)
-	length = (length == nil or typeof(length) ~= "number") and 1 or length
-	timeOut = (timeOut == nil or typeof(timeOut) ~= "number") and 5 or timeOut
-	
-	local descendants = instance:QueryDescendants(selector)
-	if #descendants >= length then
-		return descendants
+function Instancer.Copy(instance,properties,object)
+	InvalidArgumentInstance(instance,1,"Instancer.Copy")
+	InvalidArgumentTable(properties,2,"Instancer.Copy")
+	local current=instance:Clone()
+	local isTable=object~=nil and type(object)=="table"
+	local parent=nil
+	if not isTable then
+		parent=object
 	end
-
-	local currentThread = coroutine.running()
-	local timeoutThread = nil
-	local connection = nil
-	local runningThread = nil
-	local done = false
-
-	connection = instance.DescendantAdded:Connect(function(descendant)
-		descendants = instance:QueryDescendants(selector)
-		if #descendants >= length then
-			done = true
-			if connection then connection:Disconnect() connection = nil end
-			if timeoutThread and coroutine.status(timeoutThread) ~= "dead" then task.cancel(timeoutThread) timeoutThread = nil end
-			if runningThread and coroutine.status(runningThread) ~= "dead" then task.cancel(runningThread) runningThread = nil end
-			task.spawn(currentThread, descendants)
-			currentThread = nil
+	for property,value in next,properties or {} do
+		if property=="Parent" and parent==nil then
+			parent=value
+			continue
 		end
-	end)
-	
-	timeoutThread = task.delay(timeOut, function()
-		if connection and connection.Connected then
-			done = true
-			connection:Disconnect()
-			connection = nil
-			if runningThread and coroutine.status(runningThread) ~= "dead" then task.cancel(runningThread) runningThread = nil end
-			warn(string.format("Infinite yield possible on 'Instancer.TryQueryDescendants(%s, \"%s\", %s)'", instance:GetFullName(), selector, length))
-			descendants = instance:QueryDescendants(selector)
-			task.spawn(currentThread, descendants)
-			currentThread = nil
-		end
-	end)
-	
-	if match and typeof(match) == "function" then
-		runningThread = task.spawn(function()
-			repeat task.wait() until not match(descendants) or done == true
-			if connection then connection:Disconnect() connection = nil end
-			if timeoutThread and coroutine.status(timeoutThread) ~= "dead" then task.cancel(timeoutThread) timeoutThread = nil end
-			descendants = instance:QueryDescendants(selector)
-			task.spawn(currentThread, descendants)
-			currentThread = nil
-		end)
+		current[property]=value
 	end
-	
-	return coroutine.yield()
+	if isTable then
+		for key,child in pairs(object) do
+			local childType=typeof(child)
+			if childType=="Instance" then
+				child.Parent=current
+			end
+		end
+	end
+	current.Parent=parent
+	return current
+end
+
+-- Child Function --
+function Instancer.FindOrCreateChild(instance,name,className,properties)
+	error("Instancer.FindOrCreateChild is deprecated and no longer supported.")
+	--InvalidArgumentInstance(instance,1,"FindOrCreateChild")
+	--InvalidArgumentString(name,2,"FindOrCreateChild")
+	--InvalidArgumentString(className,3,"FindOrCreateChild")
+	--data=type(data)=="table" and data or {}
+	--local c=nil
+	--for i,v in ipairs(instance:GetChildren()) do if v~=nil and v.Parent~=nil and v.Name==name and v:IsA(className) then c=v break end end
+	--if not c then
+	--	c=Instance.new(className)
+	--	c.Name=name
+	--	local parent=instance
+	--	for k,v in pairs(data) do
+	--		if type(k)=="string" then
+	--			if k=="Parent" then
+	--				parent=v
+	--			else
+	--				pcall(function() c[k]=v end)
+	--			end
+	--		end
+	--	end
+	--	c.Parent=parent
+	--end
+	--return c
 end
 
 -- Wait For --
-function Instancer.WaitForChildOfClass(instance, className, timeOut)
-	timeOut = (timeOut == nil or typeof(timeOut) ~= "number") and 5 or timeOut
+function Instancer.TryQueryDescendants(instance,selector,length,timeOut,match)
+	length=(length==nil or typeof(length)~="number") and DefaultLength or length
+	timeOut=(timeOut==nil or typeof(timeOut)~="number") and DefaultTimeOut or timeOut
+	
+	local fullName=instance:GetFullName()
+	local descendants=instance:QueryDescendants(selector)
+	if #descendants>=length then
+		return descendants
+	end
 
-	local existingChild = instance:FindFirstChildOfClass(className)
+	local currentThread=coroutine.running()
+	local timeoutThread=nil
+	local descendantAddedConnection=nil
+	local runningThread=nil
+	local done=false
+	
+	local ancestryChangedConnection=nil
+	ancestryChangedConnection=instance.AncestryChanged:Connect(function(_,parent)
+		if not parent then
+			done=true
+			warn(debug.traceback(string.format("Instancer.TryQueryDescendants '%s' was unparented",fullName)))
+			if ancestryChangedConnection then ancestryChangedConnection:Disconnect() ancestryChangedConnection=nil end
+			if descendantAddedConnection then descendantAddedConnection:Disconnect() descendantAddedConnection=nil end
+			if timeoutThread and coroutine.status(timeoutThread)~="dead" then task.cancel(timeoutThread) timeoutThread=nil end
+			if runningThread and coroutine.status(runningThread)~="dead" then task.cancel(runningThread) runningThread=nil end
+			if currentThread~=nil then
+				task.spawn(currentThread,descendants)
+				currentThread=nil
+			end
+		end
+	end)
+	
+	if match and typeof(match)=="function" then
+		runningThread=task.spawn(function()
+			repeat task.wait() until match(descendants) or done==true
+			if ancestryChangedConnection then ancestryChangedConnection:Disconnect() ancestryChangedConnection=nil end
+			if descendantAddedConnection then descendantAddedConnection:Disconnect() descendantAddedConnection=nil end
+			if timeoutThread and coroutine.status(timeoutThread) ~= "dead" then task.cancel(timeoutThread) timeoutThread=nil end
+			descendants=instance:QueryDescendants(selector)
+			if currentThread~=nil then
+				task.spawn(currentThread,descendants)
+				currentThread=nil
+			end
+		end)
+	end
+	
+	timeoutThread=task.delay(timeOut, function()
+		done=true
+		if ancestryChangedConnection then ancestryChangedConnection:Disconnect() ancestryChangedConnection=nil end
+		if descendantAddedConnection then descendantAddedConnection:Disconnect() descendantAddedConnection=nil end
+		if runningThread and coroutine.status(runningThread)~="dead" then task.cancel(runningThread) runningThread=nil end
+		warn(debug.traceback(string.format("Infinite yield possible on 'Instancer.TryQueryDescendants(%s, \"%s\", %s)'",fullName,selector,length)))
+		descendants=instance:QueryDescendants(selector)
+		if currentThread~=nil then
+			task.spawn(currentThread,descendants)
+			currentThread=nil
+		end
+	end)
+	
+	descendantAddedConnection=instance.DescendantAdded:Connect(function(descendant)
+		descendants=instance:QueryDescendants(selector)
+		if #descendants>=length then
+			done=true
+			if ancestryChangedConnection then ancestryChangedConnection:Disconnect() ancestryChangedConnection=nil end
+			if descendantAddedConnection then descendantAddedConnection:Disconnect() descendantAddedConnection=nil end
+			if runningThread and coroutine.status(runningThread)~="dead" then task.cancel(runningThread) runningThread=nil end
+			if timeoutThread and coroutine.status(timeoutThread)~="dead" then task.cancel(timeoutThread) timeoutThread=nil end
+			if currentThread~=nil then
+				task.spawn(currentThread,descendants)
+				currentThread=nil
+			end
+		end
+	end)
+
+	return coroutine.yield()
+end
+
+function Instancer.WaitForChildOfClass(instance, className, timeOut)
+	timeOut=(timeOut==nil or typeof(timeOut) ~= "number") and 5 or timeOut
+
+	local existingChild=instance:FindFirstChildOfClass(className)
 	if existingChild then return existingChild end
 	
-	local currentThread = coroutine.running()
-	local connection = nil
-	local timeoutThread = nil
+	local currentThread=coroutine.running()
+	local connection=nil
+	local timeoutThread=nil
 
-	connection = instance.ChildAdded:Connect(function(child)
+	connection=instance.ChildAdded:Connect(function(child)
 		if child:IsA(className) then
-			if connection then connection:Disconnect() connection = nil end
-			if timeoutThread and coroutine.status(timeoutThread) ~= "dead" then task.cancel(timeoutThread) timeoutThread = nil end
+			if connection then connection:Disconnect() connection=nil end
+			if timeoutThread and coroutine.status(timeoutThread) ~= "dead" then task.cancel(timeoutThread) timeoutThread=nil end
 			task.spawn(currentThread, child)
 		end
 	end)
 
-	timeoutThread = task.delay(timeOut, function()
+	timeoutThread=task.delay(timeOut, function()
 		if connection and connection.Connected then
 			connection:Disconnect()
 			connection= nil
 			warn(string.format("Infinite yield possible on 'Instancer.WaitForChildOfClass(%s, \"%s\")'", instance:GetFullName(), className))
 			task.spawn(currentThread, nil)
-			currentThread = nil
+			currentThread=nil
 		end
 	end)
 
@@ -245,44 +326,44 @@ end
 -- Yield For
 function Instancer.YieldForChild(instance,match,callback)
 	if not callback or typeof(callback) ~= "function" then
-		callback = function() return false end
+		callback=function() return false end
 	end
 
-	local yieldThread = coroutine.running()
-	local connection = nil
-	local done = false
+	local yieldThread=coroutine.running()
+	local connection=nil
+	local done=false
 
 	local function OnChildAdded(child)
 		if child and child.Parent then
-			local success = match(child)
+			local success=match(child)
 			if success and not done then
-				done = true
+				done=true
 				connection:Disconnect()
-				if coroutine.status(yieldThread) == "suspended" then
+				if coroutine.status(yieldThread)=="suspended" then
 					task.spawn(yieldThread, child)
 				end
 			end
 		end
 	end
 
-	connection = instance.ChildAdded:Connect(OnChildAdded)
+	connection=instance.ChildAdded:Connect(OnChildAdded)
 
 	task.defer(function()
 		if not connection.Connected or done then return end
 		while connection.Connected and not done do
 			task.wait(1)
-			local children = instance:GetChildren()
+			local children=instance:GetChildren()
 			for _, child in ipairs(children) do
 				task.wait()
 				if done then break end
 				OnChildAdded(child)
 			end
 			if not done then
-				local success = callback()
+				local success=callback()
 				if success and not done then
-					done = true
+					done=true
 					connection:Disconnect()
-					if coroutine.status(yieldThread) == "suspended" then
+					if coroutine.status(yieldThread)=="suspended" then
 						task.spawn(yieldThread, nil)
 					end
 					break
@@ -294,7 +375,7 @@ function Instancer.YieldForChild(instance,match,callback)
 	return coroutine.yield()
 end
 
--- Other Function --
+-- Other --
 function Instancer.SetCollisionGroup(instance,collisionGroup)
 	InvalidArgumentInstance(instance,1)
 	InvalidArgumentString(collisionGroup,2)
@@ -326,7 +407,6 @@ function Instancer.CreatePart(partInfo)
 	part.Parent=data.Parent or workspace
 	return part
 end
-
 
 -- Deprecated
 function Instancer.FindByPath(instance,path,match)
@@ -514,33 +594,55 @@ function Instancer.CopyInstance(className,instance,properties)
 	return newInstance
 end
 
+-- Tween --
+function Instancer.PlayTween(instance:Instance,options:TweenInfo|{Time:number,EasingStyle:Enum.EasingStyle,EasingDirection:Enum.EasingDirection,RepeatCount:number,Reverse:boolean,DelayTime:number},properties:{[string]:any},completed:()->())
+	TweenService=TweenService or Services.TweenService
+	local tweenInfo=nil
+	if options==nil then
+		tweenInfo=TweenInfo.new(1,Enum.EasingStyle.Quad,Enum.EasingDirection.In)
+	elseif type(options)=="table" then
+		tweenInfo=TweenInfo.new(options.Time or 1,options.EasingStyle or Enum.EasingStyle.Quad,options.EasingDirection or Enum.EasingDirection.In, options.RepeatCount or nil, options.Reverse or nil, options.DelayTime or nil)
+	else
+		tweenInfo=options
+	end
+	local tween=TweenService:Create(instance,tweenInfo,properties)
+	tween:Play()
+	tween.Completed:Connect(function()
+		if completed then completed() end
+		tween:Cancel()
+		tween:Destroy()
+	end)
+	return tween,function()
+		tween:Cancel()
+		tween:Destroy()
+	end
+end
+
 function Instancer.TeleportModel(mode, character, target, duration)
-	local hrp = character.PrimaryPart or character:FindFirstChild("HumanoidRootPart")
+	local hrp=character.PrimaryPart or character:FindFirstChild("HumanoidRootPart")
 
-	local m = tostring(mode):lower()
+	local m=tostring(mode):lower()
 
-	if m == "1" or m == "cframe" then
-		hrp.CFrame = target.CFrame
-	elseif m == "2" or m == "pivotto" then
+	if m=="1" or m=="cframe" then
+		hrp.CFrame=target.CFrame
+	elseif m=="2" or m=="pivotto" then
 		character:PivotTo(target.CFrame)
-	elseif m == "3" or m == "moveto" then
+	elseif m=="3" or m=="moveto" then
 		character:MoveTo(target.Position)
-	elseif m == "4" or m == "position" then
-		hrp.Position = target.Position
-	elseif m == "5" or m == "setprimarypartcframe" then
+	elseif m=="4" or m=="position" then
+		hrp.Position=target.Position
+	elseif m=="5" or m=="setprimarypartcframe" then
 		character:SetPrimaryPartCFrame(target.CFrame)
-	elseif m == "6" or m == "cframenew" then
-		hrp.CFrame = CFrame.new(target.Position)
-	elseif m == "7" or m == "primarypart" then
-		character.PrimaryPart.CFrame = target.CFrame
-	elseif m == "8" or m == "offset" then
-		hrp.CFrame = target.CFrame * CFrame.new(0, 3, 0)
-	elseif m == "9" or m == "translateby" then
+	elseif m=="6" or m=="cframenew" then
+		hrp.CFrame=CFrame.new(target.Position)
+	elseif m=="7" or m=="primarypart" then
+		character.PrimaryPart.CFrame=target.CFrame
+	elseif m=="8" or m=="offset" then
+		hrp.CFrame=target.CFrame * CFrame.new(0, 3, 0)
+	elseif m=="9" or m=="translateby" then
 		character:TranslateBy(target.Position - hrp.Position)
-	elseif m == "10" or m == "tween" then
-		TweenService = TweenService or Services.TweenService
-		local tween = TweenService:Create(hrp, TweenInfo.new(duration or 0.01), {CFrame = target.CFrame})
-		tween:Play()
+	elseif m=="10" or m=="tween" then
+		Instancer.PlayTween(hrp,TweenInfo.new(duration or 0.01),{CFrame=target.CFrame})
 	else
 		character:PivotTo(target.CFrame)
 	end
@@ -638,49 +740,49 @@ end
 
 -- Raycast Function --
 function Instancer.GetHitRaycast(instance, raycastInfo, match)
-	local part = nil
+	local part=nil
 
 	if instance:IsA("Model") then
-		part = instance.PrimaryPart or instance:FindFirstChild("HumanoidRooPart")
+		part=instance.PrimaryPart or instance:FindFirstChild("HumanoidRooPart")
 		if not part then
 			for _, child in ipairs(instance:GetChildren()) do
 				if child ~= nil and child.Parent ~= nil and child:IsA("BasePart") then
-					part = child
+					part=child
 					break
 				end
 			end
 		end
 	elseif instance:IsA("BasePart") then
-		part = instance
+		part=instance
 	end
 
 	if not part then return nil, nil end
 
-	raycastInfo = raycastInfo or {}
+	raycastInfo=raycastInfo or {}
 
 	-- Set up Raycast: Start point at the instance, direction downwards for 100 studs
-	local rayOrigin = part.Position
-	local rayDirection = raycastInfo.Direction or Vector3.new(0, -100, 0)
+	local rayOrigin=part.Position
+	local rayDirection=raycastInfo.Direction or Vector3.new(0, -100, 0)
 
 	-- Ignore the instance so the raycast does not hit itself.
 	if not raycastInfo.RaycastParams then
-		raycastInfo.RaycastParams = RaycastParams.new()
-		raycastInfo.RaycastParams.FilterDescendantsInstances = {instance}
-		raycastInfo.RaycastParams.FilterType = Enum.RaycastFilterType.Exclude
+		raycastInfo.RaycastParams=RaycastParams.new()
+		raycastInfo.RaycastParams.FilterDescendantsInstances={instance}
+		raycastInfo.RaycastParams.FilterType=Enum.RaycastFilterType.Exclude
 	end
-	local raycastParams = raycastInfo.RaycastParams
+	local raycastParams=raycastInfo.RaycastParams
 
 	-- Perform Raycast
-	local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+	local raycastResult=workspace:Raycast(rayOrigin, rayDirection, raycastParams)
 
 	if raycastResult then
-		local hit = raycastResult.Instance
+		local hit=raycastResult.Instance
 		if hit then 
-			local current, last = hit, nil
+			local current, last=hit, nil
 
 			while current ~= workspace and not match(current, last) do
-				last = current
-				current = current.Parent
+				last=current
+				current=current.Parent
 				task.wait()
 			end
 
