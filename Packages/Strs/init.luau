@@ -88,6 +88,7 @@ function Strs.ToPersentase(x:number,max:number?,maxFloat:number?,reverse:boolean
 		end
 	end
 	local s=string.format(`%.{maxFloat}f`,percentage)
+	s=string.gsub(s,"%.?0+$","")
 	s=s.."%"
 	if max then if x>=max then s="100%" end end
 	return s
