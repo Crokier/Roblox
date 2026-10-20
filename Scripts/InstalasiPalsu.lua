@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V62 04-05-2024
+-- Instal V63 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -44,7 +44,9 @@ local Values={
 	['MaxIcon']=100,
 	['NoName']=false,
 	['FileName']='',
-	['CanAutoSaveFile']=false
+	['CanAutoSaveFile']=false,
+	['AnimationName']='Idle',
+	['AnimationLooped']=false
 }
 
 local Templates={
@@ -1678,9 +1680,11 @@ function Module:SetUpdate(mode,...)
 		end
 		Interfaces.MainLabel.TextScaled=lastGrabType=='Gui'
 		Interfaces.MainLabel.Visible=lastGrabType=='Gui'
-		if Interfaces.StopButton and getmetatable(Interfaces.StopButton) then Interfaces.StopButton.Visible=lastGrabType=='Building' end
-		for i,v in ipairs({Interfaces.RecordButton,Interfaces.AnimationSelector,Interfaces.FPSSelector}) do 
-			v.Visible=isAnimation
+		if Interfaces.StopButton then Interfaces.StopButton.Visible=lastGrabType=='Building' end
+		for i,v in ipairs({Interfaces.RecordButton,Interfaces.PlayButton,Interfaces.AnimationSelector,Interfaces.FPSSelector,Interfaces.AnimationLoopedToggle,Interfaces.AnimationNameTextBox}) do 
+			if v then
+				v.Visible=isAnimation
+			end
 		end
 	end
 end
@@ -2400,6 +2404,38 @@ function Module:Record()
 	end
 end
 
+function Module:Play()
+	if Values.GrabType=='Animation' then
+		local model:Model=Values.BuildingTarget
+		if not (model and model.Parent) then self:SetStatus(1,'No Building Target',2) return end
+		local animators=model:QueryDescendants('Animator')
+		if not next(animators) then self:SetStatus(1,'Animator not found',2) return end
+		local animator=animators[1]
+
+		local animationName,animationLooped=Values.AnimationName,Values.AnimationLooped
+		local animation=nil
+		for _,v in ipairs(model:GetDescendants()) do if v.Name==animationName and v:IsA('Animation') then animation=v break end end
+		if not animation then self:SetStatus(1,'Animation not found',2) return end
+		local success,animationTrack=pcall(function()
+			return animator:LoadAnimation(animation)
+		end)
+		if success and animationTrack then
+			animationName=Utility.Trim(string.lower(animationName))
+			if animationName=="idle" then
+				animationTrack.Looped=true
+			else
+				animationTrack.Looped=animationLooped
+			end
+			if animationName=="idle" then
+				animationTrack.Priority=Enum.AnimationPriority.Idle
+			end
+			animationTrack:Play()
+		else
+			self:SetStatus(1,'Failed to load animation, Check console!',2) warn(animationTrack)
+		end
+	end
+end
+
 function Module:SaveToFile()
 	if isfile and writefile and isfolder and makefolder then
 		if not Values.SaveDebounce then
@@ -2586,6 +2622,31 @@ Interfaces.RecordButton=Window:AddButton({
 	MethodType='DoubleClick',
 	Callback=function() 
 		Module:Record() 
+	end
+})
+Interfaces.AnimationNameTextBox=Window:AddInput({
+	Text='Animation Name (Default: Idle)',
+	Visible=false,
+	Callback=function(text)
+		if Utility.IsEmpty(text) then
+			text="Idle"
+		end
+		Values.AnimationName=text
+	end
+})
+Interfaces.AnimationLoopedToggle=Window:AddToggle({
+	Text='Animation Looped',
+	Visible=false,
+	Callback=function(value)
+		Values.AnimationLooped=value
+	end
+})
+Interfaces.PlayButton=Window:AddButton({
+	Text='Play',
+	Visible=false,
+	MethodType='DoubleClick',
+	Callback=function() 
+		Module:Play() 
 	end
 })
 Interfaces.StopButton=Window:AddButton({
