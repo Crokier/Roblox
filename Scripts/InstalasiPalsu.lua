@@ -1679,9 +1679,11 @@ function Module:SetUpdate(mode,...)
 		end
 		Interfaces.MainLabel.TextScaled=lastGrabType=='Gui'
 		Interfaces.MainLabel.Visible=lastGrabType=='Gui'
-		if Interfaces.StopButton and getmetatable(Interfaces.StopButton) then Interfaces.StopButton.Visible=lastGrabType=='Building' end
-		for i,v in ipairs({Interfaces.RecordButton,Interfaces.AnimationSelector,Interfaces.FPSSelector}) do 
-			v.Visible=isAnimation
+		if Interfaces.StopButton then Interfaces.StopButton.Visible=isBuilding end
+		for i,v in ipairs({Interfaces.RecordButton,Interfaces.AnimationSelector,Interfaces.FPSSelector,Interfaces.PlayButton}) do 
+			if v then
+			   v.Visible=isAnimation
+			end
 		end
 	end
 end
@@ -2581,6 +2583,14 @@ Interfaces.RecordButton=Window:AddButton({
 	MethodType='DoubleClick',
 	Callback=function() 
 		Module:Record() 
+	end
+})
+Interfaces.PlayButton=Window:AddButton({
+	Text='Play',
+	Visible=false,
+	MethodType='DoubleClick',
+	Callback=function() 
+		Module:Play() 
 	end
 })
 Interfaces.StopButton=Window:AddButton({
