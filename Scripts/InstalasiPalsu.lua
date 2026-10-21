@@ -2302,8 +2302,34 @@ function Module:Destroy()
 	end
 end
 
+function Module:Play()
+	if Values.GrabType=='Building' or Values.GrabType=='Animation' then
+		local model=Values.BuildingTarget
+		if not (model and model.Parent) then self:SetStatus(1,'No Building Target',2) return end
+		local animations=model:QueryDescendants('Animation')
+		local animators=model:QueryDescendants('Animator')
+		if not next(animators) then self:SetStatus(1,'Animators is missing',2) return end
+		for i,k in ipairs(animators) do local playingTracks=k:GetPlayingAnimationTracks() for j,v in ipairs(playingTracks) do v.TimePosition=0 v:Stop() end end
+        if not next(animations) then self:SetStatus(1,'Animations is missing',2) return end
+		local animator=animators[1]
+		local animationName=Values.AnimationName or ''
+		local animation=nil
+		for i,v in ipairs(animations
+		local success, animationTrack = pcall(function()
+	        return animator:LoadAnimation(animation)
+        end)
+        if success and animationTrack then
+	       animationTrack.Looped=true
+		   if 
+	       animationTrack.Priority=Enum.AnimationPriority.Action -- Prioritas animasi
+	       animationTrack:Play()
+		end
+		self:SetStatus(1,'Play Complete',2)
+	end
+end
+
 function Module:Stop()
-	if Values.GrabType=='Building' then
+	if Values.GrabType=='Building' or Values.GrabType=='Animation' then
 		local model=Values.BuildingTarget
 		if not (model and model.Parent) then self:SetStatus(1,'No Building Target',2) return end
 		local animators=model:QueryDescendants('Animator')
