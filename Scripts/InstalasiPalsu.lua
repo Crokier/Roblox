@@ -45,8 +45,7 @@ local Values={
 	['NoName']=false,
 	['FileName']='',
 	['CanAutoSaveFile']=false,
-	['AnimationName']='Idle',
-	['AnimationLooped']=false
+	['CanFast']=false,
 }
 
 local Templates={
@@ -93,7 +92,7 @@ Utility={
 	-- Tabler --
 	GetProperties=Tabler.GetProperties,
 	Foreach=function(t,func)
-		while #t > 0 do
+		while #t>0 do
 			local v=table.remove(t)
 			func(v)
 		end
@@ -1646,7 +1645,7 @@ function Module:SetUpdate(mode,...)
 		end
 	elseif mode==3 then
 		local lastGrabType=Values.GrabType
-		Interfaces.SoundSlider.Visible=lastGrabType=='Sound'
+		Interfaces.SoundSlider.Visible=lastGrabType=='Sound' or lastGrabType=='Settings'
 		Interfaces.FileNameTextBox.Visible=lastGrabType=='Settings'
 		Interfaces.AutoSaveFileToggle.Visible=lastGrabType=='Settings'
 		Interfaces.UseNameToggle.Visible=lastGrabType=='Settings'
@@ -1680,11 +1679,9 @@ function Module:SetUpdate(mode,...)
 		end
 		Interfaces.MainLabel.TextScaled=lastGrabType=='Gui'
 		Interfaces.MainLabel.Visible=lastGrabType=='Gui'
-		if Interfaces.StopButton then Interfaces.StopButton.Visible=lastGrabType=='Building' end
-		for i,v in ipairs({Interfaces.RecordButton,Interfaces.PlayButton,Interfaces.AnimationSelector,Interfaces.FPSSelector,Interfaces.AnimationLoopedToggle,Interfaces.AnimationNameTextBox}) do 
-			if v then
-				v.Visible=isAnimation
-			end
+		if Interfaces.StopButton and getmetatable(Interfaces.StopButton) then Interfaces.StopButton.Visible=lastGrabType=='Building' end
+		for i,v in ipairs({Interfaces.RecordButton,Interfaces.AnimationSelector,Interfaces.FPSSelector}) do 
+			v.Visible=isAnimation
 		end
 	end
 end
@@ -1913,85 +1910,53 @@ function Module:Initialize()
 	Values.Debounce=false
 end
 
-function Module:Scan(instance,func,list)
-	if list==nil then 
-		list={Count=0,Max=#instance:GetDescendants()} 
+function Module:Scan(instance,func,data)
+	if data==nil then 
+		data={Count=0,Max=#instance:GetDescendants()} 
 	end
 	Utility.Foreach(instance:GetChildren(),function(v)
 		task.wait(1/240)
-		local className,parent=v.ClassName,v.Parent
-		if className=='SurfaceAppearance' then
-			local dv,folder=Templates.SurfaceAppearance,Instance.new('Folder')
-			folder.Name='SurfaceAppearance'
-			if v.ColorMapContent~=dv.ColorMapContent then
-				Utility.Create('StringValue',{Name='ColorMap',Value=SafeData['Content'](v.ColorMapContent),Parent=folder})
-			end
-			if v.MetalnessMapContent~=dv.MetalnessMapContent then
-				Utility.Create('StringValue',{Name='MetalnessMap',Value=SafeData['Content'](v.MetalnessMapContent),Parent=folder})
-			end
-			if v.NormalMapContent~=dv.NormalMapContent then
-				Utility.Create('StringValue',{Name='NormalMap',Value=SafeData['Content'](v.NormalMapContent),Parent=folder})
-			end
-			if v.RoughnessMapContent~=dv.RoughnessMapContent then
-				Utility.Create('StringValue',{Name='RoughnessMap',Value=SafeData['Content'](v.RoughnessMapContent),Parent=folder})
-			end
-			if v.Color~=dv.Color then
-				Utility.Create('Color3Value',{Name='Color',Value=v.Color,Parent=folder})
-			end
-			if v.AlphaMode~=dv.AlphaMode then
-				Utility.Create('StringValue',{Name='AlphaMode',Value=SafeData['EnumItem'](v.AlphaMode),Parent=folder})
-			end
-			if v.EmissiveTint~=dv.EmissiveTint then
-				Utility.Create('Color3Value',{Name='EmissiveTint',Value=v.EmissiveTint,Parent=folder})
-			end
-			if v.EmissiveStrength~=dv.EmissiveStrength then
-				Utility.Create('NumberValue',{Name='EmissiveStrength',Value=v.EmissiveStrength,Parent=folder})
-			end
-			if v.EmissiveMaskContent~=dv.EmissiveMaskContent then
-				Utility.Create('StringValue',{Name='EmissiveMaskContent',Value=SafeData['Content'](v.EmissiveMaskContent),Parent=folder})
-			end
-			local folderChildren=folder:GetChildren()
-			if #folderChildren<=0 then
-				folder:Destroy()
-			else
-				v:Destroy()
-				list.Count+=1
-				list.Max+=#folderChildren+1
-				folder.Parent=parent
-			end
-		end
-		local info=ObjectClasses[className]
+		local destroyed=false
+		local parent=v.Parent
+		local info=ObjectClasses[v.ClassName]
 		if info==nil then
-			list.Max-=1
+			data.Max-=1
 			for _,k in ipairs(v:GetChildren()) do k.Parent=parent end
 			v:Destroy()
-			func(list.Count,nil,list.Max)
-			return
+			destroyed=true
+		else
+			data.Count+=1
 		end
-		list.Count+=1
-		func(list.Count,v,list.Max)
-		if #v:GetChildren()>0 then
-			self:Scan(v,func,list)
+		func(data.Count,v,data.Max)
+		if not destroyed and #v:GetChildren()>0 then
+			self:Scan(v,func,data)
 		end
 	end)
 end
 
 function Module:Starting(instance,func)
 	self:Scan(instance,func)
-	local progress,maxProgress,meshParts=0,0,{}
+	local progress,maxProgress=0,0
 	local packList={instance:FindFirstChild('Building'),instance:FindFirstChild('Tool'),instance:FindFirstChild('Gui')}
-	for _,model in ipairs(packList) do if model then Utility.Foreach(model:GetDescendants(),function(v) if v:IsA('MeshPart') then maxProgress+=1 table.insert(meshParts,v) end end) end end
-	maxProgress=#instance:GetDescendants()
-	progress=maxProgress
-	if next(meshParts) then
-		for i,v in ipairs(meshParts) do 
-			progress+=1
-			maxProgress+=1
-			if i%30==0 then RunService.Stepped:Wait() end
-			Utility.ConvertMeshPartToSpecialMesh(v)
-			func(progress,v,maxProgress) 
+	for _,model in ipairs(packList) do 
+		if model then 
+			local i=0
+			Utility.Foreach(model:GetDescendants(),function(v) 
+				if v:IsA('MeshPart') then 
+					maxProgress+=1 
+					progress+=1
+					i=(i+1)%30
+					if i==0 then RunService.Stepped:Wait() end
+					Utility.ConvertMeshPartToSpecialMesh(v,{
+						['DefaultSurfaceAppearance']=Templates.SurfaceAppearance,
+						['SafeData']=SafeData
+					})
+					func(progress,v,maxProgress) 
+				end 
+			end) 
 		end 
 	end
+	maxProgress+=#instance:GetDescendants()
 	func(progress,nil,maxProgress) 
 end
 
@@ -2237,7 +2202,7 @@ function Module:Convert(data,target)
 	target.Parent=nil
 	visualInstance:Destroy()
 	Interfaces.StatusLabel:Set('Complete')
-	task.wait(2)
+	task.wait(0.5)
 	Interfaces.StatusLabel:Set('Text Length: '..tostring(#text))
 	task.wait(2)
 	return text
@@ -2404,38 +2369,6 @@ function Module:Record()
 	end
 end
 
-function Module:Play()
-	if Values.GrabType=='Animation' then
-		local model:Model=Values.BuildingTarget
-		if not (model and model.Parent) then self:SetStatus(1,'No Building Target',2) return end
-		local animators=model:QueryDescendants('Animator')
-		if not next(animators) then self:SetStatus(1,'Animator not found',2) return end
-		local animator=animators[1]
-
-		local animationName,animationLooped=Values.AnimationName,Values.AnimationLooped
-		local animation=nil
-		for _,v in ipairs(model:GetDescendants()) do if v.Name==animationName and v:IsA('Animation') then animation=v break end end
-		if not animation then self:SetStatus(1,'Animation not found',2) return end
-		local success,animationTrack=pcall(function()
-			return animator:LoadAnimation(animation)
-		end)
-		if success and animationTrack then
-			animationName=Utility.Trim(string.lower(animationName))
-			if animationName=="idle" then
-				animationTrack.Looped=true
-			else
-				animationTrack.Looped=animationLooped
-			end
-			if animationName=="idle" then
-				animationTrack.Priority=Enum.AnimationPriority.Idle
-			end
-			animationTrack:Play()
-		else
-			self:SetStatus(1,'Failed to load animation, Check console!',2) warn(animationTrack)
-		end
-	end
-end
-
 function Module:SaveToFile()
 	if isfile and writefile and isfolder and makefolder then
 		if not Values.SaveDebounce then
@@ -2571,26 +2504,6 @@ Interfaces.TopSelect=Window:AddSelect({
 	end,
 	Deactivated=function() Module:SetUpdate(2) Module:SetStatus(1,Interfaces.StatusLabel.Text) end
 })
-Interfaces.AnimationSelector=Window:AddSelector({
-	Options=GlobalData.Types.RecordAnimTypes,
-	Value=Values.RecordAnimType,
-	NoCap=true,
-	Visible=false,
-	Flag='record_animation_type',
-	Callback=function(value,key) 
-		Values.RecordAnimType=value 
-	end
-})
-Interfaces.FPSSelector=Window:AddSelector({
-	Options=GlobalData.Types.FPSTypes,
-	Value=Values.FPSType,
-	NoCap=true,
-	Visible=false,
-	Flag='frame_per_second_type',
-	Callback=function(value,key) 
-		Values.FPSType=value 
-	end
-})
 Interfaces.MainLabel=Window:AddLabel({
 	Text='',
 	Visible=false,
@@ -2616,37 +2529,32 @@ Interfaces.TextBox=Window:AddInput({
 		end
 	end
 })
+Interfaces.AnimationSelector=Window:AddSelector({
+	Options=GlobalData.Types.RecordAnimTypes,
+	Value=Values.RecordAnimType,
+	NoCap=true,
+	Visible=false,
+	Flag='record_animation_type',
+	Callback=function(value,key) 
+		Values.RecordAnimType=value 
+	end
+})
+Interfaces.FPSSelector=Window:AddSelector({
+	Options=GlobalData.Types.FPSTypes,
+	Value=Values.FPSType,
+	NoCap=true,
+	Visible=false,
+	Flag='frame_per_second_type',
+	Callback=function(value,key) 
+		Values.FPSType=value 
+	end
+})
 Interfaces.RecordButton=Window:AddButton({
 	Text='Record',
 	Visible=false,
 	MethodType='DoubleClick',
 	Callback=function() 
 		Module:Record() 
-	end
-})
-Interfaces.AnimationNameTextBox=Window:AddInput({
-	Text='Animation Name (Default: Idle)',
-	Visible=false,
-	Callback=function(text)
-		if Utility.IsEmpty(text) then
-			text="Idle"
-		end
-		Values.AnimationName=text
-	end
-})
-Interfaces.AnimationLoopedToggle=Window:AddToggle({
-	Text='Animation Looped',
-	Visible=false,
-	Callback=function(value)
-		Values.AnimationLooped=value
-	end
-})
-Interfaces.PlayButton=Window:AddButton({
-	Text='Play',
-	Visible=false,
-	MethodType='DoubleClick',
-	Callback=function() 
-		Module:Play() 
 	end
 })
 Interfaces.StopButton=Window:AddButton({
