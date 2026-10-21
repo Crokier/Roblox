@@ -495,48 +495,6 @@ function Instancer.FindByPath(instance,path,match)
 	return nil
 end
 
---[[
-function Instancer.CreateVariable(instance,variables,name)
-	local currentName=name or instance.Name
-
-	-- Remove symbols
-	local nameWithoutSymbols=""
-	for v in string.gmatch(currentName,"[%w_]") do nameWithoutSymbols=nameWithoutSymbols..v end
-
-	-- Check for string
-	local baseName=""
-	if #nameWithoutSymbols==0 then
-		baseName=instance.ClassName
-	elseif string.find(nameWithoutSymbols,"%d",1,true) then
-		baseName="_"..nameWithoutSymbols
-	else
-		baseName=nameWithoutSymbols
-	end
-
-	-- Check for original name
-	local isOriginal=true
-	for i,v in pairs(variables) do if v==baseName then isOriginal=false break end end
-	if isOriginal then variables[instance]=baseName return end
-
-	-- Check for duplicate name
-	local count=1
-	local isDuplicate=false
-	while true do
-		isDuplicate=false
-		local mainBaseName=baseName.."_"..tostring(count)
-		for i,v in pairs(variables) do 
-             if v==mainBaseName then 
-                isDuplicate=true 
-                break 
-              end 
-        end
-		count=count+1
-		if not isDuplicate then variables[instance]=mainBaseName return end
-		task.wait()
-	end
-end
-]]
-
 function Instancer.CreateVariable(instance, variables, name)
 	local currentName = name or instance.Name
 
@@ -577,8 +535,9 @@ function Instancer.CreateVariable(instance, variables, name)
 	return newName
 end
 
-function Instancer.ConvertMeshPartToSpecialMesh(instance)
+function Instancer.ConvertMeshPartToSpecialMesh(instance,options)
 	if instance and instance.Parent and instance:IsA("MeshPart") then
+		local parent=instance.Parent
 		local meshId,textureId=instance.MeshId,instance.TextureID
 		local part=Instance.new("Part")
 		for i,v in ipairs(PartProperties) do if pcall(function() return part[v] end) then part[v]=instance[v] end end
@@ -590,10 +549,55 @@ function Instancer.ConvertMeshPartToSpecialMesh(instance)
 		specialMesh.Scale=(1/instance.MeshSize)*instance.ExtentsSize
 		specialMesh.Parent=part
 		part.Parent=instance.Parent
-		local t={}
-		for j,k in ipairs(instance:GetDescendants()) do if not k:IsA("SurfaceAppearance") then k.Parent=part else table.insert(t,k) end end
-		if next(t) then for i,v in ipairs(t) do if not v:IsA("SurfaceAppearance") then v.Parent=part table.remove(t,i) end end end
-		if next(t) then for i,v in ipairs(t) do v:Destroy() end end
+		for i,v in ipairs(instance:GetChildren()) do 
+			if not v:IsA("SurfaceAppearance") then
+				v.Parent=part 
+			else 
+				if options then
+					local dv,SafeData,vList=options.DefaultSurfaceAppearance,options.SafeData,{}
+					if dv and SafeData then
+						if v.ColorMapContent~=dv.ColorMapContent then
+							table.insert(vList,Instancer.Create('StringValue',{Name='ColorMap',Value=SafeData['Content'](v.ColorMapContent)}))
+						end
+						if v.MetalnessMapContent~=dv.MetalnessMapContent then
+							table.insert(vList,Instancer.Create('StringValue',{Name='MetalnessMap',Value=SafeData['Content'](v.MetalnessMapContent)}))
+						end
+						if v.NormalMapContent~=dv.NormalMapContent then
+							table.insert(vList,Instancer.Create('StringValue',{Name='NormalMap',Value=SafeData['Content'](v.NormalMapContent)}))
+						end
+						if v.RoughnessMapContent~=dv.RoughnessMapContent then
+							table.insert(vList,Instancer.Create('StringValue',{Name='RoughnessMap',Value=SafeData['Content'](v.RoughnessMapContent)}))
+						end
+						if v.Color~=dv.Color then
+							table.insert(vList,Instancer.Create('Color3Value',{Name='Color',Value=v.Color}))
+						end
+						if v.AlphaMode~=dv.AlphaMode then
+							table.insert(vList,Instancer.Create('StringValue',{Name='AlphaMode',Value=SafeData['EnumItem'](v.AlphaMode)}))
+						end
+						if v.EmissiveTint~=dv.EmissiveTint then
+							table.insert(vList,Instancer.Create('Color3Value',{Name='EmissiveTint',Value=v.EmissiveTint}))
+						end
+						if v.EmissiveStrength~=dv.EmissiveStrength then
+							table.insert(vList,Instancer.Create('NumberValue',{Name='EmissiveStrength',Value=v.EmissiveStrength}))
+						end
+						if v.EmissiveMaskContent~=dv.EmissiveMaskContent then
+							table.insert(vList,Instancer.Create('StringValue',{Name='EmissiveMask',Value=SafeData['Content'](v.EmissiveMaskContent)}))
+						end
+					end
+					if #vList>0 then
+						Instancer.Create('Folder',{
+							Name='SurfaceAppearance',
+							Parent=part
+						},vList)
+						table.clear(vList)
+					end
+				end
+				for i,v in ipairs(v:GetChildren()) do 
+					v.Parent=part
+				end
+				v:Destroy()
+			end 
+		end
 		instance:Destroy()
 	end
 end
