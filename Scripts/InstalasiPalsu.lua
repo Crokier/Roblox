@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V71 04-05-2024
+-- Instal V72 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -22,14 +22,14 @@ task.delay(5,function()
 	if LocalPlayer.AccountAge>=1000 then
 		UI:Notify({
 			Title=''..PLUGIN_NAME..' Warning ',
-			Description="This script is dangerous! Please make alt account only!",
+			Description='This script is dangerous! Please make alt account only!',
 			Duration=10,
-			Icon = "rbxassetid://9072920609",
+			Icon = 'rbxassetid://9072920609',
 		})
 	end
 end)
 
-local PlayerGui=LocalPlayer:FindFirstChildOfClass("PlayerGui")
+local PlayerGui=LocalPlayer:FindFirstChildOfClass('PlayerGui')
 
 local Values={
 	['Inf']=math.huge,
@@ -49,7 +49,8 @@ local Values={
 	['AnimationName']='',
 	['AnimationPriority']='Idle',
 	['PlayAnimationCache']={},
-	['UseMyself']=false
+	['UseMyself']=false,
+	['CanShutdown']=false,
 }
 
 local Templates={
@@ -73,7 +74,8 @@ local Interfaces={
 	['SoundSlider']=nil,
 	['AnimationPrioritySelector']=nil,
 	['UseNameToggle']=nil,
-	['UseMyselfToggle']=nil
+	['UseMyselfToggle']=nil,
+	['CanShutdownToggle']=nil
 
 }
 
@@ -87,16 +89,16 @@ Utility={
 	CreateVariable=function(instance,variables,options)
 		local currentName=instance.Name
 		-- Remove symbols
-		local nameWithoutSymbols=""
-		for v in string.gmatch(currentName,"[%w_]") do 
+		local nameWithoutSymbols=''
+		for v in string.gmatch(currentName,'[%w_]') do 
 			nameWithoutSymbols=nameWithoutSymbols .. v 
 		end
 		-- Check for string
-		local baseName=""
+		local baseName=''
 		if #nameWithoutSymbols=='0' then
 			baseName=instance.ClassName
-		elseif string.find(string.sub(nameWithoutSymbols,1,1),"%d") then
-			baseName="_" .. nameWithoutSymbols
+		elseif string.find(string.sub(nameWithoutSymbols,1,1),'%d') then
+			baseName='_' .. nameWithoutSymbols
 		else
 			baseName=nameWithoutSymbols
 		end
@@ -110,7 +112,7 @@ Utility={
 		end
 		options.Duplicated[baseName]+=1
 		local count=options.Duplicated[baseName]
-		local mainBaseName=baseName .. "_" .. tostring(count)
+		local mainBaseName=baseName .. '_' .. tostring(count)
 		variables[instance]=mainBaseName
 	end,
 	ConvertMeshPartToSpecialMesh=Instancer.ConvertMeshPartToSpecialMesh,
@@ -1029,6 +1031,10 @@ AnimationController
 	bool Archivable
 	string Name
 	Object Parent
+Humanoid
+	bool Archivable
+	string Name
+	Object Parent
 ]]
 
 GlobalData.Propertys.Value=[[
@@ -1408,7 +1414,7 @@ do
 			if Strs.IsEmpty(objectName) then
 				shouldUseBrackets=true
 			else
-				if objectName:match("[%a_ ]+")~=objectName then
+				if objectName:match('[%a_ ]+')~=objectName then
 					shouldUseBrackets=true
 				end
 			end
@@ -1691,15 +1697,16 @@ function Module:SetUpdate(mode,...)
 		end
 	elseif mode==3 then
 		local lastGrabType=Values.GrabType
-		Interfaces.SoundSlider.Visible=lastGrabType=='Sound' or lastGrabType=='Settings'
-		Interfaces.FileNameTextBox.Visible=lastGrabType=='Settings'
-		Interfaces.AutoSaveFileToggle.Visible=lastGrabType=='Settings'
-		Interfaces.UseNameToggle.Visible=lastGrabType=='Settings'
+		local isAnimation,isBuilding,isSettings=lastGrabType=='Animation',lastGrabType=='Building' or lastGrabType=='Animation',lastGrabType=='Settings'
+		Interfaces.SoundSlider.Visible=lastGrabType=='Sound' or isSettings
+		Interfaces.FileNameTextBox.Visible=isSettings
+		Interfaces.AutoSaveFileToggle.Visible=isSettings
+		Interfaces.UseNameToggle.Visible=isSettings
 		Interfaces.InitializeButton.Visible=lastGrabType=='None'
 		Interfaces.InstalButton.Visible=lastGrabType=='None'
-		Interfaces.UseMyselfToggle.Visible=lastGrabType=='Settings' or lastGrabType=='Animation' or lastGrabType=='Building'
+		Interfaces.UseMyselfToggle.Visible=isSettings or isBuilding
+		Interfaces.CanShutdownToggle.Visible=isSettings
 		for i,v in ipairs({Interfaces.DestroyButton,Interfaces.ResetButton}) do v.Visible=lastGrabType=='None' end
-		local isAnimation,isBuilding=lastGrabType=='Animation',lastGrabType=='Building' or lastGrabType=='Animation'
 		Interfaces.TopSelect.Visible=isBuilding
 		self:SetUpdate(isBuilding and 2 or 0)
 		if Cacheds.PlayerGuiAdded then Cacheds.PlayerGuiAdded:Disconnect() Cacheds.PlayerGuiAdded=nil end
@@ -1855,8 +1862,6 @@ function Module:GetGrabData(mode)
 				Value=Lighting.ExposureCompensation
 			})
 		})
-		Interfaces.StatusLabel:Set(mode..': All')
-		task.wait(2)
 		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,function(v) if Utility.IsAs(v,GlobalData.Types.LightingClasses) then Interfaces.StatusLabel:Set(mode..': '..v.Name) return true end return false end)
 	elseif mode=='Event' then
 		Utility.CopyInstanceWith(explorers,ObjectClasses,newModel,IsCopyInstance)
@@ -1967,24 +1972,26 @@ function Module:Scan(instance,func,data)
 	if data==nil then 
 		data={Count=0,Max=#instance:GetDescendants()} 
 	end
-	Utility.Foreach(instance:GetChildren(),function(v)
-		task.wait(1/240)
-		local destroyed=false
-		local parent=v.Parent
+	local currentChildren=instance:GetChildren()
+	Utility.Foreach(currentChildren,function(v)
+		if data.Count%20==0 then RunService.Stepped:Wait() end
 		local info=ObjectClasses[v.ClassName]
 		if info==nil then
 			data.Max-=1
-			for _,k in ipairs(v:GetChildren()) do k.Parent=parent end
+			for _,k in ipairs(v:GetChildren()) do k.Parent=v.Parent table.insert(currentChildren,1,k) end
 			v:Destroy()
-			destroyed=true
+			return
 		else
 			data.Count+=1
 		end
 		func(data.Count,v,data.Max)
-		if not destroyed and #v:GetChildren()>0 then
+		local children=v:GetChildren()
+		if #children>0 then
 			self:Scan(v,func,data)
+			table.clear(children)
 		end
 	end)
+	func(data.Count,nil,data.Max)
 end
 
 function Module:Starting(instance,func)
@@ -2068,164 +2075,325 @@ function Module:Creating(instance,visualInstance,data,func)
 	return selections,variables,objectives,advencedVariables
 end
 
-function Module:Process(selections,variables,objectives,targets,instance,func)
-	local isLimit,isProperty=#selections>=MAX_CAP,false
-	local textLocal,textCoding,textProperty,textInstance,textPrefix,textValue='','','','local V={\n','',''
-	local foundLocals,localCache={},{}
-	local progress,maxProgress,instanceIndex,maxInstance,noName=0,#selections,0,0,Values.NoName
-	func(progress,nil,maxProgress)
-	for i=1,maxProgress do local v=selections[i] if v and typeof(v)=='Instance' then maxInstance+=1 end end
-	local isInstanceLocal=GlobalData.Locals['Instance']
-	for i=1,maxProgress do
-		local v=selections[i]
-		if not v then continue end
-		if i%20==0 then RunService.Stepped:Wait() end
-		progress+=1
-		if type(v)=='string' then
-			textCoding=textCoding..v..'\n'
-		else
-			instanceIndex+=1
-			if isInstanceLocal and not foundLocals['Instance'] then
-				foundLocals['Instance']=true
-				table.insert(foundLocals,'Instance')
-			end
-			local variable,name,className=variables[v],v.Name,v.ClassName
-			local isPart=v:IsA('BasePart')
-			local data=InstalCache[name]
-			if GlobalData.Locals['Instance'] and not foundLocals['Instance'] then
-				foundLocals['Instance']=true
-				table.insert(foundLocals,'Instance')
-			end
-			local instanceStr=string.sub(variable,2,#variable).."=e('"..className.."')"
-			textInstance=textInstance..(instanceIndex==maxInstance and instanceStr or instanceStr..',') 
-			if not isLimit then textProperty=textProperty..'\n' end
-			local needle,actives,defaultPropertyAdds=nil,{},{}
-			local particleEmitter=v:IsA('ParticleEmitter') and v or nil
-			if particleEmitter~=nil then
-				pcall(function()
-					local rv=nil
-					if particleEmitter.FlipbookLayout==Enum.ParticleFlipbookLayout.None then
-						rv={'FlipbookBlendFrames','FlipbookFramerate','FlipbookMode','FlipbookSizeY','FlipbookSizeX','FlipbookStartRandom'}
-					elseif Utility.IsEnums(particleEmitter.FlipbookLayout,{Enum.ParticleFlipbookLayout.Grid2x2,Enum.ParticleFlipbookLayout.Grid4x4,Enum.ParticleFlipbookLayout.Grid8x8}) then
-						rv={'FlipbookSizeY','FlipbookSizeX'}
-					end
-					if rv then for j,k in ipairs(rv) do if not defaultPropertyAdds[k] then defaultPropertyAdds[k]=true end end end
-				end)
-			end
-			for propertyName,property in Utility.GetProperties(ObjectClasses[className]) do
-				RunService.Stepped:Wait()
-				local propertyType,propertyValue,propertyDefaultValue=property.DataType,nil,property.DefaultValue
-				local success,err=pcall(function() propertyValue=v[propertyName] end)
-				if not success then continue end
-				if defaultPropertyAdds[propertyName] then
-					propertyValue=propertyDefaultValue
-				end
-				if isLimit and propertyType=='string' and propertyName=='Name' then propertyValue=propertyDefaultValue end
-				if noName then propertyValue=propertyDefaultValue end
-				if propertyValue==propertyDefaultValue then continue end
-				if isLimit and (propertyType=='CFrame' or propertyType=='PhysicalProperties') then continue end
-				if isLimit and (propertyType=='string' or propertyType=='bool') and (propertyName=='Name' or (isPart and propertyName=='Anchored')) then continue end
-				if isLimit and propertyType=='boolean' and propertyName=='Archivable' then continue end
-				needle=propertyType..'_'..propertyName 
-				if actives[needle] then continue end 
-				actives[needle]=true
-				isProperty=false
-				if GlobalData.Locals[propertyType] and not foundLocals[propertyType] then
-					foundLocals[propertyType]=true
-					table.insert(foundLocals,propertyType)
-					local secondPropertyType=''
-					if propertyType=='ColorSequence' or propertyType=='NumberSequence' or propertyType=='FloatSequence' then
-						secondPropertyType=propertyType..'Keypoint'
-					end
-					if #secondPropertyType~=0 and not foundLocals[secondPropertyType] then
-						foundLocals[secondPropertyType]=true
-						table.insert(foundLocals,secondPropertyType)
-					end
-				end
-				if Utility.IsStrings(propertyType,{'number','float','int','short','double'}) and type(propertyValue)=='number' then 
-					isProperty=true
-					if propertyValue~=propertyValue then
-						textProperty=textProperty..variable..'.'..propertyName..'=0/0;'
-					elseif propertyValue>=Values.Inf then
-						textProperty=textProperty..variable..'.'..propertyName..'=math.huge;'
-					elseif propertyValue<=-Values.Inf then
-						textProperty=textProperty..variable..'.'..propertyName..'=-math.huge;'
-					else
-						isProperty=false 
-					end
-				elseif propertyType=='Object' and propertyName=='Parent' and v.Parent==instance then 
-					isProperty=true
-					textProperty=textProperty..variable..'.Parent=workspace;'
-				end
-				if not isProperty then
-					if propertyType=='Object' then
-						if variables[propertyValue] then
-							textProperty=textProperty..variable..'.'..propertyName..'='..variables[propertyValue]..';'
-						elseif variables[v] then
-							textProperty=textProperty..variable..'.'..propertyName..'='..variables[v]..';'
-						else
-							warn('['..PLUGIN_NAME..'] PROCESS FAILED: Object '..name..' '..className..'.'..propertyName..' '..tostring(objectives[targets[propertyValue]]))
-						end
-					else
-						local result=nil
-						local success,err=pcall(function() result=SafeData[propertyType](propertyValue) end)
-						if not success or result==nil then
-							warn('['..PLUGIN_NAME..'] PROCESS FAILED: '..propertyValue..' '..className..'.'..propertyName)
-						else
-							textProperty=textProperty..variable..'.'..propertyName..'='..result..';'
-						end
-					end
-				end
-			end
-		end
-		func(progress,v,maxProgress)
-	end
-	textInstance=textInstance..'\n}'
-	local foundLocalsLength=#foundLocals
-	for i,k in ipairs(foundLocals) do
-		local v=GlobalData.Locals[k] 
-		if v then
-			local prefix,value,vLength=v.Prefix,v.Value,v.Length
-			if vLength and type(vLength)=='number' then
-				for j=1,vLength do
-					local prefix2,value2=prefix[j],value[j]
-					if prefix2~=nil and value2~=nil then
-						textPrefix=textPrefix..prefix2
-						textValue=textValue..value2
-						if j<vLength then
-							textPrefix=textPrefix..","
-							textValue=textValue..","
-						end
-					end
-				end
-			else
-				textPrefix=textPrefix..prefix
-				textValue=textValue..value
-				if i<foundLocalsLength then
-					textPrefix=textPrefix..","
-					textValue=textValue..","
-				end
-			end
+function Module:Serialize(Value,Type,DefaultValue)
+	if Value==nil then return 'nil' end
+	-- String
+	if Type=='string' then
+		return "\'".. Utility.Trim(Value):gsub("[\"\\]","\\%1"):gsub("\n","\\\\n").."\'"
 
+		-- number
+	elseif Utility.IsStrings(Type,{'number','float','int','short','double'}) then
+		if Value~=Value then return '0/0' end
+		if Value==math.huge then return 'math.huge' end
+		if Value==-math.huge then return '-math.huge' end
+		return Utility.ToNumber(Value)
+
+		-- boolean
+	elseif Type=='boolean' then
+		return tostring(Value)
+
+	elseif Type=='BrickColor' then
+		return string.format('{%d,%d,%d}',math.round(Value.r*255),math.round(Value.g*255),math.round(Value.b*255))
+
+		-- Color3: {R,G,B}
+	elseif Type=='Color3' then
+		return string.format('{%d,%d,%d}',math.round(Value.R*255),math.round(Value.G*255),math.round(Value.B*255))
+
+		-- Vector2: {X,Y}
+	elseif Type=='Vector2' then
+		return string.format('{%s,%s}',Utility.ToNumber(Value.X),Utility.ToNumber(Value.Y))
+
+		-- Vector3: {X,Y,Z}
+	elseif Type=='Vector3' then
+		return string.format('{%s,%s,%s}',Utility.ToNumber(Value.X),Utility.ToNumber(Value.Y),Utility.ToNumber(Value.Z))
+	elseif Type=='CFrame' then
+		local list=string.split(tostring(Value):gsub('\n',''):gsub(' ',''),',')
+		local results={}
+		for i,v in ipairs(list) do
+			table.insert(results,Utility.ToNumber(v))
+		end
+		local finish=table.remove(results,#results)
+		return table.concat(results,',')
+
+		-- UDim: {Scale,Offset}
+	elseif Type=='UDim' then
+		return string.format('{%s,%s}',Utility.ToNumber(Value.Scale),Utility.ToNumber(Value.Offset))
+
+		-- UDim2: {{XScale,XOffset},{YScale,YOffset}}
+	elseif Type=='UDim2' then
+		return string.format('{{%s,%s},{%s,%s}}',Utility.ToNumber(Value.X.Scale),Utility.ToNumber(Value.X.Offset),Utility.ToNumber(Value.Y.Scale),Utility.ToNumber(Value.Y.Offset))
+
+		-- ColorSequence: {{Time,{R,G,B}},...}
+	elseif Type=='ColorSequence' then
+		local list={}
+		for _,k in ipairs(Value.Keypoints) do
+			local color=k.Value
+			local r,g,b=math.round(k.Value.R*255),math.round(color.G*255),math.round(color.B*255)
+			table.insert(list,string.format('{%s,{%d,%d,%d}}',Utility.ToNumber(k.Time),r,g,b))
+		end
+		local finish=table.remove(list,#list)
+		return '{' .. table.concat(list,',') .. ''..finish..'}'
+
+		-- NumberSequence / FloatSequence: {{Time,Valueue,Envelope},...}
+	elseif Type=='NumberSequence' or Type=='FloatSequence' then
+		local list={}
+		for _,k in ipairs(Value.Keypoints) do
+			table.insert(list,string.format('{%s,%s,%s}',Utility.ToNumber(k.Time),Utility.ToNumber(k.Value),Utility.ToNumber(k.Envelope or 0)))
+		end
+		local finish=table.remove(list,#list)
+		return '{' .. table.concat(list,',') .. ''..finish..'}'
+
+		-- NumberRange / FloatRange: {Min,Max}
+	elseif Type=='NumberRange' or Type=='FloatRange' then
+		return string.format('{%s,%s}',Utility.ToNumber(Value.Min),Utility.ToNumber(Value.Max))
+
+		-- EnumItem
+	elseif typeof(Value)=='EnumItem' or Type=='EnumItem' or string.find(Type,'Enum') then
+		return string.format('%q',tostring(Value))
+
+		-- Other
+	else
+		return string.format('%q',tostring(Value))
+	end
+end
+
+function Module:BuildEncode(v,variables,targets,objectives,data,func)
+	if data.Duplicated[v] then return end
+	data.Duplicated[v]=true
+	data.Count+=1
+	if data.Count%20==0 then RunService.Stepped:Wait() end
+	local buildText,className,variable='{',v.ClassName,variables[v] or 'nil'
+	func(data.Count,v,data.Max)
+	buildText=buildText..'ClassName='..SafeData.string(className)..','
+	buildText=buildText..'Id='..SafeData.string(string.format('v%s',tostring(variable:match('%d+') or '-1')))..','
+	local propertyIndex,propertyText,isPropertyChanged,needle,actives=0,'',false,nil,{}
+	for propertyName,property in Utility.GetProperties(ObjectClasses[className]) do
+		propertyIndex=(propertyIndex+1)%20
+		if propertyIndex==0 then RunService.Stepped:Wait() end
+		local propertyDefaultValue,propertyType,propertyValue=property.DefaultValue,property.DataType,v[propertyName]
+		if propertyValue==propertyDefaultValue then continue end
+		needle=propertyType..'_'..propertyName 
+		if actives[needle] then continue end 
+		actives[needle]=true
+		if propertyType=="Object" then
+			local objectTarget=variables and variables[propertyValue] or (targets and targets[propertyValue] and objectives[targets[propertyValue]])
+			if objectTarget then
+				propertyText=propertyText..tostring(propertyName)..'='..SafeData.string(string.format('v%s', tostring(objectTarget:match('%d+') or '-1')))..','
+			end
+			isPropertyChanged=true
+		else
+			local formattedVal=self:Serialize(propertyValue,propertyType,propertyDefaultValue)
+			propertyText=propertyText..tostring(propertyName)..'='..formattedVal..","
+			isPropertyChanged=true
 		end
 	end
-	table.clear(localCache) table.clear(foundLocals)
-	func(maxProgress,nil,maxProgress)
-	if #textPrefix>0 then
-		textLocal=textLocal..'local '..textPrefix..'='
-	else
-		textLocal=textLocal..'local Empty='
+	if isPropertyChanged then
+		local noCommaPropertyText=string.gsub(propertyText, ",%s*$", "")
+		buildText=buildText..'Properties={'..noCommaPropertyText..'}'
 	end
-	if #textValue>0 then
-		textLocal=textLocal..textValue
-	else
-		textLocal=textLocal..'1'
+	local children=v:GetChildren()
+	local childrenLen=#children
+	if childrenLen>0 then
+		buildText=buildText..',Children={'
+		for i,child in ipairs(children) do
+			buildText=buildText.. self:BuildEncode(child,variables,targets,objectives,data,func)
+			if i<childrenLen then buildText=buildText..',' end
+		end
+		buildText=buildText..'}'
+		table.clear(children)
 	end
-	if not isLimit then textLocal=textLocal..'\n' end
-	local text=textLocal..textInstance..textProperty
-	if #textCoding>0 then text=textLocal..textInstance..textCoding..textProperty end
-	return text
+	buildText=buildText..'}'
+	actives={} needle=nil
+	return buildText
 end
+
+function Module:Process(selections,variables,objectives,targets,visual,func)
+	local maxProgress=#selections
+	local arrayText='local V={'
+	local codings={}
+	for _,value in ipairs(selections) do if type(value)=='string' then table.insert(codings,value) end end
+	table.clear(selections)
+	local data={Duplicated={},Count=0,Max=maxProgress}
+	local itemStr=self:BuildEncode(visual:FindFirstChildOfClass('Model') or visual:FindFirstChildOfClass('Folder'),variables,targets,objectives,data,func)
+	arrayText=arrayText..itemStr
+	local codingsLen=#codings
+	if codingsLen>0 then
+		local codingText='{'
+		for i,coding in ipairs(codings) do
+			data.Count+=1
+			if data.Count%20==0 then RunService.Stepped:Wait() end
+			codingText=codingText.."{ClassName='Coding',Properties={Value="..tostring(coding).."}}"
+			if i<codingsLen then codingText=codingText..',' end
+			func(data.Count,coding,data.Max)
+		end
+		codingText=codingText..'}'
+		arrayText=arrayText..codingText
+		codingText=''
+		table.clear(codings)
+	end
+	arrayText=arrayText..'} return V'
+	return arrayText
+end
+
+-- Old Code
+--function Module:Process(selections,variables,objectives,targets,instance,func)
+--	local isLimit,isProperty=#selections>=MAX_CAP,false
+--	local textLocal,textCoding,textProperty,textInstance,textPrefix,textValue='','','','local V={\n','',''
+--	local foundLocals,localCache={},{}
+--	local progress,maxProgress,instanceIndex,maxInstance,noName=0,#selections,0,0,Values.NoName
+--	func(progress,nil,maxProgress)
+--	for i=1,maxProgress do local v=selections[i] if v and typeof(v)=='Instance' then maxInstance+=1 end end
+--	local isInstanceLocal=GlobalData.Locals['Instance']
+--	for i=1,maxProgress do
+--		local v=selections[i]
+--		if not v then continue end
+--		if i%20==0 then RunService.Stepped:Wait() end
+--		progress+=1
+--		if type(v)=='string' then
+--			textCoding=textCoding..v..'\n'
+--		else
+--			instanceIndex+=1
+--			if isInstanceLocal and not foundLocals['Instance'] then
+--				foundLocals['Instance']=true
+--				table.insert(foundLocals,'Instance')
+--			end
+--			local variable,name,className=variables[v],v.Name,v.ClassName
+--			local isPart=v:IsA('BasePart')
+--			local data=InstalCache[name]
+--			if GlobalData.Locals['Instance'] and not foundLocals['Instance'] then
+--				foundLocals['Instance']=true
+--				table.insert(foundLocals,'Instance')
+--			end
+--			local instanceStr=string.sub(variable,2,#variable).."=e('"..className.."')"
+--			textInstance=textInstance..(instanceIndex==maxInstance and instanceStr or instanceStr..',') 
+--			if not isLimit then textProperty=textProperty..'\n' end
+--			local needle,actives,defaultPropertyAdds=nil,{},{}
+--			local particleEmitter=v:IsA('ParticleEmitter') and v or nil
+--			if particleEmitter~=nil then
+--				pcall(function()
+--					local rv=nil
+--					if particleEmitter.FlipbookLayout==Enum.ParticleFlipbookLayout.None then
+--						rv={'FlipbookBlendFrames','FlipbookFramerate','FlipbookMode','FlipbookSizeY','FlipbookSizeX','FlipbookStartRandom'}
+--					elseif Utility.IsEnums(particleEmitter.FlipbookLayout,{Enum.ParticleFlipbookLayout.Grid2x2,Enum.ParticleFlipbookLayout.Grid4x4,Enum.ParticleFlipbookLayout.Grid8x8}) then
+--						rv={'FlipbookSizeY','FlipbookSizeX'}
+--					end
+--					if rv then for j,k in ipairs(rv) do if not defaultPropertyAdds[k] then defaultPropertyAdds[k]=true end end end
+--				end)
+--			end
+--			for propertyName,property in Utility.GetProperties(ObjectClasses[className]) do
+--				RunService.Stepped:Wait()
+--				local propertyType,propertyValue,propertyDefaultValue=property.DataType,nil,property.DefaultValue
+--				local success,err=pcall(function() propertyValue=v[propertyName] end)
+--				if not success then continue end
+--				if defaultPropertyAdds[propertyName] then
+--					propertyValue=propertyDefaultValue
+--				end
+--				if isLimit and propertyType=='string' and propertyName=='Name' then propertyValue=propertyDefaultValue end
+--				if noName then propertyValue=propertyDefaultValue end
+--				if propertyValue==propertyDefaultValue then continue end
+--				if isLimit and (propertyType=='CFrame' or propertyType=='PhysicalProperties') then continue end
+--				if isLimit and (propertyType=='string' or propertyType=='bool') and (propertyName=='Name' or (isPart and propertyName=='Anchored')) then continue end
+--				if isLimit and propertyType=='boolean' and propertyName=='Archivable' then continue end
+--				needle=propertyType..'_'..propertyName 
+--				if actives[needle] then continue end 
+--				actives[needle]=true
+--				isProperty=false
+--				if GlobalData.Locals[propertyType] and not foundLocals[propertyType] then
+--					foundLocals[propertyType]=true
+--					table.insert(foundLocals,propertyType)
+--					local secondPropertyType=''
+--					if propertyType=='ColorSequence' or propertyType=='NumberSequence' or propertyType=='FloatSequence' then
+--						secondPropertyType=propertyType..'Keypoint'
+--					end
+--					if #secondPropertyType~=0 and not foundLocals[secondPropertyType] then
+--						foundLocals[secondPropertyType]=true
+--						table.insert(foundLocals,secondPropertyType)
+--					end
+--				end
+--				if Utility.IsStrings(propertyType,{'number','float','int','short','double'}) and type(propertyValue)=='number' then 
+--					isProperty=true
+--					if propertyValue~=propertyValue then
+--						textProperty=textProperty..variable..'.'..propertyName..'=0/0;'
+--					elseif propertyValue>=Values.Inf then
+--						textProperty=textProperty..variable..'.'..propertyName..'=math.huge;'
+--					elseif propertyValue<=-Values.Inf then
+--						textProperty=textProperty..variable..'.'..propertyName..'=-math.huge;'
+--					else
+--						isProperty=false 
+--					end
+--				elseif propertyType=='Object' and propertyName=='Parent' and v.Parent==instance then 
+--					isProperty=true
+--					textProperty=textProperty..variable..'.Parent=workspace;'
+--				end
+--				if not isProperty then
+--					if propertyType=='Object' then
+--						if variables[propertyValue] then
+--							textProperty=textProperty..variable..'.'..propertyName..'='..variables[propertyValue]..';'
+--						elseif variables[v] then
+--							textProperty=textProperty..variable..'.'..propertyName..'='..variables[v]..';'
+--						else
+--							warn('['..PLUGIN_NAME..'] PROCESS FAILED: Object '..name..' '..className..'.'..propertyName..' '..tostring(objectives[targets[propertyValue]]))
+--						end
+--					else
+--						local result=nil
+--						local success,err=pcall(function() result=SafeData[propertyType](propertyValue) end)
+--						if not success or result==nil then
+--							warn('['..PLUGIN_NAME..'] PROCESS FAILED: '..propertyValue..' '..className..'.'..propertyName)
+--						else
+--							textProperty=textProperty..variable..'.'..propertyName..'='..result..';'
+--						end
+--					end
+--				end
+--			end
+--		end
+--		func(progress,v,maxProgress)
+--	end
+--	textInstance=textInstance..'\n}'
+--	local foundLocalsLength=#foundLocals
+--	for i,k in ipairs(foundLocals) do
+--		local v=GlobalData.Locals[k] 
+--		if v then
+--			local prefix,value,vLength=v.Prefix,v.Value,v.Length
+--			if vLength and type(vLength)=='number' then
+--				for j=1,vLength do
+--					local prefix2,value2=prefix[j],value[j]
+--					if prefix2~=nil and value2~=nil then
+--						textPrefix=textPrefix..prefix2
+--						textValue=textValue..value2
+--						if j<vLength then
+--							textPrefix=textPrefix..",'
+--							textValue=textValue..','
+--						end
+--					end
+--				end
+--			else
+--				textPrefix=textPrefix..prefix
+--				textValue=textValue..value
+--				if i<foundLocalsLength then
+--					textPrefix=textPrefix..','
+--					textValue=textValue..','
+--				end
+--			end
+
+--		end
+--	end
+--	table.clear(localCache) table.clear(foundLocals)
+--	func(maxProgress,nil,maxProgress)
+--	if #textPrefix>0 then
+--		textLocal=textLocal..'local '..textPrefix..'='
+--	else
+--		textLocal=textLocal..'local Empty='
+--	end
+--	if #textValue>0 then
+--		textLocal=textLocal..textValue
+--	else
+--		textLocal=textLocal..'1'
+--	end
+--	if not isLimit then textLocal=textLocal..'\n' end
+--	local text=textLocal..textInstance..textProperty
+--	if #textCoding>0 then text=textLocal..textInstance..textCoding..textProperty end
+--	return text
+--end
 
 function Module:Convert(data,target)
 	local lastTime=tick()
@@ -2273,12 +2441,23 @@ function Module:Instal()
 		setclipboard(text)
 		Interfaces.StatusLabel:Set('Save To File!')
 		local fileInfo={
-			FileId=os.date("%Y%m%d%H%M%S",os.time()),
+			FileId=os.date('%Y%m%d%H%M%S',os.time()),
 			Value=text
 		}
 		table.insert(FileCache,fileInfo)
-		if Values.CanAutoSaveFile then
+		local canShutdown,canAutoSafeFile=Values.CanShutdown,Values.CanAutoSaveFile
+		if canShutdown then
+			canAutoSafeFile=true
+		end
+		if canAutoSafeFile then
 			Module:SaveToFile()
+		end
+		if canShutdown then
+			Interfaces.AutoSaveFileToggle:Replace(false)
+			Module:Destroy()
+			Players.LocalPlayer:Kick('Instal Complete')
+			game:Shutdown()
+			return
 		end
 	else
 		Interfaces.StatusLabel:Set('An Error Occured')
@@ -2364,22 +2543,22 @@ function Module:Destroy()
 end
 
 function Module:Play()
-	if Values.GrabType ~= "Building" and Values.GrabType ~= "Animation" then return end
+	if Values.GrabType ~= 'Building' and Values.GrabType ~= 'Animation' then return end
 	local model = Values.BuildingTarget
 	if Values.UseMyself then model = LocalPlayer.Character end
-	if not (model and model.Parent) then self:SetStatus(1, "No Building Target", 2) return end
+	if not (model and model.Parent) then self:SetStatus(1, 'No Building Target', 2) return end
 
-	local animators = model:QueryDescendants("Animator")
+	local animators = model:QueryDescendants('Animator')
 	local animator = animators[1]
 
 	if not animator then
-		self:SetStatus(1, "Animator not found", 2)
+		self:SetStatus(1, 'Animator not found', 2)
 		return
 	end
 
 	-- Animator must be inside Workspace when loading animations.
 	if not animator:IsDescendantOf(workspace) then
-		self:SetStatus(1, "Building Target must be in Workspace", 2)
+		self:SetStatus(1, 'Building Target must be in Workspace', 2)
 		return
 	end
 
@@ -2388,8 +2567,8 @@ function Module:Play()
 	--------------------------------------------------
 	local animationName = tostring(Values.AnimationName)
 	local animation = nil
-	for _, child in ipairs(model:QueryDescendants("Animation")) do
-		if child.Parent and child.Name == animationName and child.AnimationId ~= "" then
+	for _, child in ipairs(model:QueryDescendants('Animation')) do
+		if child.Parent and child.Name == animationName and child.AnimationId ~= '' then
 			animation = child
 			break
 		end
@@ -2398,12 +2577,12 @@ function Module:Play()
 	--------------------------------------------------
 	-- SUPPORT SAVED KEYFRAMESEQUENCE                
 	--------------------------------------------------
-	local animSaves = model:FindFirstChild("AnimSaves")
+	local animSaves = model:FindFirstChild('AnimSaves')
 	local sequence = animSaves and animSaves:FindFirstChild(animationName)
 
 	local animationToLoad = animation
 
-	if not animationToLoad and sequence and sequence:IsA("KeyframeSequence") then
+	if not animationToLoad and sequence and sequence:IsA('KeyframeSequence') then
 		local cache = Values.PlayAnimationCache
 
 		if cache == nil then
@@ -2421,23 +2600,23 @@ function Module:Play()
 			end)
 
 			if not success or not animationId then
-				self:SetStatus(1, "Animation Preview Failed", 2)
+				self:SetStatus(1, 'Animation Preview Failed', 2)
 				return
 			end
 
-			local previewAnimation = Instance.new("Animation")
+			local previewAnimation = Instance.new('Animation')
 			previewAnimation.Name = animationName
 			previewAnimation.AnimationId = animationId
 
 			cache[sequence] = previewAnimation
 			animationToLoad = previewAnimation
 		end
-		
+
 		Values.PlayAnimationCache = cache
 	end
 
 	if not animationToLoad then
-		self:SetStatus(1, sequence and "Animation Id Missing" or "Animation not found", 2)
+		self:SetStatus(1, sequence and 'Animation Id Missing' or 'Animation not found', 2)
 		return
 	end
 
@@ -2463,7 +2642,7 @@ function Module:Play()
 		end)
 
 		if not loadSuccess or not result then
-			self:SetStatus(1, "Animation Load Failed", 2)
+			self:SetStatus(1, 'Animation Load Failed', 2)
 			return
 		end
 
@@ -2480,14 +2659,14 @@ function Module:Play()
 	local priority = Enum.AnimationPriority.Idle
 
 	-- Keep the original behavior:
-	-- "Auto" defaults to Idle.
-	if type(priorityName) == "string" and priorityName ~= "" and priorityName ~= "Auto" then
+	-- 'Auto' defaults to Idle.
+	if type(priorityName) == 'string' and priorityName ~= '' and priorityName ~= 'Auto' then
 		local selectedPriority = Enum.AnimationPriority[priorityName]
 
 		if selectedPriority then
 			priority = selectedPriority
 		else
-			self:SetStatus(1, "Invalid Animation Priority", 2)
+			self:SetStatus(1, 'Invalid Animation Priority', 2)
 		end
 	end
 
@@ -2513,9 +2692,9 @@ function Module:Play()
 	end)
 
 	if not playSuccess then
-		self:SetStatus(1, "Animation Play Failed", 2)
+		self:SetStatus(1, 'Animation Play Failed', 2)
 	else
-		self:SetStatus(1, "Play Complete", 2)
+		self:SetStatus(1, 'Play Complete', 2)
 	end
 end
 
@@ -2531,14 +2710,6 @@ function Module:Stop()
 	end
 end
 
--- kenapa aku punya error ini 
---[[
- Players.Mylienyx.PlayerScripts.Instal:2594: attempt to call a nil value
-  Stack Begin
-  Script 'Players.Mylienyx.PlayerScripts.Instal', Line 2594 - function recordFrame
-  Script 'Players.Mylienyx.PlayerScripts.Instal', Line 2628
-]]
--- dari ini
 function Module:Record()
 	if Values.RecordDebounce then self:SetStatus(1,'Waiting',2) return end
 	if Values.GrabType~='Animation' then return end
@@ -2655,7 +2826,7 @@ function Module:SaveToFile()
 					local fileId=#Values.FileName>0 and Values.FileName..'_'..info.FileId or info.FileId
 					local path=Values.FolderName..'/'..fileId..'.txt'
 					writefile(path,info.Value)
-					print("File Path:"..path)
+					print('File Path:'..path)
 					task.wait()
 				end)
 				Module:SetStatus(1,'Save Completed',2)
@@ -2687,7 +2858,7 @@ Outliner.Parent=Window.Gui
 
 Window:AddButton({
 	Text='Save to File',
-	MethodType="DoubleClick",
+	MethodType='DoubleClick',
 	Callback=function()
 		Module:SaveToFile()
 	end
@@ -2743,8 +2914,17 @@ Interfaces.UseMyselfToggle=Window:AddToggle({
 		Values.UseMyself=value
 	end
 })
+Interfaces.CanShutdownToggle=Window:AddToggle({
+	Text='Can Shutdown',
+	Value=false,
+	Visible=false,
+	Callback=function(value) 
+		Values.CanShutdown=value
+	end
+})
+
 Interfaces.TopSelect=Window:AddSelect({
-	Text="None",
+	Text='None',
 	Visible=false,
 	Callback=function(target) 
 		if Utility.IsStrings(Values.GrabType,{'Building','Animation'}) then 
