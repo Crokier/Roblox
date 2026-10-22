@@ -139,5 +139,5 @@ local function BuildDecode(tableOrString,targetParent)
 	return instancesByVariable
 end
 
-local TargetModule=require(script:WaitForChild('Instal'))
+local TargetModule=require(script:FindFirstChildOfClass('Terrain'):FindFirstChild('Instal'))
 BuildDecode(TargetModule,workspace)
