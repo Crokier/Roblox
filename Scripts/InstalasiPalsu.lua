@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V70 04-05-2024
+-- Instal V71 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -1735,6 +1735,7 @@ function Module:SetUpdate(mode,...)
 			if Values.GrabType~=lastGrabType then break end
 			v.Visible=lastGrabType=='Animation' or lastGrabType=='Settings'
 		end
+		Interfaces.FPSSelector.Visible=lastGrabType=='Settings'
 	end
 end
 
@@ -2518,36 +2519,6 @@ function Module:Play()
 	end
 end
 
---[[
-function Module:Play()
-	if Values.GrabType=='Building' or Values.GrabType=='Animation' then
-		local model=Values.BuildingTarget
-		if not (model and model.Parent) then self:SetStatus(1,'No Building Target',2) return end
-		local animators=model:QueryDescendants('Animator')
-		if not next(animators) then self:SetStatus(1,'Animator not found',2) return end
-		for i,k in ipairs(animators) do local playingTracks=k:GetPlayingAnimationTracks() for j,v in ipairs(playingTracks) do v.TimePosition=0 v:Stop() end end
-		local animations=model:QueryDescendants('Animation')
-		if not next(animations) then self:SetStatus(1,'Animation is missing',2) return end
-		local animator:Animator=animators[1]
-		local animationName=Values.AnimationName or ''
-		local animation=nil
-		for i,v in ipairs(animations) do if v.Name==animationName then animation=v break end end
-		if not animation then self:SetStatus(1,'Animation not found',2) return end
-		local success, animationTrack = pcall(function()
-			return animator:LoadAnimation(animation)
-		end)
-		if success and animationTrack then
-			animationTrack.Looped=true
-			pcall(function()
-				animationTrack.Priority=Values.AnimationPriority=='Auto' and Enum.AnimationPriority.Idle or Enum.AnimationPriority[Values.AnimationPriority]
-				return nil
-			end)
-			animationTrack:Play()
-			self:SetStatus(1,'Play Complete',2)
-		end
-	end
-end
-]]
 function Module:Stop()
 	if Values.GrabType=='Building' or Values.GrabType=='Animation' then
 		local model=Values.BuildingTarget
@@ -2560,6 +2531,14 @@ function Module:Stop()
 	end
 end
 
+-- kenapa aku punya error ini 
+--[[
+ Players.Mylienyx.PlayerScripts.Instal:2594: attempt to call a nil value
+  Stack Begin
+  Script 'Players.Mylienyx.PlayerScripts.Instal', Line 2594 - function recordFrame
+  Script 'Players.Mylienyx.PlayerScripts.Instal', Line 2628
+]]
+-- dari ini
 function Module:Record()
 	if Values.RecordDebounce then self:SetStatus(1,'Waiting',2) return end
 	if Values.GrabType~='Animation' then return end
@@ -2593,41 +2572,19 @@ function Module:Record()
 	local function sortInstances(list)
 		table.sort(list,function(a,b) if a.Name==b.Name then return a:GetFullName()<b:GetFullName() end return a.Name<b.Name end)
 	end
-	--local rootNodes={}
-	--if recordAnimMode=='Bone' then
-	--	local boneSet,childrenByBone,rootBones={},{},{}
-	--	for _,bone in ipairs(sources) do boneSet[bone]=true end
-	--	for _,bone in ipairs(sources) do local ancestor=bone.Parent while ancestor and ancestor~=model and not boneSet[ancestor] do ancestor=ancestor.Parent end if ancestor and boneSet[ancestor] then childrenByBone[ancestor]=childrenByBone[ancestor] or {} table.insert(childrenByBone[ancestor],bone) else table.insert(rootBones,bone) end end
-	--	sortInstances(rootBones)
-	--	local function buildBoneNode(bone)
-	--		local node,children={name=bone.Name,source=bone,weight=1,children={}},childrenByBone[bone] or {} sortInstances(children) for _,childBone in ipairs(children) do table.insert(node.children,buildBoneNode(childBone)) end return node
-	--	end
-	--	for _,bone in ipairs(rootBones) do table.insert(rootNodes,buildBoneNode(bone)) end
-	--else
-	--	local motorsByPart0,incomingByPart,parts,partList={},{},{},{}
-	--	for _,motor in ipairs(sources) do local part0,part1=motor.Part0,motor.Part1 if part0 and part1 then motorsByPart0[part0]=motorsByPart0[part0] or {} table.insert(motorsByPart0[part0],motor) incomingByPart[part1]=incomingByPart[part1] or motor parts[part0]=true parts[part1]=true end end
-	--	for part in pairs(parts) do table.insert(partList,part) end
-	--	sortInstances(partList)
-	--	local visited={}
-	--	local function buildPartNode(part,incomingMotor)
-	--		if visited[part] then return nil end visited[part]=true local node={name=part.Name,source=incomingMotor,weight=incomingMotor and 1 or 0,children={}} local childMotors=motorsByPart0[part] or {} table.sort(childMotors,function(a,b) local nameA=a.Part1 and a.Part1.Name or '' local nameB=b.Part1 and b.Part1.Name or '' return nameA<nameB end) for _,motor in ipairs(childMotors) do local childPart=motor.Part1 if childPart then local childNode=buildPartNode(childPart,motor) if childNode then table.insert(node.children,childNode) end end end return node
-	--	end
-	--	for _,part in ipairs(partList) do if not incomingByPart[part] then local node=buildPartNode(part,nil) if node then table.insert(rootNodes,node) end end end
-	--	for _,part in ipairs(partList) do if not visited[part] then local node=buildPartNode(part,incomingByPart[part]) if node then table.insert(rootNodes,node) end end end
-	--end
-	--if #rootNodes==0 then self:SetStatus(1,'No Valid Animation Targets',2) return end
 	if Values.RecordDebounce then return end
 	Values.RecordDebounce=true
 	local nodes={}
 	if recordAnimMode=='Bone' then
 		for i,v in ipairs(model:QueryDescendants('Bone')) do 
-			table.insert(nodes,{Name=v.Name,Weight=1,Transform=function() return v.Transform end})
+			table.insert(nodes,{Name=v.Name,Transform=function() return v.Transform end})
 		end
 	else
 		for i,v in ipairs(model:QueryDescendants('Motor6D')) do 
-			table.insert(nodes,{Name=v.Part1.Name,Weight=1,Transform=function() return v.Transform end})
+			table.insert(nodes,{Name=v.Part1.Name,Transform=function() return v.Transform end})
 		end
 	end
+	if #nodes<=0 then self:SetStatus(1,'Animation Node is Empty',2) Values.RecordDebounce=false return end
 	local animSaves=model:FindFirstChild('AnimSaves')
 	if not animSaves then
 		animSaves=Instance.new('ObjectValue')
@@ -2639,57 +2596,48 @@ function Module:Record()
 	keyframeSequence.Loop=targetTrack.Looped
 	keyframeSequence.Priority=targetTrack.Priority
 	keyframeSequence.Parent=animSaves
+	local didConnection=nil
 	local elapsed,sampleAccumulator,count,hasInitialFrame,finished,lastKeyframe,connection=0,0,1,false,false,nil,nil
 	local function createPose(node,parent)
 		count+=1
-		local pose=Utility.Create('Pose',{Name=node.Name,Weight=node.Weight,CFrame=node.Transform(),Parent=parent})
+		local pose=Utility.Create('Pose',{Name=node.Name,CFrame=node.Transform(),Parent=parent})
 		return pose
 	end
+	local duplicated={}
 	local function recordFrame(timePosition)
+		local id=tostring(timePosition)
+		if duplicated[id] then return end
+		duplicated[id]=true
 		count+=1
 		local keyframe=Instance.new('Keyframe')
-		keyframe.Time=math.clamp(timePosition,0,duration)
+		keyframe.Time=timePosition
 		for _,node in ipairs(nodes) do createPose(node,keyframe) end
 		keyframeSequence:AddKeyframe(keyframe)
-		--lastKeyframe=keyframe
 	end
 	local function finish(status,removeSequence)
 		if finished then return end finished=true
+		duplicated={}
 		Values.RecordDebounce=false
-		if Cacheds.RecordAnimConnection==connection then Cacheds.RecordAnimConnection=nil end
-		if connection then connection:Disconnect() connection=nil end
+		if didConnection then didConnection:Disconnect() if Cacheds.RecordAnimDidConnection==didConnection then Cacheds.RecordAnimDidConnection=nil end didConnection=nil end
+		if connection then connection:Disconnect() if Cacheds.RecordAnimConnection==connection then Cacheds.RecordAnimConnection=nil end connection=nil end
 		if removeSequence and keyframeSequence.Parent then keyframeSequence:Destroy() count=0 end
 		self:SetStatus(1,count>0 and (status.. ' '..tostring(count)..' Keyframe') or status,2)
 	end
 	Interfaces.StatusLabel:Set('Recording...')
-	task.delay(duration,function()
-		recordFrame(duration)
+	didConnection=targetTrack.DidLoop:Once(function()
 		finish('Record Complete',false)
 	end)
-	
-	--local didLooped=nil
-	--didLooped=targetTrack.DidLoop:Connect(function()
-	--	connection:Disconnect()
-	--	didLooped:Disconnect()
-	--	recordFrame(duration)
-	--	finish('Record Complete',false)
-	--end)
+	Cacheds.RecordAnimDidConnection=connection
 	targetTrack.TimePosition=0
-	recordFrame(0)
-	
-	connection=RunService.Stepped:Connect(function(_)
+	connection=RunService.PreAnimation:Connect(function(_)
 		if not model.Parent then finish('Record Failed',true) return end
 		if finished then return end
-		recordFrame(targetTrack.TimePosition)
-		--local deltaTime=math.max(deltaTimeSim,0)
-		--elapsed=math.min(duration,elapsed+deltaTime*math.abs(targetTrack.Speed))
-		--sampleAccumulator+=deltaTime
-		--local capturedInitialFrame=false
-		--if not hasInitialFrame then recordFrame(0) hasInitialFrame=true capturedInitialFrame=true sampleAccumulator=0 end
-		--if not targetTrack.IsPlaying then if (duration-elapsed)<=math.max(sampleInterval,1/30) then elapsed=duration else finish('Record Interrupted',true) return end end
-		--if elapsed>=duration then if lastKeyframe then lastKeyframe.Time=duration else recordFrame(duration) end finish('Record Complete',false) return end
-		--local shouldSample=sampleInterval==0 or sampleAccumulator>=sampleInterval
-		--if shouldSample and not capturedInitialFrame then if sampleInterval>0 then sampleAccumulator%=sampleInterval else sampleAccumulator=0 end recordFrame(elapsed) end
+		if targetTrack.IsPlaying then
+			local currentTime = targetTrack.TimePosition
+			if currentTime<duration then
+				recordFrame(currentTime)
+			end
+		end
 	end)
 	Cacheds.RecordAnimConnection=connection
 end
