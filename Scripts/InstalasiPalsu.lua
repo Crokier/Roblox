@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V67 04-05-2024
+-- Instal V68 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -7,7 +7,7 @@ local MAX_CAP=math.huge
 local Missing=function(t,v,f) return type(v)==t and v or f end
 setclipboard,cloneref=Missing('function',setclipboard,function(text) warn(text) end),Missing('function',cloneref,function(v) return v end)
 
-local Services=setmetatable({},{__index=function(_,i)  return cloneref and cloneref(game:GetService(i)) or game:GetService(i) end})
+local Services=setmetatable({},{__index=function(self,i) local service=cloneref and cloneref(game:GetService(i)) or game:GetService(i) self[service]=service return service end})
 local Workspace,Players,UserInputService,RunService,ReplicatedFirst,ReplicatedStorage,SoundService,Lighting,Teams,InsertService,StarterGui,StarterPack,HttpService=Services.Workspace,Services.Players,Services.UserInputService,Services.RunService,Services.ReplicatedFirst,Services.ReplicatedStorage,Services.SoundService,Services.Lighting,Services.Teams,Services.InsertService,Services.StarterGui,Services.StarterPack,Services.HttpService
 local Window=nil
 
@@ -45,7 +45,10 @@ local Values={
 	['NoName']=false,
 	['FileName']='',
 	['CanAutoSaveFile']=false,
-	['AnimationName']=''
+	['AnimationName']='',
+	['AnimationPriority']='Idle',
+	['PlayAnimationCache']={},
+	['UseMyself']=false
 }
 
 local Templates={
@@ -66,7 +69,10 @@ local Interfaces={
 	['GrabTypeSelector']=nil,
 	['AnimationSelector']=nil,
 	['FPSSelector']=nil,
-	['SoundSlider']=nil
+	['SoundSlider']=nil,
+	['AnimationPrioritySelector']=nil,
+	['UseNameToggle']=nil,
+	['UseMyselfToggle']=nil
 
 }
 local Utility={}
@@ -88,7 +94,9 @@ Utility={
 	ToPersentase=Strs.ToPersentase,
 	ToNumber=Strs.ToNumber,
 	Trim=Strs.Trim,
-
+	FastFind=function(s,pattern)
+		return string.find(s,pattern,1,true)
+	end,
 	-- Tabler --
 	GetProperties=Tabler.GetProperties,
 	Foreach=function(t,func)
@@ -299,7 +307,8 @@ local GlobalData={
 		['UIClasses']={'BackgroundColor3','ImageColor3','BorderColor3','Color','Color3','Value','BrickColor'},
 		['ColorProperties']={'BackgroundColor3','ImageColor3','BorderColor3','Color','Color3','Value','BrickColor'},
 		['IconProperties']={'Texture','Icon','TextureId','Image','HoverImage'},
-		['TextProperties']={'Name','Value','Message','Text','Print','DisplayName'}
+		['TextProperties']={'Name','Value','Message','Text','Print','DisplayName'},
+		['AnimationPriority']={}
 	},
 	['Propertys']={},
 	['FPSRates']={
@@ -1586,6 +1595,13 @@ ObjectClasses,RegisteredClasses=Utility.CreateClasses(REFERENCE_PROPERTY)
 REFERENCE_PROPERTY=nil
 GUI_PROPERTY=nil
 
+table.insert(GlobalData.Types.AnimationPriority,'Auto')
+for _,v in pairs(Enum.AnimationPriority:GetEnumItems()) do
+	if not table.find(GlobalData.Types.AnimationPriority,v.Name) then
+		table.insert(GlobalData.Types.AnimationPriority,v.Name)
+	end
+end
+
 local Module={Parent=false}
 
 function Module:SetStatus(mode,...)
@@ -1651,6 +1667,7 @@ function Module:SetUpdate(mode,...)
 		Interfaces.UseNameToggle.Visible=lastGrabType=='Settings'
 		Interfaces.InitializeButton.Visible=lastGrabType=='None'
 		Interfaces.InstalButton.Visible=lastGrabType=='None'
+		Interfaces.UseMyselfToggle.Visible=lastGrabType=='Settings' or lastGrabType=='Animation' or lastGrabType=='Building'
 		for i,v in ipairs({Interfaces.DestroyButton,Interfaces.ResetButton}) do v.Visible=lastGrabType=='None' end
 		local isAnimation,isBuilding=lastGrabType=='Animation',lastGrabType=='Building' or lastGrabType=='Animation'
 		Interfaces.TopSelect.Visible=isBuilding
@@ -1680,8 +1697,13 @@ function Module:SetUpdate(mode,...)
 		Interfaces.MainLabel.TextScaled=lastGrabType=='Gui'
 		Interfaces.MainLabel.Visible=lastGrabType=='Gui'
 		Interfaces.StopButton.Visible=isBuilding
-		for i,v in ipairs({Interfaces.RecordButton,Interfaces.AnimationSelector,Interfaces.FPSSelector,Interfaces.PlayButton,Interfaces.AnimationTextBox}) do 
+		for i,v in ipairs({Interfaces.RecordButton,Interfaces.AnimationSelector,Interfaces.PlayButton}) do 
+			if Values.GrabType~=lastGrabType then break end
 			v.Visible=isAnimation
+		end
+		for i,v in ipairs({Interfaces.AnimationTextBox,Interfaces.AnimationPrioritySelector,Interfaces.FPSSelector}) do
+			if Values.GrabType~=lastGrabType then break end
+			v.Visible=lastGrabType=='Animation' or lastGrabType=='Settings'
 		end
 	end
 end
@@ -2249,9 +2271,17 @@ function Module:Add()
 		return 
 	end
 	if lastGrabType=='Building' then
+		local lastPlayerCharacter=LocalPlayer.Character
 		local lastBuildingTarget=Values.BuildingTarget
+		if Values.UseMyself then lastBuildingTarget=lastPlayerCharacter end
 		if not lastBuildingTarget then self:SetStatus(1,'Building Target Has Empty',2) return end
-		if BuildingCache[lastBuildingTarget] then self:SetStatus(1,'Building Already Added',2) return end
+		if BuildingCache[lastBuildingTarget] then 
+			self:SetStatus(1,lastBuildingTarget==lastPlayerCharacter and 'Myself Already Added' or 'Building Already Added',2)
+			if Values.UseMyself and lastBuildingTarget==lastPlayerCharacter and Interfaces.UseMyselfToggle then
+				Interfaces.UseMyselfToggle:Set(false)
+			end
+			return 
+		end
 		BuildingCache[lastBuildingTarget]=true
 		Values.BuildingTarget=nil
 		if not GrabTypeCache[lastGrabType] then GrabTypeCache[lastGrabType]=true end
@@ -2300,8 +2330,166 @@ function Module:Destroy()
 		v:Disconnect()
 		k,v=next(Cacheds)
 	end
+	Values.PlayAnimationCache={}
 end
 
+function Module:Play()
+	if Values.GrabType ~= "Building" and Values.GrabType ~= "Animation" then return end
+	local model = Values.BuildingTarget
+	if Values.UseMyself then model = LocalPlayer.Character end
+	if not (model and model.Parent) then self:SetStatus(1, "No Building Target", 2) return end
+
+	local animators = model:QueryDescendants("Animator")
+	local animator = animators[1]
+
+	if not animator then
+		self:SetStatus(1, "Animator not found", 2)
+		return
+	end
+
+	-- Animator must be inside Workspace when loading animations.
+	if not animator:IsDescendantOf(workspace) then
+		self:SetStatus(1, "Building Target must be in Workspace", 2)
+		return
+	end
+
+	--------------------------------------------------
+	-- FIND ANIMATION
+	--------------------------------------------------
+	local animationName = tostring(Values.AnimationName)
+	local animation = nil
+	for _, child in ipairs(model:QueryDescendants("Animation")) do
+		if child.Parent and child.Name == animationName and child.AnimationId ~= "" then
+			animation = child
+			break
+		end
+	end
+
+	--------------------------------------------------
+	-- SUPPORT SAVED KEYFRAMESEQUENCE                
+	--------------------------------------------------
+	local animSaves = model:FindFirstChild("AnimSaves")
+	local sequence = animSaves and animSaves:FindFirstChild(animationName)
+
+	local animationToLoad = animation
+
+	if not animationToLoad and sequence and sequence:IsA("KeyframeSequence") then
+		local cache = Values.PlayAnimationCache
+
+		if cache == nil then
+			cache = {}
+			Values.PlayAnimationCache = cache
+		end
+
+		animationToLoad = cache[sequence]
+
+		if not animationToLoad then
+			local provider = Services.KeyframeSequenceProvider
+
+			local success, animationId = pcall(function()
+				return provider:RegisterKeyframeSequence(sequence)
+			end)
+
+			if not success or not animationId then
+				self:SetStatus(1, "Animation Preview Failed", 2)
+				return
+			end
+
+			local previewAnimation = Instance.new("Animation")
+			previewAnimation.Name = animationName
+			previewAnimation.AnimationId = animationId
+
+			cache[sequence] = previewAnimation
+			animationToLoad = previewAnimation
+		end
+		
+		Values.PlayAnimationCache = cache
+	end
+
+	if not animationToLoad then
+		self:SetStatus(1, sequence and "Animation Id Missing" or "Animation not found", 2)
+		return
+	end
+
+	--------------------------------------------------
+	-- GET OR LOAD ANIMATION TRACK
+	--------------------------------------------------
+
+	local animationTrack
+
+	-- Reuse an existing track when possible.
+	local success, existingTrack = pcall(function()
+		return animator:GetTrackByAnimationId(animationToLoad.AnimationId)
+	end)
+
+	if success then
+		animationTrack = existingTrack
+	end
+
+	-- Load only if this animation has no existing track.
+	if not animationTrack then
+		local loadSuccess, result = pcall(function()
+			return animator:LoadAnimation(animationToLoad)
+		end)
+
+		if not loadSuccess or not result then
+			self:SetStatus(1, "Animation Load Failed", 2)
+			return
+		end
+
+		animationTrack = result
+	end
+
+	--------------------------------------------------
+	-- SET ANIMATION SETTINGS
+	--------------------------------------------------
+
+	animationTrack.Looped = true
+
+	local priorityName = Values.AnimationPriority
+	local priority = Enum.AnimationPriority.Idle
+
+	-- Keep the original behavior:
+	-- "Auto" defaults to Idle.
+	if type(priorityName) == "string" and priorityName ~= "" and priorityName ~= "Auto" then
+		local selectedPriority = Enum.AnimationPriority[priorityName]
+
+		if selectedPriority then
+			priority = selectedPriority
+		else
+			self:SetStatus(1, "Invalid Animation Priority", 2)
+		end
+	end
+
+	animationTrack.Priority = priority
+
+	--------------------------------------------------
+	-- STOP CURRENT ANIMATIONS
+	--------------------------------------------------
+	for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+		if track ~= animationTrack or track.IsPlaying then
+			track:Stop(0.1)
+		end
+	end
+
+	--------------------------------------------------
+	-- PLAY ANIMATION
+	--------------------------------------------------
+	local playSuccess, playError = pcall(function()
+		animationTrack:Play(0.1, 1, 1)
+		if animationTrack.Length > 0 then
+			animationTrack.TimePosition = 0
+		end
+	end)
+
+	if not playSuccess then
+		self:SetStatus(1, "Animation Play Failed", 2)
+	else
+		self:SetStatus(1, "Play Complete", 2)
+	end
+end
+
+--[[
 function Module:Play()
 	if Values.GrabType=='Building' or Values.GrabType=='Animation' then
 		local model=Values.BuildingTarget
@@ -2311,7 +2499,7 @@ function Module:Play()
 		for i,k in ipairs(animators) do local playingTracks=k:GetPlayingAnimationTracks() for j,v in ipairs(playingTracks) do v.TimePosition=0 v:Stop() end end
 		local animations=model:QueryDescendants('Animation')
 		if not next(animations) then self:SetStatus(1,'Animation is missing',2) return end
-		local animator=animators[1]
+		local animator:Animator=animators[1]
 		local animationName=Values.AnimationName or ''
 		local animation=nil
 		for i,v in ipairs(animations) do if v.Name==animationName then animation=v break end end
@@ -2321,16 +2509,20 @@ function Module:Play()
 		end)
 		if success and animationTrack then
 			animationTrack.Looped=true
-			animationTrack.Priority=Enum.AnimationPriority.Action
+			pcall(function()
+				animationTrack.Priority=Values.AnimationPriority=='Auto' and Enum.AnimationPriority.Idle or Enum.AnimationPriority[Values.AnimationPriority]
+				return nil
+			end)
 			animationTrack:Play()
 			self:SetStatus(1,'Play Complete',2)
 		end
 	end
 end
-
+]]
 function Module:Stop()
 	if Values.GrabType=='Building' or Values.GrabType=='Animation' then
 		local model=Values.BuildingTarget
+		if Values.UseMyself then model = LocalPlayer.Character end
 		if not (model and model.Parent) then self:SetStatus(1,'No Building Target',2) return end
 		local animators=model:QueryDescendants('Animator')
 		if not next(animators) then self:SetStatus(1,'Animator not found',2) return end
@@ -2662,16 +2854,8 @@ function Module:Record()
 		animSaves.Parent = model
 	end
 
-	local sequenceName = "Record_" .. os.time()
-	local suffix = 1
-
-	while animSaves:FindFirstChild(sequenceName) do
-		sequenceName = "Record_" .. os.time() .. "_" .. suffix
-		suffix += 1
-	end
-
 	local keyframeSequence = Instance.new("KeyframeSequence")
-	keyframeSequence.Name = sequenceName
+	keyframeSequence.Name = "Record_" .. tostring(os.time())
 	keyframeSequence.Loop = targetTrack.Looped
 	keyframeSequence.Priority = targetTrack.Priority
 	keyframeSequence.Parent = animSaves
@@ -2959,9 +3143,9 @@ end
 
 local function OnCharacterToolAdded(character)
 	if Cacheds.CharacterToolAdded then Cacheds.CharacterToolAdded:Disconnect() Cacheds.CharacterToolAdded=nil end
-	Cacheds.CharacterToolAdded=character.ChildAdded:Connect(function(child)
-		if child:IsA('Tool') then Values.ToolTarget=child end
-	end)
+	if Cacheds.CharacterRemoved then Cacheds.CharacterRemoved:Disconnect() Cacheds.CharacterRemoved=nil end
+	Cacheds.CharacterRemoved=character.AncestryChanged:Connect(function(_,parent) if not parent then if BuildingCache[character]~=nil then BuildingCache[character]=nil end end end)
+	Cacheds.CharacterToolAdded=character.ChildAdded:Connect(function(child) if child:IsA('Tool') then Values.ToolTarget=child end end)
 end
 
 OnCharacterToolAdded(LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait())
@@ -2984,14 +3168,12 @@ Window:AddButton({
 		Module:SaveToFile()
 	end
 })
-
 Interfaces.StatusLabel=Window:AddLabel({
 	Text='Status',
 	TextColor3=Color3.fromRGB(255,255,255),
 	TextXAlignment=Enum.TextXAlignment.Center,
 	Wrap=true
 })
-
 Interfaces.LoaderLabel=Window:AddLabel({
 	Text='(0/0) 0%',
 	TextColor3=Color3.fromRGB(255,255,255)
@@ -3024,8 +3206,17 @@ Interfaces.AutoSaveFileToggle=Window:AddToggle({
 Interfaces.UseNameToggle=Window:AddToggle({
 	Text='No Name',
 	Value=false,
+	Visible=false,
 	Callback=function(value) 
 		Values.NoName=value
+	end
+})
+Interfaces.UseMyselfToggle=Window:AddToggle({
+	Text='Use Myself',
+	Value=false,
+	Visible=false,
+	Callback=function(value) 
+		Values.UseMyself=value
 	end
 })
 Interfaces.TopSelect=Window:AddSelect({
@@ -3121,11 +3312,41 @@ Interfaces.RecordButton=Window:AddButton({
 		Module:Record() 
 	end
 })
+Interfaces.AnimationPrioritySelector=Window:AddSelector({
+	Options=GlobalData.Types.AnimationPriority,
+	Value='Auto',
+	NoCap=true,
+	Visible=false,
+	Flag='animation_priority_type',
+	Callback=function(value)
+		Values.AnimationPriority=value
+	end
+})
 Interfaces.AnimationTextBox=Window:AddInput({
 	Text='Animation Name',
 	Visible=false,
 	Callback=function(text)
 		Values.AnimationName=text
+		if Values.AnimationPriority=='Auto' then
+			if Utility.FastFind(text,'Idle') then
+				Values.AnimationPriority='Idle'
+				return
+			end
+			for _,pattern in ipairs({'Run','Climb','Walk','Swim','Move'}) do 
+				if Values.AnimationPriority~='Auto' then break end
+				if Utility.FastFind(text,pattern) then
+					Values.AnimationPriority='Movement'
+					return
+				end
+			end
+			for _,pattern in ipairs({'Carry','Steal','Attack'}) do 
+				if Values.AnimationPriority~='Auto' then break end
+				if Utility.FastFind(text,pattern) then
+					Values.AnimationPriority='Action'
+					return
+				end
+			end
+		end
 	end
 })
 Interfaces.PlayButton=Window:AddButton({
