@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V73 04-05-2024
+-- Instal V75 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -51,6 +51,7 @@ local Values={
 	['PlayAnimationCache']={},
 	['UseMyself']=false,
 	['CanShutdown']=false,
+	['CanWrapText']=true,
 }
 
 local Templates={
@@ -75,7 +76,8 @@ local Interfaces={
 	['AnimationPrioritySelector']=nil,
 	['UseNameToggle']=nil,
 	['UseMyselfToggle']=nil,
-	['CanShutdownToggle']=nil
+	['CanShutdownToggle']=nil,
+	['CanWrapText']=false
 
 }
 
@@ -1706,6 +1708,7 @@ function Module:SetUpdate(mode,...)
 		Interfaces.InstalButton.Visible=lastGrabType=='None'
 		Interfaces.UseMyselfToggle.Visible=isSettings or isBuilding
 		Interfaces.CanShutdownToggle.Visible=isSettings
+		Interfaces.CanWrapTextToggle.Visible=isSettings
 		for i,v in ipairs({Interfaces.DestroyButton,Interfaces.ResetButton}) do v.Visible=lastGrabType=='None' end
 		Interfaces.TopSelect.Visible=isBuilding
 		self:SetUpdate(isBuilding and 2 or 0)
@@ -2248,66 +2251,105 @@ function Module:Serialize(Value,Type,DefaultValue)
 	end
 end
 
-function Module:BuildEncode(v,variables,targets,objectives,data,func)
+function Module:BuildEncode(v,variables,targets,objectives,data,depth,func)
 	if data.Duplicated[v] then return end
 	data.Duplicated[v]=true
+	if data.Count%20 then RunService.Stepped:Wait() end
 	data.Count+=1
-	if data.Count%20==0 then RunService.Stepped:Wait() end
-	local buildText,className,variable='{',v.ClassName,variables[v] or 'nil'
+	
+	local canWrapText=data.CanWrapText
+	
+	local indent = string.rep("\t", depth)
+	local innerIndent = string.rep("\t", depth + 1)
+	
+	local buildText,className,variable=(canWrapText and '{\n' or '{'),v.ClassName,variables[v] or 'v-1'
+	
 	func(data.Count,v,data.Max)
-	buildText=buildText..'ClassName='..SafeData.string(className)..','
-	buildText=buildText..'Id='..SafeData.string(string.format('v%s',tostring(variable:match('%d+') or '-1')))..','
-	local propertyIndex,propertyText,isPropertyChanged,needle,actives=0,'',false,nil,{}
-	for propertyName,property in Utility.GetProperties(ObjectClasses[className]) do
-		propertyIndex=(propertyIndex+1)%20
-		if propertyIndex==0 then RunService.Stepped:Wait() end
+	
+	buildText=buildText..(canWrapText and innerIndent or '')..'ClassName='..SafeData.string(className)..(canWrapText and ',\n' or ',')
+	buildText=buildText..(canWrapText and innerIndent or '')..'Id='..SafeData.string(string.format('v%s',tostring(variable:match('%d+') or '-1')))..(canWrapText and ',\n' or ',')
+	
+	local properties,isPropertyChanged,actives,needle={},false,{},nil
+	for propertyName,property,index in Utility.GetProperties(ObjectClasses[className]) do
+		if index%20 then RunService.Stepped:Wait() end
 		local propertyDefaultValue,propertyType,propertyValue=property.DefaultValue,property.DataType,v[propertyName]
-        if propertyValue==propertyDefaultValue then continue end
+		if propertyValue==propertyDefaultValue then continue end
 		needle=propertyType..'_'..propertyName 
-		if actives[needle] then continue end 
-		actives[needle]=true
+		if actives[needle] then continue end actives[needle]=true
+		isPropertyChanged=true
         if propertyType=='Object' then
-            if propertyName=='Parent' then continue end
 			local objectTarget=variables and variables[propertyValue] or (targets and targets[propertyValue] and objectives[targets[propertyValue]])
 			if objectTarget then
-				propertyText=propertyText..tostring(propertyName)..'='..SafeData.string(string.format('v%s', tostring(objectTarget:match('%d+') or '-1')))..','
+				table.insert(properties,tostring(propertyName)..'='..SafeData.string(string.format('v%s', tostring(objectTarget:match('%d+') or '-1'))))
 			end
-			isPropertyChanged=true
 		else
-			local formattedVal=self:Serialize(propertyValue,propertyType,propertyDefaultValue)
-			propertyText=propertyText..tostring(propertyName)..'='..formattedVal..','
-			isPropertyChanged=true
+			local serializeValue=self:Serialize(propertyValue,propertyType,propertyDefaultValue)
+			table.insert(properties,tostring(propertyName)..'='..serializeValue)
 		end
 	end
-	if isPropertyChanged then
-		local noCommaPropertyText=string.gsub(propertyText, ",%s*$", "")
-		buildText=buildText..'Properties={'..noCommaPropertyText..'}'
-	end
+	
 	local children=v:GetChildren()
 	local childrenLen=#children
+	
+	if isPropertyChanged then
+		buildText=buildText..(canWrapText and innerIndent or '')..'Properties={'..table.concat(properties,',')..'}'
+	end
+	
 	if childrenLen>0 then
-		buildText=buildText..',Children={'
-		for i,child in ipairs(children) do
-			buildText=buildText.. self:BuildEncode(child,variables,targets,objectives,data,func)
-			if i<childrenLen then buildText=buildText..',' end
+		buildText=buildText..(canWrapText and ',\n' or ',')
+	else
+		buildText=buildText..(canWrapText and '\n' or '')
+	end
+
+	if childrenLen>0 then
+		if canWrapText then
+			buildText=buildText..innerIndent..'Children={\n'
+		else
+			buildText=buildText..'Children={'
 		end
-		buildText=buildText..'}'
+		
+		for i,child in ipairs(children) do
+			local result=self:BuildEncode(child,variables,targets,objectives,data,depth+2,func)
+			if canWrapText then
+				buildText=buildText..innerIndent..'\t'..result
+			else
+				buildText=buildText..result
+			end
+			if i<childrenLen then buildText=buildText..',' end
+			if canWrapText then buildText=buildText..'\n' end
+		end
+		
+		if canWrapText then
+			buildText=buildText..innerIndent..'}\n'
+		else
+			buildText=buildText..'}'
+		end
+	
 		table.clear(children)
 	end
-	buildText=buildText..'}'
-	actives={} needle=nil
+	if canWrapText then
+		buildText=buildText..indent..'}'
+	else
+		buildText=buildText..'}'
+	end
+	actives={} needle=nil table.clear(properties)
 	return buildText
 end
 
 function Module:Process(selections,variables,objectives,targets,visual,func)
+	local canWrapText=Values.CanWrapText
 	local maxProgress=#selections
-	local arrayText='local V={'
+	local arrayText='local V={'..(canWrapText and '\n' or '')
 	local codings={}
 	for _,value in ipairs(selections) do if type(value)=='string' then table.insert(codings,value) end end
 	table.clear(selections)
-	local data={Duplicated={},Count=0,Max=maxProgress}
-	local itemStr=self:BuildEncode(visual:FindFirstChildOfClass('Model') or visual:FindFirstChildOfClass('Folder'),variables,targets,objectives,data,func)
-	arrayText=arrayText..itemStr
+	local data={Duplicated={},Count=0,Max=maxProgress,CanWrapText=canWrapText}
+	local itemStr=self:BuildEncode(visual:FindFirstChildOfClass('Model') or visual:FindFirstChildOfClass('Folder'),variables,targets,objectives,data,1,func)
+	if canWrapText then
+		arrayText=arrayText..'\t'..itemStr..'\n'
+	else
+		arrayText=arrayText..itemStr
+	end
 	local codingsLen=#codings
 	if codingsLen>0 then
 		local codingText='{'
@@ -2323,7 +2365,11 @@ function Module:Process(selections,variables,objectives,targets,visual,func)
 		codingText=''
 		table.clear(codings)
 	end
-	arrayText=arrayText..'} return V'
+	if canWrapText then
+		arrayText=arrayText..'}\n\nreturn V'
+	else
+		arrayText=arrayText..'} return V'
+	end
 	return arrayText
 end
 
@@ -3014,7 +3060,15 @@ Interfaces.CanShutdownToggle=Window:AddToggle({
 		Values.CanShutdown=value
 	end
 })
-
+Interfaces.CanWrapTextToggle=Window:AddToggle({
+	Text='Can Wrap Text',
+	Value=Values.CanWrapText,
+	Visible=false,
+	Flag='wrap_text_enabled',
+	Callback=function(value) 
+		Values.CanWrapText=value
+	end
+})
 Interfaces.TopSelect=Window:AddSelect({
 	Text='None',
 	Visible=false,
