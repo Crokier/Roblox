@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V72 04-05-2024
+-- Instal V73 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -2075,8 +2075,10 @@ function Module:Creating(instance,visualInstance,data,func)
 	return selections,variables,objectives,advencedVariables
 end
 
+
 function Module:Serialize(Value,Type,DefaultValue)
 	if Value==nil then return 'nil' end
+	
 	-- String
 	if Type=='string' then
 		return "\'".. Utility.Trim(Value):gsub("[\"\\]","\\%1"):gsub("\n","\\\\n").."\'"
@@ -2089,68 +2091,157 @@ function Module:Serialize(Value,Type,DefaultValue)
 		return Utility.ToNumber(Value)
 
 		-- boolean
-	elseif Type=='boolean' then
-		return tostring(Value)
-
+	elseif Type=='boolean' or type(Value)=='boolean' then
+		return Value and 'true' or 'false'
 	elseif Type=='BrickColor' then
-		return string.format('{%d,%d,%d}',math.round(Value.r*255),math.round(Value.g*255),math.round(Value.b*255))
-
+		local r,g,b=math.round(Value.r*255),math.round(Value.g*255),math.round(Value.b*255)
+		local dr,dg,db=math.round(DefaultValue.r*255),math.round(DefaultValue.g*255),math.round(DefaultValue.b*255)
+		if b==db then
+			if g==dg then
+				return string.format('{%d}',r)
+			end
+			return string.format('{%d,%d}',r,g)
+		end
+		return string.format('{%d,%d,%d}',r,g,b)
 		-- Color3: {R,G,B}
 	elseif Type=='Color3' then
-		return string.format('{%d,%d,%d}',math.round(Value.R*255),math.round(Value.G*255),math.round(Value.B*255))
+		local r,g,b=math.round(Value.R*255),math.round(Value.G*255),math.round(Value.B*255)
+		local dr,dg,db=math.round(DefaultValue.R*255),math.round(DefaultValue.G*255),math.round(DefaultValue.B*255)
+		if b==db then
+			if g==dg then
+				return string.format('{%d}',r)
+			end
+			return string.format('{%d,%d}',r,g)
+		end
+		return string.format('{%d,%d,%d}',r,g,b)
 
 		-- Vector2: {X,Y}
 	elseif Type=='Vector2' then
-		return string.format('{%s,%s}',Utility.ToNumber(Value.X),Utility.ToNumber(Value.Y))
+		local x,y=Value.X,Value.Y
+		local dx,dy=DefaultValue.X,DefaultValue.Y
+		if y==dy then
+			return string.format('{%s}',Utility.ToNumber(x))
+		end
+		return string.format('{%s,%s}',Utility.ToNumber(x),Utility.ToNumber(y))
 
 		-- Vector3: {X,Y,Z}
 	elseif Type=='Vector3' then
-		return string.format('{%s,%s,%s}',Utility.ToNumber(Value.X),Utility.ToNumber(Value.Y),Utility.ToNumber(Value.Z))
-	elseif Type=='CFrame' then
-		local list=string.split(tostring(Value):gsub('\n',''):gsub(' ',''),',')
-		local results={}
-		for i,v in ipairs(list) do
-			table.insert(results,Utility.ToNumber(v))
+		local x,y,z=Value.X,Value.Y,Value.Z
+		local dx,dy,dz=DefaultValue.X,DefaultValue.Y,DefaultValue.Z
+		if z==dz then
+			if y==dy then
+				return string.format('{%s}',Utility.ToNumber(x))
+			end
+			return string.format('{%s,%s}',Utility.ToNumber(x),Utility.ToNumber(z))
 		end
-		local finish=table.remove(results,#results)
-		return table.concat(results,',')
-
-		-- UDim: {Scale,Offset}
+		return string.format('{%s,%s,%s}',Utility.ToNumber(x),Utility.ToNumber(y),Utility.ToNumber(z))
+	elseif Type=='CFrame' then
+		local comp={Value:GetComponents()}
+		local defComp=DefaultValue and {DefaultValue:GetComponents()} or nil
+		local isIdentityRotation=comp[4]==1 and comp[5]==0 and comp[6]==0 and comp[7]==0 and comp[8]==1 and comp[9]==0 and comp[10]==0 and comp[11]==0 and comp[12]==1
+		if isIdentityRotation then
+			local x,y,z=comp[1],comp[2],comp[3]
+			if defComp then
+				local dx,dy,dz=defComp[1],defComp[2],defComp[3]
+				if z==dz then
+					if y==dy then
+						return string.format('{%s}',Utility.ToNumber(x))
+					end
+					return string.format('{%s,%s}',Utility.ToNumber(x),Utility.ToNumber(y))
+				end
+			end
+			return string.format('{%s,%s,%s}',Utility.ToNumber(x),Utility.ToNumber(y),Utility.ToNumber(z))
+		end
+		local formatText="{"
+		for i,v in ipairs(comp) do
+			formatText=formatText..Utility.ToNumber(v)..(i<=#comp and ',' or '')
+		end
+		formatText=formatText..'}'
+		return formatText
 	elseif Type=='UDim' then
-		return string.format('{%s,%s}',Utility.ToNumber(Value.Scale),Utility.ToNumber(Value.Offset))
+		local scale,offset=Value.Scale,Value.Offset
+		local dScale,dOffset=DefaultValue.Scale,DefaultValue.Offset
+		if offset==dOffset then
+			return string.format('{%s}',Utility.ToNumber(scale))
+		end
+		return string.format('{%s,%s}',Utility.ToNumber(scale),Utility.ToNumber(offset))
 
 		-- UDim2: {{XScale,XOffset},{YScale,YOffset}}
 	elseif Type=='UDim2' then
-		return string.format('{{%s,%s},{%s,%s}}',Utility.ToNumber(Value.X.Scale),Utility.ToNumber(Value.X.Offset),Utility.ToNumber(Value.Y.Scale),Utility.ToNumber(Value.Y.Offset))
+		local xScale,xOffset,yScale,yOffset=Value.X.Scale,Value.X.Offset,Value.Y.Scale,Value.Y.Offset
+		local dxScale,dxOffset,dyScale,dyOffset=DefaultValue.X.Scale,DefaultValue.X.Offset,DefaultValue.Y.Scale,DefaultValue.Y.Offset
+		if yOffset==dyOffset then
+			if yScale==dyScale then
+				if xOffset==dxOffset then
+					return string.format('{%s}',Utility.ToNumber(xScale))
+				end
+				return string.format('{%s,%s}',Utility.ToNumber(xScale),Utility.ToNumber(xOffset))
+			end
+			return string.format('{%s,%s,%s}',Utility.ToNumber(xScale),Utility.ToNumber(xOffset),Utility.ToNumber(yScale))
+		end
+		return string.format('{%s,%s,%s,%s}',Utility.ToNumber(xScale),Utility.ToNumber(xOffset),Utility.ToNumber(yScale),Utility.ToNumber(yOffset))
 
 		-- ColorSequence: {{Time,{R,G,B}},...}
 	elseif Type=='ColorSequence' then
-		local list={}
-		for _,k in ipairs(Value.Keypoints) do
+		local text='{'
+		local keypoints=Value.Keypoints
+		for i,k in ipairs(keypoints) do
 			local color=k.Value
-			local r,g,b=math.round(k.Value.R*255),math.round(color.G*255),math.round(color.B*255)
-			table.insert(list,string.format('{%s,{%d,%d,%d}}',Utility.ToNumber(k.Time),r,g,b))
+			local r,g,b=math.round(color.R*255),math.round(color.G*255),math.round(color.B*255)
+			text=text..string.format('{%s,{%d,%d,%d}}',Utility.ToNumber(k.Time),r,g,b)..(i<#keypoints and ',' or '')
 		end
-		local finish=table.remove(list,#list)
-		return '{' .. table.concat(list,',') .. ''..finish..'}'
+		text=text..'}'
+		return text
 
 		-- NumberSequence / FloatSequence: {{Time,Valueue,Envelope},...}
 	elseif Type=='NumberSequence' or Type=='FloatSequence' then
-		local list={}
-		for _,k in ipairs(Value.Keypoints) do
-			table.insert(list,string.format('{%s,%s,%s}',Utility.ToNumber(k.Time),Utility.ToNumber(k.Value),Utility.ToNumber(k.Envelope or 0)))
-		end
-		local finish=table.remove(list,#list)
-		return '{' .. table.concat(list,',') .. ''..finish..'}'
+		local text='{'
+		local keypoints=Value.Keypoints
+		for i,k in ipairs(keypoints) do text=text..string.format('{%s,%s,%s}',Utility.ToNumber(k.Time),Utility.ToNumber(k.Value),Utility.ToNumber(k.Envelope or 0))..(i<#keypoints and ',' or '') end
+		text=text..'}'
+		return text
 
 		-- NumberRange / FloatRange: {Min,Max}
 	elseif Type=='NumberRange' or Type=='FloatRange' then
-		return string.format('{%s,%s}',Utility.ToNumber(Value.Min),Utility.ToNumber(Value.Max))
+		if Value.Max==DefaultValue.Max then
+			return string.format('{%s}',Utility.ToNumber(Value.Min))
+		else
+			return string.format('{%s,%s}',Utility.ToNumber(Value.Min),Utility.ToNumber(Value.Max))
+		end
 
 		-- EnumItem
 	elseif typeof(Value)=='EnumItem' or Type=='EnumItem' or string.find(Type,'Enum') then
 		return string.format('%q',tostring(Value))
+		
+		-- Font
+	elseif Type=='Font' or typeof(Value)=='Font' then
+		local family=Value.Family
+		local weight=tostring(Value.Weight) 
+		local style=tostring(Value.Style)
 
+		weight=string.gsub(weight, "Enum%.FontWeight%.", "")
+		style=string.gsub(style, "Enum%.FontStyle%.", "")
+
+		if DefaultValue and typeof(DefaultValue) == "Font" then
+			if Value.Family == DefaultValue.Family and Value.Weight == DefaultValue.Weight and Value.Style == DefaultValue.Style then
+				return '""'
+			end
+		end
+		return string.format('Font{Family=%q,Weight=%s,Style=%s}', family, weight, style)
+		
+		-- Content
+	elseif Type=='Content' or typeof(Value)=='Content' then
+		local uri=typeof(Value)=="Content" and Value.Uri or tostring(Value)
+
+		if DefaultValue then
+			local defaultUri = typeof(DefaultValue) == "Content" and DefaultValue.Uri or tostring(DefaultValue)
+			if uri == defaultUri then
+				return '""'
+			end
+		end
+
+		return string.format('%q', Utility.Trim(uri):gsub("[\"\\]", "\\%1"))
+		
 		-- Other
 	else
 		return string.format('%q',tostring(Value))
@@ -2171,11 +2262,12 @@ function Module:BuildEncode(v,variables,targets,objectives,data,func)
 		propertyIndex=(propertyIndex+1)%20
 		if propertyIndex==0 then RunService.Stepped:Wait() end
 		local propertyDefaultValue,propertyType,propertyValue=property.DefaultValue,property.DataType,v[propertyName]
-		if propertyValue==propertyDefaultValue then continue end
+        if propertyValue==propertyDefaultValue then continue end
 		needle=propertyType..'_'..propertyName 
 		if actives[needle] then continue end 
 		actives[needle]=true
-		if propertyType=="Object" then
+        if propertyType=='Object' then
+            if propertyName=='Parent' then continue end
 			local objectTarget=variables and variables[propertyValue] or (targets and targets[propertyValue] and objectives[targets[propertyValue]])
 			if objectTarget then
 				propertyText=propertyText..tostring(propertyName)..'='..SafeData.string(string.format('v%s', tostring(objectTarget:match('%d+') or '-1')))..','
@@ -2183,7 +2275,7 @@ function Module:BuildEncode(v,variables,targets,objectives,data,func)
 			isPropertyChanged=true
 		else
 			local formattedVal=self:Serialize(propertyValue,propertyType,propertyDefaultValue)
-			propertyText=propertyText..tostring(propertyName)..'='..formattedVal..","
+			propertyText=propertyText..tostring(propertyName)..'='..formattedVal..','
 			isPropertyChanged=true
 		end
 	end
