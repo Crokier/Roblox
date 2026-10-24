@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V77 04-05-2024
+-- Instal V79 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -1641,6 +1641,143 @@ for _,v in pairs(Enum.AnimationPriority:GetEnumItems()) do
 	end
 end
 
+-- by cybercrazyyy and Gemini AI
+local RecordAnimation={}
+
+function RecordAnimation.new(model,options)
+	options=options or {}
+	
+	local recordAnimationType=options.RecordAnimationType or "Motor6D"
+	local animationName=options.Name
+	
+	local Container=model:FindFirstChild('AnimSaves')
+	if not Container then
+		Container=Instance.new('ObjectValue')
+		Container.Name='AnimSaves'
+		Container.Parent=model
+	end
+
+	local baseParts=model:QueryDescendants('BasePart')
+	local isSinglePart=#baseParts==1
+
+	local rootPart=model:FindFirstChild('HumanoidRootPart')
+	local torso=model:FindFirstChild('LowerTorso') or model:FindFirstChild('Torso')
+
+	local PrimaryPart=isSinglePart and baseParts[1] or rootPart or torso or model.PrimaryPart or baseParts[1]
+	local KeyframeSequence=Instance.new('KeyframeSequence')
+	
+	if not animationName or animationName=='' then animationName='Record' end
+	KeyframeSequence.Name=animationName..'_'..tostring(os.time())
+	
+	local Time=0
+	local Init=PrimaryPart and CFrame.new(PrimaryPart.Position) or CFrame.new()
+
+	local function GenerateKeyframe()
+		local Keyframe=Instance.new("Keyframe")
+
+		if recordAnimationType == "Bone" or isSinglePart then
+			if PrimaryPart then
+				local RootPose = Instance.new("Pose")
+				RootPose.Name = PrimaryPart.Name
+				RootPose.CFrame = Init:ToObjectSpace(PrimaryPart.CFrame)
+				Keyframe:AddPose(RootPose)
+				
+				local function AddBonePoses(parentObj, parentPose)
+					for _, child in ipairs(parentObj:GetChildren()) do
+						if child:IsA("Bone") then
+							local Pose = Instance.new("Pose")
+							Pose.Name = child.Name
+							Pose.CFrame = child.Transform
+							parentPose:AddSubPose(Pose)
+							AddBonePoses(child, Pose)
+						end
+					end
+				end
+
+				for _, part in ipairs(baseParts) do
+					for _, child in ipairs(part:GetChildren()) do
+						if child:IsA("Bone") then
+							local Pose = Instance.new("Pose")
+							Pose.Name = child.Name
+							Pose.CFrame = child.Transform
+							RootPose:AddSubPose(Pose)
+							AddBonePoses(child, Pose)
+						end
+					end
+				end
+			end
+		else
+			if not rootPart and not torso then
+				warn("Character does not have HumanoidRootPart, LowerTorso, or Torso for Motor6D mode.")
+				return Keyframe
+			end
+
+			local ActiveRoot = rootPart or torso
+			local ActiveTorso = torso or rootPart
+
+			local PartsAdded = {
+				[ActiveRoot] = true,
+				[ActiveTorso] = true
+			}
+
+			local function AddPoses(Part: BasePart, ParentPose)
+				for _, Joint in pairs(Part:GetJoints()) do
+					if Joint:IsA("AnimationConstraint") or Joint:IsA('Motor6D') then
+						local ConnectedPart = nil
+						if Joint.Part0 == Part then
+							ConnectedPart = Joint.Part1
+						elseif Joint.Part1 == Part then
+							ConnectedPart = Joint.Part0
+						end
+						if ConnectedPart then
+							if not PartsAdded[ConnectedPart] then
+								PartsAdded[ConnectedPart] = true
+								local Pose = Instance.new("Pose")
+								Pose.CFrame = Joint.Transform
+								Pose.Name = ConnectedPart.Name
+								ParentPose:AddSubPose(Pose)
+								AddPoses(ConnectedPart, Pose)
+							end
+						end
+					end
+				end
+			end
+
+			local RootPose = Instance.new("Pose")
+			RootPose.Name = ActiveRoot.Name
+			RootPose.CFrame = Init:ToObjectSpace(ActiveRoot.CFrame)
+			Keyframe:AddPose(RootPose)
+
+			if ActiveTorso ~= ActiveRoot then
+				local TorsoPose = Instance.new("Pose")
+				TorsoPose.Name = ActiveTorso.Name
+				TorsoPose.CFrame = Init:ToObjectSpace(ActiveTorso.CFrame)
+				RootPose:AddSubPose(TorsoPose)
+				AddPoses(ActiveTorso, TorsoPose)
+			else
+				AddPoses(ActiveRoot, RootPose)
+			end
+		end
+
+		return Keyframe
+	end
+
+	local Connection=RunService.Heartbeat:Connect(function(deltaTime)
+		Time+=deltaTime
+		local Keyframe=GenerateKeyframe()
+		Keyframe.Time=Time
+		KeyframeSequence:AddKeyframe(Keyframe)
+	end)
+
+	return {
+		Stop=function(_)
+			Connection:Disconnect()
+			KeyframeSequence.Parent=Container
+			return KeyframeSequence
+		end
+	}
+end
+
 local Module={Parent=false}
 
 function Module:SetStatus(mode,...)
@@ -2257,23 +2394,24 @@ function Module:BuildEncode(v,variables,targets,objectives,data,depth,func)
 	if data.Count%20 then RunService.Stepped:Wait() end
 	data.Count+=1
 	local canWrapText=data.CanWrapText
-	local indent=string.rep("\t",depth)
-	local innerIndent=string.rep("\t",depth+1)
-	local buildText,className,variable=(canWrapText and '{\n' or '{'),v.ClassName,variables[v] or 'v-1'
+	local indent=string.rep("\t", depth)
+	local innerIndent=string.rep("\t", depth + 1)
+	local buildText,className,variable=(canWrapText and '{\n' or '{'),v.ClassName,variables[v] or ''
 	func(data.Count,v,data.Max)
-	buildText=buildText..(canWrapText and innerIndent or '')..'ClassName='..SafeData.string(className)..',Id='..SafeData.string(string.format('%s',tostring(variable:match('%d+') or '-1')))..(canWrapText and ',\n' or ',')
+	buildText=buildText..(canWrapText and innerIndent or '')..'ClassName='..SafeData.string(className)..',Id='..SafeData.string(string.format('%s',tostring(variable:match('%d+') or '')))..(canWrapText and ',\n' or ',')
 	local properties,isPropertyChanged,actives,needle={},false,{},nil
-	for propertyName,property,index in Utility.GetProperties(ObjectClasses[className]) do
+	for propertyName,property,propertyIndex in Utility.GetProperties(ObjectClasses[className]) do
+		if propertyIndex%20==0 then RunService.Stepped:Wait() end
 		local propertyDefaultValue,propertyType,propertyValue=property.DefaultValue,property.DataType,v[propertyName]
 		if propertyValue==propertyDefaultValue then continue end
 		needle=propertyType..'_'..propertyName 
 		if actives[needle] then continue end actives[needle]=true
 		isPropertyChanged=true
-        if propertyType=='Object' then
+		if propertyType=='Object' then
 			if propertyName=='Parent' then continue end
 			local objectTarget=variables and variables[propertyValue] or (targets and targets[propertyValue] and objectives[targets[propertyValue]])
 			if objectTarget then
-				table.insert(properties,tostring(propertyName)..'='..SafeData.string(string.format('%s', tostring(objectTarget:match('%d+') or '-1'))))
+				table.insert(properties,tostring(propertyName)..'='..SafeData.string(string.format('%s',tostring(objectTarget:match('%d+') or ''))))
 			end
 		else
 			local serializeValue=self:Serialize(propertyValue,propertyType,propertyDefaultValue)
@@ -2311,6 +2449,7 @@ function Module:BuildEncode(v,variables,targets,objectives,data,depth,func)
 		else
 			buildText=buildText..'}'
 		end
+	
 		table.clear(children)
 	end
 	if canWrapText then
@@ -2325,7 +2464,7 @@ end
 function Module:Process(selections,variables,objectives,targets,visual,func)
 	local canWrapText=Values.CanWrapText
 	local maxProgress=#selections
-	local arrayText='local Data={'..(canWrapText and '\n' or '')
+	local arrayText='local V={'..(canWrapText and '\n' or '')
 	local codings={}
 	for _,value in ipairs(selections) do if type(value)=='string' then table.insert(codings,value) end end
 	table.clear(selections)
@@ -2352,9 +2491,9 @@ function Module:Process(selections,variables,objectives,targets,visual,func)
 		table.clear(codings)
 	end
 	if canWrapText then
-		arrayText=arrayText..'}\n\nreturn Data'
+		arrayText=arrayText..'}\n\nreturn V'
 	else
-		arrayText=arrayText..'} return Data'
+		arrayText=arrayText..'} return V'
 	end
 	return arrayText
 end
@@ -2752,7 +2891,7 @@ function Module:Record()
 	local target=useMyself and LocalPlayer.Character or Values.BuildingTarget
 	if not (target and target.Parent) then self:SetStatus(1,useMyself and 'No Myself Target' or 'No Building Target', 2) return end
 	
-	local recordAnimMode,fpsMode,animName=Values.RecordAnimType,Values.FPSType,Values.AnimationName
+	local recordAnimationType,fpsMode,animationName=Values.RecordAnimType,Values.FPSType,Values.AnimationName
 	local animators=target:QueryDescendants('Animator')
 	if #animators<=0 then self:SetStatus(1,'No Animator',2) return end
 	
@@ -2767,94 +2906,104 @@ function Module:Record()
 		if length<=0 then return end
 
 		local sources={}
-		if recordAnimMode=='Auto' then
+		if recordAnimationType=='Auto' then
 			local bones,motors=model:QueryDescendants('Bone'),model:QueryDescendants('Motor6D')
 			if #motors>0 then
 				sources=motors
-				recordAnimMode='Motor6D'
+				recordAnimationType='Motor6D'
 			elseif #bones>0 then
 				sources=bones
-				recordAnimMode='Bone'
+				recordAnimationType='Bone'
 			end
 		else
-			sources=recordAnimMode=='Bone' and model:QueryDescendants('Bone') or model:QueryDescendants('Motor6D')
+			sources=recordAnimationType=='Bone' and model:QueryDescendants('Bone') or model:QueryDescendants('Motor6D')
 		end
 		if #sources<=0 then return end
+		table.clear(sources)
+		oldTrack.TimePosition=0
+		local Recording=RecordAnimation.new(model,{
+			Name=animationName,
+			RecordAnimationType=recordAnimationType,
+		})
+		task.wait(length)
+		Recording:Stop()
+		
+		--local animSaves=model:FindFirstChild('AnimSaves')
+		--if not animSaves then
+		--	animSaves=Instance.new('ObjectValue')
+		--	animSaves.Name='AnimSaves'
+		--	animSaves.Parent=model
+		--end
 
-		local animSaves=model:FindFirstChild('AnimSaves')
-		if not animSaves then
-			animSaves=Instance.new('ObjectValue')
-			animSaves.Name='AnimSaves'
-			animSaves.Parent=model
-		end
+		--local changed=Instance.new('BindableEvent')
 
-		local changed=Instance.new('BindableEvent')
+		--local count=1
 
-		local count=1
+		--local function createPose(node,parent)
+		--	count+=1
+		--	local pose=Utility.Create('Pose',node)
+		--	return pose
+		--end
 
-		local function createPose(node,parent)
-			count+=1
-			local pose=Utility.Create('Pose',node)
-			return pose
-		end
-
-		for i,v in ipairs(sources) do 
-			if recordAnimMode=='Bone' then 
-				changed.Event:Connect(function(parent)
-					createPose({Name=v.Name,CFrame=v.Transform,Parent=parent})
-				end)
-			else 
-				changed.Event:Connect(function(parent)
-					createPose({Name=v.Part1.Name,CFrame=v.Transform,Parent=parent})
-				end)
-			end 
-		end
-		if #animName==0 or animName=='' then animName='Record' end
-		local keyframeSequence=Instance.new('KeyframeSequence')
-		keyframeSequence.Name=animName..'_'..tostring(os.time())
-		keyframeSequence.Loop=oldTrack.Looped
-		keyframeSequence.Priority=oldTrack.Priority
-		keyframeSequence.Parent=animSaves
-		local finished,lastKeyframe,connection,didConnection=false,false,nil,nil
-		local duplicated={}
-		local function capture(timePosition)
-			local id=tostring(timePosition)
-			if duplicated[id] then return end
-			duplicated[id]=true
-			count+=1
-			local keyframe=Instance.new('Keyframe')
-			keyframe.Time=timePosition
-			changed:Fire(keyframe)
-			keyframeSequence:AddKeyframe(keyframe)
-		end
-		local function finish(status,removeSequence)
-			if finished then return end finished=true
-			duplicated={} Values.RecordDebounce=nil
-			if didConnection then didConnection:Disconnect() didConnection=nil end
-			if connection then connection:Disconnect() end
-			if removeSequence and keyframeSequence.Parent then keyframeSequence:Destroy() count=0 end
-			changed:Destroy()
-			self:SetStatus(1,count>0 and (status.. ' '..tostring(count)..' Keyframe') or status,2)
-		end
-		Interfaces.StatusLabel:Set('Recording...')
-		oldTrack:Stop()
-		didConnection=oldTrack.DidLoop:Once(function()
-			oldTrack:Stop()
-			finish('Record Complete',false)
-		end)
-		connection=RunService.PreAnimation:Connect(function(_)
-			if not model.Parent then finish('Record Failed',true) return end
-			if finished then return end
-			if not finished and oldTrack.IsPlaying then
-				capture(oldTrack.TimePosition)
-			end
-		end)
-		oldTrack:Play()
+		--for i,v in ipairs(sources) do 
+		--	if recordAnimMode=='Bone' then 
+		--		changed.Event:Connect(function(parent)
+		--			createPose({Name=v.Name,CFrame=v.Transform,Parent=parent})
+		--		end)
+		--	else 
+		--		changed.Event:Connect(function(parent)
+		--			createPose({Name=v.Part1.Name,CFrame=v.Transform,Parent=parent})
+		--		end)
+		--	end 
+		--end
+		--if #animationName==0 or animationName=='' then animationName='Record' end
+		--local keyframeSequence=Instance.new('KeyframeSequence')
+		--keyframeSequence.Name=animationName..'_'..tostring(os.time())
+		--keyframeSequence.Loop=oldTrack.Looped
+		--keyframeSequence.Priority=oldTrack.Priority
+		--keyframeSequence.Parent=animSaves
+		--local finished,lastKeyframe,connection,didConnection=false,false,nil,nil
+		--local duplicated={}
+		--local function capture(timePosition)
+		--	local id=tostring(timePosition)
+		--	if duplicated[id] then return end
+		--	duplicated[id]=true
+		--	count+=1
+		--	local keyframe=Instance.new('Keyframe')
+		--	keyframe.Time=timePosition
+		--	changed:Fire(keyframe)
+		--	keyframeSequence:AddKeyframe(keyframe)
+		--end
+		--local function finish(status,removeSequence)
+		--	if finished then return end finished=true
+		--	duplicated={} Values.RecordDebounce=nil
+		--	if didConnection then didConnection:Disconnect() didConnection=nil end
+		--	if connection then connection:Disconnect() end
+		--	if removeSequence and keyframeSequence.Parent then keyframeSequence:Destroy() count=0 end
+		--	changed:Destroy()
+		--	self:SetStatus(1,count>0 and (status.. ' '..tostring(count)..' Keyframe') or status,2)
+		--end
+		--Interfaces.StatusLabel:Set('Recording...')
+		--oldTrack:Stop()
+		--didConnection=oldTrack.DidLoop:Once(function()
+		--	oldTrack:Stop()
+		--	finish('Record Complete',false)
+		--end)
+		--connection=RunService.PreAnimation:Connect(function(_)
+		--	if not model.Parent then finish('Record Failed',true) return end
+		--	if finished then return end
+		--	if not finished and oldTrack.IsPlaying then
+		--		capture(oldTrack.TimePosition)
+		--	end
+		--end)
+		--oldTrack:Play()
 	end
 	
 	for _,animator in ipairs(animators)  do
 		task.defer(recordAnimation,animator)
 	end
+	
+	self:SetStatus(1,'Look at the dex',2)
 end
 
 function Module:SaveToFile()
