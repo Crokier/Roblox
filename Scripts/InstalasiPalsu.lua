@@ -1,6 +1,7 @@
 --                         This was made by Crokyreo 
--- Instal V75 04-05-2024
+-- Instal V76 04-05-2024
 
+local VERSION = 'V76'
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
 
@@ -37,7 +38,7 @@ local Values={
 	['FolderName']='Instal',
 	['SaveDebounce']=false,['TargetDebounce']=false,['RecordDebounce']=false,['Debounce']=false,
 	['BuildingIndex']=0,['TotalBuilding']=0,
-	['GrabType']='None',['RecordAnimType']='Motor6D',['FPSType']='12 FPS',
+	['GrabType']='None',
 	['LastStatus']='',
 	['BuildingTarget']=nil,['InstalTarget']=nil,['GuiTarget']=nil,['ToolTarget']=nil,['GrabberModel']=nil,
 	['Destroyed']=false,
@@ -46,9 +47,7 @@ local Values={
 	['NoName']=false,
 	['FileName']='',
 	['CanAutoSaveFile']=false,
-	['AnimationName']='',
-	['AnimationPriority']='Idle',
-	['PlayAnimationCache']={},
+	['RecordAnimType']='Auto',['FPSType']='12 FPS',['AnimationName']='',['AnimationPriority']='Idle',['PlayAnimationCache']={},
 	['UseMyself']=false,
 	['CanShutdown']=false,
 	['CanWrapText']=true,
@@ -70,9 +69,12 @@ local Interfaces={
 	['TextBox']=nil,
 	['StopButton']=nil,
 	['GrabTypeSelector']=nil,
+	['AnimationTitle']=nil,
 	['AnimationSelector']=nil,
+	['FPSTitle']=nil,
 	['FPSSelector']=nil,
 	['SoundSlider']=nil,
+	['AnimationPriorityTitle']=nil,
 	['AnimationPrioritySelector']=nil,
 	['UseNameToggle']=nil,
 	['UseMyselfToggle']=nil,
@@ -333,7 +335,7 @@ local GlobalData={
 	['Types']={
 		['GrabTypes']={'None','Building','Gui','Lighting','Sound','Tool','Icon','GuiIcon','MouseIcon','Animation','Team','Event','Texture','Decal','Beam','Trail','Name','GuiColor','PartColor','Settings'},
 		['BannedGrabTypes']={'None','Animation'},
-		['RecordAnimTypes']={'Motor6D','Bone'},
+		['RecordAnimTypes']={'Auto','Motor6D','Bone'},
 		['FPSTypes']={'12 FPS','24 FPS','30 FPS','60 FPS','120 FPS','240 FPS','Unlimited'},
 		['NumericTypes']={'1','2','3','4','5','6','7','8','9','0'},
 		['PacketClasses']={'RemoteEvent','RemoteFunction','BindableEvent','BindableFunction','UnreliableRemoteEvent'},
@@ -1678,7 +1680,6 @@ function Module:SetUpdate(mode,...)
 		for _, key in ipairs({'BuildingTarget','InstalTarget','GuiTarget','ToolTarget'}) do
 			Values[key]=nil
 		end
-		if Cacheds.RecordAnimConnection then Cacheds.RecordAnimConnection:Disconnect() Cacheds.RecordAnimConnection=nil end
 		Values.RecordAnimType=GlobalData.Types.RecordAnimTypes[1]
 		Values.RecordDebounce=false
 		if Cacheds.PlayerGuiAdded then Cacheds.PlayerGuiAdded:Disconnect() Cacheds.PlayerGuiAdded=nil end
@@ -1737,15 +1738,16 @@ function Module:SetUpdate(mode,...)
 		Interfaces.MainLabel.TextScaled=lastGrabType=='Gui'
 		Interfaces.MainLabel.Visible=lastGrabType=='Gui'
 		Interfaces.StopButton.Visible=isBuilding
-		for i,v in ipairs({Interfaces.RecordButton,Interfaces.AnimationSelector,Interfaces.PlayButton}) do 
+		Interfaces.FPSTitle.Visible=isSettings
+		Interfaces.FPSSelector.Visible=isSettings
+		for i,v in ipairs({Interfaces.RecordButton,Interfaces.PlayButton}) do 
 			if Values.GrabType~=lastGrabType then break end
 			v.Visible=isAnimation
 		end
-		for i,v in ipairs({Interfaces.AnimationTextBox,Interfaces.AnimationPrioritySelector,Interfaces.FPSSelector}) do
+		for i,v in ipairs({Interfaces.AnimationTextBox,Interfaces.AnimationPriorityTitle,Interfaces.AnimationPrioritySelector,Interfaces.AnimationTitle,Interfaces.AnimationSelector}) do
 			if Values.GrabType~=lastGrabType then break end
-			v.Visible=lastGrabType=='Animation' or lastGrabType=='Settings'
+			v.Visible=lastGrabType=='Animation' or isSettings
 		end
-		Interfaces.FPSSelector.Visible=lastGrabType=='Settings'
 	end
 end
 
@@ -2078,7 +2080,6 @@ function Module:Creating(instance,visualInstance,data,func)
 	return selections,variables,objectives,advencedVariables
 end
 
-
 function Module:Serialize(Value,Type,DefaultValue)
 	if Value==nil then return 'nil' end
 	
@@ -2271,7 +2272,7 @@ function Module:BuildEncode(v,variables,targets,objectives,data,depth,func)
 	
 	local properties,isPropertyChanged,actives,needle={},false,{},nil
 	for propertyName,property,index in Utility.GetProperties(ObjectClasses[className]) do
-		if index%20 then RunService.Stepped:Wait() end
+		if index%20==0 then RunService.Stepped:Wait() end
 		local propertyDefaultValue,propertyType,propertyValue=property.DefaultValue,property.DataType,v[propertyName]
 		if propertyValue==propertyDefaultValue then continue end
 		needle=propertyType..'_'..propertyName 
@@ -2681,274 +2682,174 @@ function Module:Destroy()
 end
 
 function Module:Play()
-	if Values.GrabType ~= 'Building' and Values.GrabType ~= 'Animation' then return end
-	local model = Values.BuildingTarget
-	if Values.UseMyself then model = LocalPlayer.Character end
-	if not (model and model.Parent) then self:SetStatus(1, 'No Building Target', 2) return end
-
-	local animators = model:QueryDescendants('Animator')
-	local animator = animators[1]
-
-	if not animator then
-		self:SetStatus(1, 'Animator not found', 2)
-		return
-	end
-
-	-- Animator must be inside Workspace when loading animations.
-	if not animator:IsDescendantOf(workspace) then
-		self:SetStatus(1, 'Building Target must be in Workspace', 2)
-		return
-	end
-
-	--------------------------------------------------
-	-- FIND ANIMATION
-	--------------------------------------------------
-	local animationName = tostring(Values.AnimationName)
-	local animation = nil
-	for _, child in ipairs(model:QueryDescendants('Animation')) do
-		if child.Parent and child.Name == animationName and child.AnimationId ~= '' then
-			animation = child
-			break
-		end
-	end
-
-	--------------------------------------------------
-	-- SUPPORT SAVED KEYFRAMESEQUENCE                
-	--------------------------------------------------
-	local animSaves = model:FindFirstChild('AnimSaves')
-	local sequence = animSaves and animSaves:FindFirstChild(animationName)
-
-	local animationToLoad = animation
-
-	if not animationToLoad and sequence and sequence:IsA('KeyframeSequence') then
-		local cache = Values.PlayAnimationCache
-
-		if cache == nil then
-			cache = {}
-			Values.PlayAnimationCache = cache
-		end
-
-		animationToLoad = cache[sequence]
-
-		if not animationToLoad then
-			local provider = Services.KeyframeSequenceProvider
-
-			local success, animationId = pcall(function()
-				return provider:RegisterKeyframeSequence(sequence)
-			end)
-
-			if not success or not animationId then
-				self:SetStatus(1, 'Animation Preview Failed', 2)
-				return
+	if Values.GrabType~='Animation' then return end
+	local useMyself=Values.UseMyself
+	local model=useMyself and LocalPlayer.Character or Values.BuildingTarget
+	if not (model and model.Parent) then self:SetStatus(1,useMyself and 'No Myself Target' or 'No Building Target', 2) return end
+	local animators:{Animator}=model:QueryDescendants('Animator')
+	if #animators<=0 then self:SetStatus(1,'No Animator',2) return end
+	local animationName=Values.AnimationName
+	for _,animator in ipairs(animators) do
+		local animation=nil
+		for _,v in ipairs(animator.Parent.Parent:QueryDescendants('Animation')) do if v.Parent and v.Name==animationName and v.AnimationId~='' then animation=v break end end
+		local animSaves=model:FindFirstChild('AnimSaves')
+		local sequence=animSaves and animSaves:FindFirstChild(animationName)
+		local animationToLoad=animation
+		if not animationToLoad and sequence and sequence:IsA('KeyframeSequence') then
+			local cache=Values.PlayAnimationCache
+			if cache==nil then
+				cache={}
+				Values.PlayAnimationCache=cache
 			end
-
-			local previewAnimation = Instance.new('Animation')
-			previewAnimation.Name = animationName
-			previewAnimation.AnimationId = animationId
-
-			cache[sequence] = previewAnimation
-			animationToLoad = previewAnimation
+			animationToLoad=cache[sequence]
+			if not animationToLoad then
+				local provider=Services.KeyframeSequenceProvider
+				if not provider then continue end
+				local success,animationId=pcall(function()
+					return provider:RegisterKeyframeSequence(sequence)
+				end)
+				if not success or not animationId then
+					self:SetStatus(1,'Animation Preview Failed',2)
+					continue
+				end
+				local previewAnimation=Instance.new('Animation')
+				previewAnimation.Name=animationName
+				previewAnimation.AnimationId=animationId
+				cache[sequence]=previewAnimation
+				animationToLoad=previewAnimation
+			end
+			Values.PlayAnimationCache=cache
 		end
-
-		Values.PlayAnimationCache = cache
-	end
-
-	if not animationToLoad then
-		self:SetStatus(1, sequence and 'Animation Id Missing' or 'Animation not found', 2)
-		return
-	end
-
-	--------------------------------------------------
-	-- GET OR LOAD ANIMATION TRACK
-	--------------------------------------------------
-
-	local animationTrack
-
-	-- Reuse an existing track when possible.
-	local success, existingTrack = pcall(function()
-		return animator:GetTrackByAnimationId(animationToLoad.AnimationId)
-	end)
-
-	if success then
-		animationTrack = existingTrack
-	end
-
-	-- Load only if this animation has no existing track.
-	if not animationTrack then
-		local loadSuccess, result = pcall(function()
-			return animator:LoadAnimation(animationToLoad)
-		end)
-
-		if not loadSuccess or not result then
-			self:SetStatus(1, 'Animation Load Failed', 2)
-			return
+		if not animationToLoad then self:SetStatus(1,sequence and 'Animation Id Missing' or 'Animation not found',2) continue end
+		local animationTrack=nil
+		local success,existingTrack=pcall(function() return animator:GetTrackByAnimationId(animationToLoad.AnimationId) end)
+		if success then animationTrack=existingTrack end
+		if not animationTrack then
+			local loadSuccess,result=pcall(function() return animator:LoadAnimation(animationToLoad) end)
+			if not loadSuccess or not result then self:SetStatus(1,'Animation Load Failed',2) continue end
+			animationTrack=result
 		end
-
-		animationTrack = result
-	end
-
-	--------------------------------------------------
-	-- SET ANIMATION SETTINGS
-	--------------------------------------------------
-
-	animationTrack.Looped = true
-
-	local priorityName = Values.AnimationPriority
-	local priority = Enum.AnimationPriority.Idle
-
-	-- Keep the original behavior:
-	-- 'Auto' defaults to Idle.
-	if type(priorityName) == 'string' and priorityName ~= '' and priorityName ~= 'Auto' then
-		local selectedPriority = Enum.AnimationPriority[priorityName]
-
-		if selectedPriority then
-			priority = selectedPriority
-		else
-			self:SetStatus(1, 'Invalid Animation Priority', 2)
+		animationTrack.Looped=true
+		local priorityName=Values.AnimationPriority
+		local priority=Enum.AnimationPriority.Idle
+		if priorityName~='' and priorityName~='Auto' then
+			local selectedPriority=Enum.AnimationPriority[priorityName]
+			if selectedPriority then
+				priority=selectedPriority
+			else
+				self:SetStatus(1,'Invalid Animation Priority',2)
+			end
 		end
-	end
-
-	animationTrack.Priority = priority
-
-	--------------------------------------------------
-	-- STOP CURRENT ANIMATIONS
-	--------------------------------------------------
-	for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-		if track ~= animationTrack or track.IsPlaying then
-			track:Stop(0.1)
+		animationTrack.Priority=priority
+		for _, track in ipairs(animator:GetPlayingAnimationTracks()) do 
+			if track~=animationTrack or track.IsPlaying then track:Stop(0.1) end 
 		end
+		animationTrack:Play(0.1,1,1) if animationTrack.Length>0 then animationTrack.TimePosition=0 end
 	end
-
-	--------------------------------------------------
-	-- PLAY ANIMATION
-	--------------------------------------------------
-	local playSuccess, playError = pcall(function()
-		animationTrack:Play(0.1, 1, 1)
-		if animationTrack.Length > 0 then
-			animationTrack.TimePosition = 0
-		end
-	end)
-
-	if not playSuccess then
-		self:SetStatus(1, 'Animation Play Failed', 2)
-	else
-		self:SetStatus(1, 'Play Complete', 2)
-	end
+	self:SetStatus(1,'Play Complete',2)
 end
 
 function Module:Stop()
-	if Values.GrabType=='Building' or Values.GrabType=='Animation' then
-		local model=Values.BuildingTarget
-		if Values.UseMyself then model = LocalPlayer.Character end
-		if not (model and model.Parent) then self:SetStatus(1,'No Building Target',2) return end
-		local animators=model:QueryDescendants('Animator')
-		if not next(animators) then self:SetStatus(1,'Animator not found',2) return end
-		for i,k in ipairs(animators) do local playingTracks=k:GetPlayingAnimationTracks() for j,v in ipairs(playingTracks) do v.TimePosition=0 v:Stop() end end
-		self:SetStatus(1,'Stop Complete',2)
-	end
+	if Values.GrabType~='Building' and Values.GrabType~='Animation' then return end
+	local useMyself=Values.UseMyself
+	local model=useMyself and LocalPlayer.Character or Values.BuildingTarget
+	if not (model and model.Parent) then self:SetStatus(1,useMyself and 'No Myself Target' or 'No Building Target', 2) return end
+	local animators=model:QueryDescendants('Animator')
+	if #animators<=0 then self:SetStatus(1,'No Animator',2) return end
+	for i,k in ipairs(animators) do local playingTracks=k:GetPlayingAnimationTracks() for j,v in ipairs(playingTracks) do v.TimePosition=0 v:Stop() end end
+	self:SetStatus(1,'Stop Complete',2)
 end
 
 function Module:Record()
-	if Values.RecordDebounce then self:SetStatus(1,'Waiting',2) return end
 	if Values.GrabType~='Animation' then return end
-	local model=Values.BuildingTarget
-	if not (model and model.Parent) then self:SetStatus(1,'No Building Target',2) return end
-	local recordAnimMode,fpsMode=Values.RecordAnimType,Values.FPSType
-	if recordAnimMode=='None' then self:SetStatus(1,'An Error Occurred',2) return end
+	local useMyself=Values.UseMyself
+	local model=useMyself and LocalPlayer.Character or Values.BuildingTarget
+	if not (model and model.Parent) then self:SetStatus(1,useMyself and 'No Myself Target' or 'No Building Target', 2) return end
+	local recordAnimMode,fpsMode,animName=Values.RecordAnimType,Values.FPSType,Values.AnimationName
 	local animators=model:QueryDescendants('Animator')
-	local animator:Animator=animators[1]
-	if not animator then self:SetStatus(1,'Animator not found',2) return end
-	local playingTracks:{AnimationTrack}=animator:GetPlayingAnimationTracks()
-	local targetTrack=playingTracks[1]
-	if not targetTrack then self:SetStatus(1,#playingTracks==0 and 'No Animation Playing' or 'Animation Not Loaded',2) return end
-	local duration=targetTrack.Length
-	if duration<=0 then self:SetStatus(1,'Animation Not Loaded',2) return end
-	local sampleInterval=0
-	if fpsMode=='Unlimited' then
-		sampleInterval=0
-	else
-		sampleInterval=GlobalData.FPSRates[fpsMode]
-		if sampleInterval==nil or type(sampleInterval)~='number' or sampleInterval<=0 then
-			local fps=tonumber(string.match(fpsMode,'(%d+)%s*FPS'))
-			sampleInterval=fps and (1/fps) or (1/30)
-		end
-	end
-	local sources=recordAnimMode=='Bone' and model:QueryDescendants('Bone') or model:QueryDescendants('Motor6D')
-	if #sources==0 then 
-		self:SetStatus(1,recordAnimMode=='Bone' and 'Bone not found' or 'Motor6D not found' ,2) 
-		return
-	end
-	local function sortInstances(list)
-		table.sort(list,function(a,b) if a.Name==b.Name then return a:GetFullName()<b:GetFullName() end return a.Name<b.Name end)
-	end
-	if Values.RecordDebounce then return end
-	Values.RecordDebounce=true
-	local nodes={}
-	if recordAnimMode=='Bone' then
-		for i,v in ipairs(model:QueryDescendants('Bone')) do 
-			table.insert(nodes,{Name=v.Name,Transform=function() return v.Transform end})
-		end
-	else
-		for i,v in ipairs(model:QueryDescendants('Motor6D')) do 
-			table.insert(nodes,{Name=v.Part1.Name,Transform=function() return v.Transform end})
-		end
-	end
-	if #nodes<=0 then self:SetStatus(1,'Animation Node is Empty',2) Values.RecordDebounce=false return end
-	local animSaves=model:FindFirstChild('AnimSaves')
-	if not animSaves then
-		animSaves=Instance.new('ObjectValue')
-		animSaves.Name='AnimSaves'
-		animSaves.Parent=model
-	end
-	local keyframeSequence=Instance.new('KeyframeSequence')
-	keyframeSequence.Name='Record_' .. tostring(os.time())
-	keyframeSequence.Loop=targetTrack.Looped
-	keyframeSequence.Priority=targetTrack.Priority
-	keyframeSequence.Parent=animSaves
-	local didConnection=nil
-	local elapsed,sampleAccumulator,count,hasInitialFrame,finished,lastKeyframe,connection=0,0,1,false,false,nil,nil
-	local function createPose(node,parent)
-		count+=1
-		local pose=Utility.Create('Pose',{Name=node.Name,CFrame=node.Transform(),Parent=parent})
-		return pose
-	end
-	local duplicated={}
-	local function recordFrame(timePosition)
-		local id=tostring(timePosition)
-		if duplicated[id] then return end
-		duplicated[id]=true
-		count+=1
-		local keyframe=Instance.new('Keyframe')
-		keyframe.Time=timePosition
-		for _,node in ipairs(nodes) do createPose(node,keyframe) end
-		keyframeSequence:AddKeyframe(keyframe)
-	end
-	local function finish(status,removeSequence)
-		if finished then return end finished=true
-		duplicated={}
-		Values.RecordDebounce=false
-		if didConnection then didConnection:Disconnect() if Cacheds.RecordAnimDidConnection==didConnection then Cacheds.RecordAnimDidConnection=nil end didConnection=nil end
-		if connection then connection:Disconnect() if Cacheds.RecordAnimConnection==connection then Cacheds.RecordAnimConnection=nil end connection=nil end
-		if removeSequence and keyframeSequence.Parent then keyframeSequence:Destroy() count=0 end
-		self:SetStatus(1,count>0 and (status.. ' '..tostring(count)..' Keyframe') or status,2)
-	end
-	Interfaces.StatusLabel:Set('Recording...')
-	didConnection=targetTrack.DidLoop:Once(function()
-		finish('Record Complete',false)
-	end)
-	Cacheds.RecordAnimDidConnection=connection
-	targetTrack.TimePosition=0
-	connection=RunService.PreAnimation:Connect(function(_)
-		if not model.Parent then finish('Record Failed',true) return end
-		if finished then return end
-		if targetTrack.IsPlaying then
-			local currentTime = targetTrack.TimePosition
-			if currentTime<duration then
-				recordFrame(currentTime)
+	if #animators<=0 then self:SetStatus(1,'No Animator',2) return end
+	for _, animator in ipairs(animators)  do
+		local playingTracks=animator:GetPlayingAnimationTracks()
+		local targetTrack=playingTracks[1]
+		if #playingTracks<=0 then self:SetStatus(1,'No Playing Animation',2) continue end
+		local duration=targetTrack.Length
+		if duration<=0 then self:SetStatus(1,'Playing Animation Not Loaded',2) continue end
+		local sources={}
+		if recordAnimMode=='Auto' then
+			local bones,motors=model:QueryDescendants('Bone'),model:QueryDescendants('Motor6D')
+			if #motors>0 then
+				sources=motors
+				recordAnimMode='Motor6D'
+			elseif #bones>0 then
+				sources=bones
+				recordAnimMode='Bone'
 			end
+		else
+			sources=recordAnimMode=='Bone' and model:QueryDescendants('Bone') or model:QueryDescendants('Motor6D')
 		end
-	end)
-	Cacheds.RecordAnimConnection=connection
+		if #sources<=0 then self:SetStatus(1,recordAnimMode=='Bone' and 'Bone not found' or 'Motor6D not found' ,2) continue end
+		local nodes={}
+		for i,v in ipairs(sources) do if recordAnimMode=='Bone' then table.insert(nodes,{Name=v.Name,Transform=function() return v.Transform end}) else table.insert(nodes,{Name=v.Part1.Name,Transform=function() return v.Transform end}) end end
+		local animSaves=model:FindFirstChild('AnimSaves')
+		if not animSaves then
+			animSaves=Instance.new('ObjectValue')
+			animSaves.Name='AnimSaves'
+			animSaves.Parent=model
+		end
+		if #animName==0 or animName=='' then animName='Record' end
+		local keyframeSequence=Instance.new('KeyframeSequence')
+		keyframeSequence.Name=animName..'_'..tostring(os.time())
+		keyframeSequence.Loop=targetTrack.Looped
+		keyframeSequence.Priority=targetTrack.Priority
+		keyframeSequence.Parent=animSaves
+		local elapsed,sampleAccumulator,count,hasInitialFrame,finished,lastKeyframe,connection,didConnection=0,0,1,false,false,nil,nil,nil
+		local function createPose(node,parent)
+			count+=1
+			local pose=Utility.Create('Pose',{Name=node.Name,CFrame=node.Transform(),Parent=parent})
+			return pose
+		end
+		local duplicated={}
+		local function recordFrame(timePosition)
+			local id=tostring(timePosition)
+			if duplicated[id] then return end
+			duplicated[id]=true
+			count+=1
+			local keyframe=Instance.new('Keyframe')
+			keyframe.Time=timePosition
+			for _,node in ipairs(nodes) do createPose(node,keyframe) end
+			keyframeSequence:AddKeyframe(keyframe)
+		end
+		local function finish(status,removeSequence)
+			if finished then return end finished=true
+			duplicated={} Values.RecordDebounce=nil
+			if didConnection then didConnection:Disconnect() didConnection=nil end
+			if connection then connection:Disconnect() end
+			if removeSequence and keyframeSequence.Parent then keyframeSequence:Destroy() count=0 end
+			self:SetStatus(1,count>0 and (status.. ' '..tostring(count)..' Keyframe') or status,2)
+		end
+		Interfaces.StatusLabel:Set('Recording...')
+		targetTrack:Stop()
+		targetTrack.TimePosition=0
+		didConnection=targetTrack.DidLoop:Once(function()
+			finish('Record Complete',false)
+		end)
+		connection=RunService.PreAnimation:Connect(function(_)
+			if not model.Parent then finish('Record Failed',true) return end
+			if finished then return end
+			if not finished and targetTrack.IsPlaying then
+				local currentTime=targetTrack.TimePosition
+				if currentTime<duration then
+					recordFrame(currentTime)
+				else
+					targetTrack:Stop()
+					if not finished then
+						finish('Record Complete',false)
+					end
+				end
+			end
+		end)
+		targetTrack:Play()
+	end
 end
 
 function Module:SaveToFile()
@@ -3135,6 +3036,38 @@ Interfaces.TextBox=Window:AddInput({
 		end
 	end
 })
+Interfaces.AnimationTextBox=Window:AddInput({
+	Text='Animation Name',
+	Visible=false,
+	Callback=function(text)
+		Values.AnimationName=text
+		if Values.AnimationPriority=='Auto' then
+			if Utility.FastFind(text,'Idle') then
+				Interfaces.AnimationPrioritySelector:Set('Idle')
+				return
+			end
+			for _,pattern in ipairs({'Run','Climb','Walk','Swim','Move'}) do 
+				if Values.AnimationPriority~='Auto' then break end
+				if Utility.FastFind(text,pattern) then
+					Interfaces.AnimationPrioritySelector:Set('Movement')
+					return
+				end
+			end
+			for _,pattern in ipairs({'Carry','Steal','Attack'}) do 
+				if Values.AnimationPriority~='Auto' then break end
+				if Utility.FastFind(text,pattern) then
+					Interfaces.AnimationPrioritySelector:Set('Action')
+					return
+				end
+			end
+		end
+	end
+})
+Interfaces.AnimationTitle=Window:AddLabel({
+	Text='Animation Rig Type',
+	Visible=false,
+	TextScaled=true
+})
 Interfaces.AnimationSelector=Window:AddSelector({
 	Options=GlobalData.Types.RecordAnimTypes,
 	Value=Values.RecordAnimType,
@@ -3144,6 +3077,11 @@ Interfaces.AnimationSelector=Window:AddSelector({
 	Callback=function(value,key) 
 		Values.RecordAnimType=value 
 	end
+})
+Interfaces.FPSTitle=Window:AddLabel({
+	Text='FPS',
+	Visible=false,
+	TextScaled=true
 })
 Interfaces.FPSSelector=Window:AddSelector({
 	Options=GlobalData.Types.FPSTypes,
@@ -3163,6 +3101,11 @@ Interfaces.RecordButton=Window:AddButton({
 		Module:Record() 
 	end
 })
+Interfaces.AnimationPriorityTitle=Window:AddLabel({
+	Text='Animation Priority',
+	Visible=false,
+	TextScaled=true
+})
 Interfaces.AnimationPrioritySelector=Window:AddSelector({
 	Options=GlobalData.Types.AnimationPriority,
 	Value='Auto',
@@ -3171,33 +3114,6 @@ Interfaces.AnimationPrioritySelector=Window:AddSelector({
 	Flag='animation_priority_type',
 	Callback=function(value)
 		Values.AnimationPriority=value
-	end
-})
-Interfaces.AnimationTextBox=Window:AddInput({
-	Text='Animation Name',
-	Visible=false,
-	Callback=function(text)
-		Values.AnimationName=text
-		if Values.AnimationPriority=='Auto' then
-			if Utility.FastFind(text,'Idle') then
-				Values.AnimationPriority='Idle'
-				return
-			end
-			for _,pattern in ipairs({'Run','Climb','Walk','Swim','Move'}) do 
-				if Values.AnimationPriority~='Auto' then break end
-				if Utility.FastFind(text,pattern) then
-					Values.AnimationPriority='Movement'
-					return
-				end
-			end
-			for _,pattern in ipairs({'Carry','Steal','Attack'}) do 
-				if Values.AnimationPriority~='Auto' then break end
-				if Utility.FastFind(text,pattern) then
-					Values.AnimationPriority='Action'
-					return
-				end
-			end
-		end
 	end
 })
 Interfaces.PlayButton=Window:AddButton({
@@ -3267,6 +3183,7 @@ Interfaces.DestroyButton=Window:AddButton({
 
 Module.Parent=true
 
+Window:AddLabel({Text=VERSION,TextScaled=true})
 Window:AddLinkButton({Text='Donate 💖',Link='https://link-target.net/6690566/TlR2vuR2JR4F'})
 Window:AddLabel({Text='YouTube: Crokyreo',TextColor3=Color3.fromRGB(255,255,255)})
 Window:LoadConfig()
