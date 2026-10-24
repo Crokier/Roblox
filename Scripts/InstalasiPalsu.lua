@@ -1,7 +1,6 @@
 --                         This was made by Crokyreo 
--- Instal V76 04-05-2024
+-- Instal V77 04-05-2024
 
-local VERSION = 'V76'
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
 
@@ -1591,7 +1590,7 @@ Utility.CreateClasses=function(properties)
 					local propertyValue,propertyType=nil,nil
 					local success,err=pcall(function() propertyValue=templateObject[propertyName] end) 
 					if not success then
-						warn('['..PLUGIN_NAME..'] Unknown property '..className..'.'..propertyName..' will be ignored.')
+						--warn('['..PLUGIN_NAME..'] Unknown property '..className..'.'..propertyName..' will be ignored.')
 						continue
 					end
 					propertyType=typeof(propertyValue)
@@ -1599,7 +1598,7 @@ Utility.CreateClasses=function(properties)
 						dataType=propertyType
 					end
 					if SafeData[dataType]==nil then
-						warn('['..PLUGIN_NAME..'] Unhandled data type '..dataType..' '..className..'.'..propertyName..' will be ignored.')
+						--warn('['..PLUGIN_NAME..'] Unhandled data type '..dataType..' '..className..'.'..propertyName..' will be ignored.')
 						continue
 					end
 					classList[className][propertyName]={
@@ -1612,11 +1611,11 @@ Utility.CreateClasses=function(properties)
 				if templateObject then templateObject:Destroy() templateObject=nil end
 				className=line
 				if not pcall(function() Instance.new(className):Destroy() end) then
-					warn('['..PLUGIN_NAME..'] Unknown class '..line..'  will be ignored.')
+					--warn('['..PLUGIN_NAME..'] Unknown class '..line..'  will be ignored.')
 					continue
 				end
 				if classList[className] then
-					warn('['..PLUGIN_NAME..'] '..className..'class is already registered.')
+					--warn('['..PLUGIN_NAME..'] '..className..'class is already registered.')
 					continue
 				end
 				table.insert(registeredList,className)
@@ -2762,18 +2761,25 @@ end
 
 function Module:Record()
 	if Values.GrabType~='Animation' then return end
+	
 	local useMyself=Values.UseMyself
-	local model=useMyself and LocalPlayer.Character or Values.BuildingTarget
-	if not (model and model.Parent) then self:SetStatus(1,useMyself and 'No Myself Target' or 'No Building Target', 2) return end
+	local target=useMyself and LocalPlayer.Character or Values.BuildingTarget
+	if not (target and target.Parent) then self:SetStatus(1,useMyself and 'No Myself Target' or 'No Building Target', 2) return end
+	
 	local recordAnimMode,fpsMode,animName=Values.RecordAnimType,Values.FPSType,Values.AnimationName
-	local animators=model:QueryDescendants('Animator')
+	local animators=target:QueryDescendants('Animator')
 	if #animators<=0 then self:SetStatus(1,'No Animator',2) return end
-	for _, animator in ipairs(animators)  do
-		local playingTracks=animator:GetPlayingAnimationTracks()
-		local targetTrack=playingTracks[1]
-		if #playingTracks<=0 then self:SetStatus(1,'No Playing Animation',2) continue end
-		local duration=targetTrack.Length
-		if duration<=0 then self:SetStatus(1,'Playing Animation Not Loaded',2) continue end
+	
+	local function recordAnimation(animator)
+		local model=animator.Parent.Parent
+
+		local playingTracks:{AnimationTrack}=animator:GetPlayingAnimationTracks()
+		local oldTrack=playingTracks[1]
+		if #playingTracks<=0 then return end
+
+		local length=oldTrack.Length
+		if length<=0 then return end
+
 		local sources={}
 		if recordAnimMode=='Auto' then
 			local bones,motors=model:QueryDescendants('Bone'),model:QueryDescendants('Motor6D')
@@ -2787,36 +2793,52 @@ function Module:Record()
 		else
 			sources=recordAnimMode=='Bone' and model:QueryDescendants('Bone') or model:QueryDescendants('Motor6D')
 		end
-		if #sources<=0 then self:SetStatus(1,recordAnimMode=='Bone' and 'Bone not found' or 'Motor6D not found' ,2) continue end
-		local nodes={}
-		for i,v in ipairs(sources) do if recordAnimMode=='Bone' then table.insert(nodes,{Name=v.Name,Transform=function() return v.Transform end}) else table.insert(nodes,{Name=v.Part1.Name,Transform=function() return v.Transform end}) end end
+		if #sources<=0 then return end
+
 		local animSaves=model:FindFirstChild('AnimSaves')
 		if not animSaves then
 			animSaves=Instance.new('ObjectValue')
 			animSaves.Name='AnimSaves'
 			animSaves.Parent=model
 		end
+
+		local changed=Instance.new('BindableEvent')
+
+		local count=1
+
+		local function createPose(node,parent)
+			count+=1
+			local pose=Utility.Create('Pose',node)
+			return pose
+		end
+
+		for i,v in ipairs(sources) do 
+			if recordAnimMode=='Bone' then 
+				changed.Event:Connect(function(parent)
+					createPose({Name=v.Name,CFrame=v.Transform,Parent=parent})
+				end)
+			else 
+				changed.Event:Connect(function(parent)
+					createPose({Name=v.Part1.Name,CFrame=v.Transform,Parent=parent})
+				end)
+			end 
+		end
 		if #animName==0 or animName=='' then animName='Record' end
 		local keyframeSequence=Instance.new('KeyframeSequence')
 		keyframeSequence.Name=animName..'_'..tostring(os.time())
-		keyframeSequence.Loop=targetTrack.Looped
-		keyframeSequence.Priority=targetTrack.Priority
+		keyframeSequence.Loop=oldTrack.Looped
+		keyframeSequence.Priority=oldTrack.Priority
 		keyframeSequence.Parent=animSaves
-		local elapsed,sampleAccumulator,count,hasInitialFrame,finished,lastKeyframe,connection,didConnection=0,0,1,false,false,nil,nil,nil
-		local function createPose(node,parent)
-			count+=1
-			local pose=Utility.Create('Pose',{Name=node.Name,CFrame=node.Transform(),Parent=parent})
-			return pose
-		end
+		local finished,lastKeyframe,connection,didConnection=false,false,nil,nil
 		local duplicated={}
-		local function recordFrame(timePosition)
+		local function capture(timePosition)
 			local id=tostring(timePosition)
 			if duplicated[id] then return end
 			duplicated[id]=true
 			count+=1
 			local keyframe=Instance.new('Keyframe')
 			keyframe.Time=timePosition
-			for _,node in ipairs(nodes) do createPose(node,keyframe) end
+			changed:Fire(keyframe)
 			keyframeSequence:AddKeyframe(keyframe)
 		end
 		local function finish(status,removeSequence)
@@ -2825,30 +2847,27 @@ function Module:Record()
 			if didConnection then didConnection:Disconnect() didConnection=nil end
 			if connection then connection:Disconnect() end
 			if removeSequence and keyframeSequence.Parent then keyframeSequence:Destroy() count=0 end
+			changed:Destroy()
 			self:SetStatus(1,count>0 and (status.. ' '..tostring(count)..' Keyframe') or status,2)
 		end
 		Interfaces.StatusLabel:Set('Recording...')
-		targetTrack:Stop()
-		targetTrack.TimePosition=0
-		didConnection=targetTrack.DidLoop:Once(function()
+		oldTrack:Stop()
+		didConnection=oldTrack.DidLoop:Once(function()
+			oldTrack:Stop()
 			finish('Record Complete',false)
 		end)
 		connection=RunService.PreAnimation:Connect(function(_)
 			if not model.Parent then finish('Record Failed',true) return end
 			if finished then return end
-			if not finished and targetTrack.IsPlaying then
-				local currentTime=targetTrack.TimePosition
-				if currentTime<duration then
-					recordFrame(currentTime)
-				else
-					targetTrack:Stop()
-					if not finished then
-						finish('Record Complete',false)
-					end
-				end
+			if not finished and oldTrack.IsPlaying then
+				capture(oldTrack.TimePosition)
 			end
 		end)
-		targetTrack:Play()
+		oldTrack:Play()
+	end
+	
+	for _,animator in ipairs(animators)  do
+		task.defer(recordAnimation,animator)
 	end
 end
 
@@ -3183,7 +3202,6 @@ Interfaces.DestroyButton=Window:AddButton({
 
 Module.Parent=true
 
-Window:AddLabel({Text=VERSION,TextScaled=true})
 Window:AddLinkButton({Text='Donate 💖',Link='https://link-target.net/6690566/TlR2vuR2JR4F'})
 Window:AddLabel({Text='YouTube: Crokyreo',TextColor3=Color3.fromRGB(255,255,255)})
 Window:LoadConfig()
