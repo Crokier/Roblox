@@ -191,7 +191,6 @@ local function BuildDecode(tableOrString,targetParent)
 			
             if data.Properties then
                 for propertyName,propertyValue in next,data.Properties do
-                    print(propertyName,propertyValue,typeof(propertyName),typeof(propertyValue))
                     if propertyValue~=nil then
                         local propertyDefultValue=newInstance[propertyName]
                         local propertyType=typeof(propertyDefultValue or 'nil')
