@@ -2256,58 +2256,46 @@ function Module:BuildEncode(v,variables,targets,objectives,data,depth,func)
 	data.Duplicated[v]=true
 	if data.Count%20 then RunService.Stepped:Wait() end
 	data.Count+=1
-	
 	local canWrapText=data.CanWrapText
-	
-	local indent = string.rep("\t", depth)
-	local innerIndent = string.rep("\t", depth + 1)
-	
+	local indent=string.rep("\t",depth)
+	local innerIndent=string.rep("\t",depth+1)
 	local buildText,className,variable=(canWrapText and '{\n' or '{'),v.ClassName,variables[v] or 'v-1'
-	
 	func(data.Count,v,data.Max)
-	
-	buildText=buildText..(canWrapText and innerIndent or '')..'ClassName='..SafeData.string(className)..(canWrapText and ',\n' or ',')
-	buildText=buildText..(canWrapText and innerIndent or '')..'Id='..SafeData.string(string.format('v%s',tostring(variable:match('%d+') or '-1')))..(canWrapText and ',\n' or ',')
-	
+	buildText=buildText..(canWrapText and innerIndent or '')..'ClassName='..SafeData.string(className)..',Id='..SafeData.string(string.format('%s',tostring(variable:match('%d+') or '-1')))..(canWrapText and ',\n' or ',')
 	local properties,isPropertyChanged,actives,needle={},false,{},nil
 	for propertyName,property,index in Utility.GetProperties(ObjectClasses[className]) do
-		if index%20==0 then RunService.Stepped:Wait() end
 		local propertyDefaultValue,propertyType,propertyValue=property.DefaultValue,property.DataType,v[propertyName]
 		if propertyValue==propertyDefaultValue then continue end
 		needle=propertyType..'_'..propertyName 
 		if actives[needle] then continue end actives[needle]=true
 		isPropertyChanged=true
         if propertyType=='Object' then
+			if propertyName=='Parent' then continue end
 			local objectTarget=variables and variables[propertyValue] or (targets and targets[propertyValue] and objectives[targets[propertyValue]])
 			if objectTarget then
-				table.insert(properties,tostring(propertyName)..'='..SafeData.string(string.format('v%s', tostring(objectTarget:match('%d+') or '-1'))))
+				table.insert(properties,tostring(propertyName)..'='..SafeData.string(string.format('%s', tostring(objectTarget:match('%d+') or '-1'))))
 			end
 		else
 			local serializeValue=self:Serialize(propertyValue,propertyType,propertyDefaultValue)
 			table.insert(properties,tostring(propertyName)..'='..serializeValue)
 		end
 	end
-	
 	local children=v:GetChildren()
 	local childrenLen=#children
-	
 	if isPropertyChanged then
 		buildText=buildText..(canWrapText and innerIndent or '')..'Properties={'..table.concat(properties,',')..'}'
 	end
-	
 	if childrenLen>0 then
 		buildText=buildText..(canWrapText and ',\n' or ',')
 	else
 		buildText=buildText..(canWrapText and '\n' or '')
 	end
-
 	if childrenLen>0 then
 		if canWrapText then
 			buildText=buildText..innerIndent..'Children={\n'
 		else
 			buildText=buildText..'Children={'
 		end
-		
 		for i,child in ipairs(children) do
 			local result=self:BuildEncode(child,variables,targets,objectives,data,depth+2,func)
 			if canWrapText then
@@ -2318,13 +2306,11 @@ function Module:BuildEncode(v,variables,targets,objectives,data,depth,func)
 			if i<childrenLen then buildText=buildText..',' end
 			if canWrapText then buildText=buildText..'\n' end
 		end
-		
 		if canWrapText then
 			buildText=buildText..innerIndent..'}\n'
 		else
 			buildText=buildText..'}'
 		end
-	
 		table.clear(children)
 	end
 	if canWrapText then
@@ -2339,7 +2325,7 @@ end
 function Module:Process(selections,variables,objectives,targets,visual,func)
 	local canWrapText=Values.CanWrapText
 	local maxProgress=#selections
-	local arrayText='local V={'..(canWrapText and '\n' or '')
+	local arrayText='local Data={'..(canWrapText and '\n' or '')
 	local codings={}
 	for _,value in ipairs(selections) do if type(value)=='string' then table.insert(codings,value) end end
 	table.clear(selections)
@@ -2366,9 +2352,9 @@ function Module:Process(selections,variables,objectives,targets,visual,func)
 		table.clear(codings)
 	end
 	if canWrapText then
-		arrayText=arrayText..'}\n\nreturn V'
+		arrayText=arrayText..'}\n\nreturn Data'
 	else
-		arrayText=arrayText..'} return V'
+		arrayText=arrayText..'} return Data'
 	end
 	return arrayText
 end
