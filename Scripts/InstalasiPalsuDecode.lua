@@ -174,23 +174,23 @@ local function BuildDecode(tableOrString,targetParent)
     local pendingObjectReferences={}
 
     local function createInstancesPass(dataList, currentParent)
-        for _,data in ipairs(dataList) do
+        for i,data in ipairs(dataList) do
             if data.ClassName=='Coding' then continue end
-
+			if i%20==0 then task.wait() end
             local ok,newInstance=pcall(function()
                 return Instance.new(data.ClassName)
             end)
-
             if not ok or not newInstance then continue end
             if data.Name then newInstance.Name=data.Name end
             newInstance.Parent=currentParent
-
             if data.Id and data.Id~='nil' and data.Id~='' then
                 instancesByVariable[tostring(data.Id)]=newInstance
 			end
-			
             if data.Properties then
+			    local j=0
                 for propertyName,propertyValue in next,data.Properties do
+					j=(j+1)%20
+					if j==0 then task.wait() end
                     if propertyValue~=nil then
                         local propertyDefultValue=newInstance[propertyName]
                         local propertyType=typeof(propertyDefultValue or 'nil')
@@ -217,7 +217,8 @@ local function BuildDecode(tableOrString,targetParent)
         end
     end
     createInstancesPass(dataTable, targetParent)
-    for _, ref in ipairs(pendingObjectReferences) do
+    for j, ref in ipairs(pendingObjectReferences) do
+		if j%20==0 then task.wait() end
         local targetInst=instancesByVariable[ref.Id]
         if targetInst then
             pcall(function()
