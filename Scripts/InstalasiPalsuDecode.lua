@@ -1,3 +1,5 @@
+-- Instal Decode V9
+
 local function Parse(Value,Type,DefaultValue)
 	DefaultValue=DefaultValue or {}
 
@@ -35,12 +37,14 @@ local function Parse(Value,Type,DefaultValue)
 		return DefaultValue
 	elseif Type=='Color3' then
 		if type(Value)=="table" then
-			return Color3.fromRGB(Value[1] or math.round((DefaultValue.R or 1)*255),Value[2] or math.round((DefaultValue.G or 1),Value[3] or math.round((DefaultValue.B or 1)*255)))
+			local dr,dg,db=math.round((DefaultValue.R or 1)*255),math.round((DefaultValue.G or 1)*255),math.round((DefaultValue.B or 1)*255)
+			return Color3.fromRGB(Value[1] or dr,Value[2] or dg,Value[3] or db)
 		end
 		return DefaultValue
 	elseif Type=='BrickColor' then
 		if type(Value)=="table" then
-			return BrickColor.new(Value[1] or math.round((DefaultValue.r or 1) * 255),Value[2] or math.round((DefaultValue.g or 1),Value[3] or math.round((DefaultValue.b or 1)*255)))
+			local dr,dg,db=math.round((DefaultValue.r or 1)*255),math.round((DefaultValue.g or 1)*255),math.round((DefaultValue.b or 1)*255)
+			return BrickColor.new(Value[1] or dr,Value[2] or dg,Value[3] or db)
 		end
 		return DefaultValue
 	elseif Type=='CFrame' then
@@ -70,9 +74,10 @@ local function Parse(Value,Type,DefaultValue)
 		return DefaultValue
 	elseif Type=='Font' then
 		if type(Value)=="string" then
-			local family=string.match(Value,'Family="([^"]+)"') or (DefaultValue and DefaultValue.Family or "rbxasset://fonts/families/LegacyArial.json")
-			local weightStr=string.match(Value,'Weight=([%w_]+)') or "Regular"
-			local styleStr=string.match(Value,'Style=([%w_]+)') or "Normal"
+			local valueText=tostring(Value)
+			local family=string.match(valueText,'Family="([^"]+)"') or (DefaultValue and DefaultValue.Family or "rbxasset://fonts/families/LegacyArial.json")
+			local weightStr=string.match(valueText,'Weight=([%w_]+)') or "Regular"
+			local styleStr=string.match(valueText,'Style=([%w_]+)') or "Normal"
 
 			local weight=Enum.FontWeight[weightStr] or Enum.FontWeight.Regular
 			local style=Enum.FontStyle[styleStr] or Enum.FontStyle.Normal
@@ -133,6 +138,17 @@ local function Parse(Value,Type,DefaultValue)
 			end
 		end
 		return DefaultValue
+	elseif Type=='PhysicalProperties' then
+		if type(Value)=="table" then
+			return PhysicalProperties.new(
+				Value[1] or (DefaultValue.Density or 0),
+				Value[2] or (DefaultValue.Friction or 0),
+				Value[3] or (DefaultValue.Elasticity or 0),
+				Value[4] or (DefaultValue.FrictionWeight or 0),
+				Value[5] or (DefaultValue.ElasticityWeight or 0)
+			)
+		end
+		return DefaultValue
 	end
 
 	warn("Failed to Parse for",Type)
@@ -140,94 +156,125 @@ local function Parse(Value,Type,DefaultValue)
 end
 
 local function BuildDecode(tableOrString,targetParent)
-    local dataTable={}
-    if type(tableOrString)~='table' then
-        if type(tableOrString)~='string' or #tableOrString==0 then
-            warn('[Decoder Error]: tableOrString is empty or not a string!')
-            return nil
-        end
-        local formattedString=tableOrString
-        if not string.find(tableOrString, '^%s*return') and not string.find(tableOrString,'local V={',1,true) then
-            formattedString='return ' .. tableOrString
-        elseif  not string.find(tableOrString, '^%s*return') and string.find(tableOrString,'local V={',1,true) then
-            formattedString='return V'
-        end
+	local dataTable={}
+	if type(tableOrString)~='table' then
+		if type(tableOrString)~='string' or #tableOrString==0 then
+			warn('[Decoder Error]: tableOrString is empty or not a string!')
+			return nil
+		end
+		local formattedString=tableOrString
+		if not string.find(tableOrString, '^%s*return') and not string.find(tableOrString,'local V={',1,true) then
+			formattedString='return ' .. tableOrString
+		elseif  not string.find(tableOrString, '^%s*return') and string.find(tableOrString,'local V={',1,true) then
+			formattedString='return V'
+		end
 
-        local loaderFunction,syntaxError=loadstring(formattedString)
+		local loaderFunction,syntaxError=loadstring(formattedString)
 
-        if not loaderFunction then
-            warn('[Decoder Error] Syntax Error for string table: ' .. tostring(syntaxError))
-            return nil
-        end
+		if not loaderFunction then
+			warn('[Decoder Error] Syntax Error for string table: ' .. tostring(syntaxError))
+			return nil
+		end
 
-        local successExecute=false
-        successExecute, dataTable=pcall(loaderFunction)
+		local successExecute=false
+		successExecute, dataTable=pcall(loaderFunction)
 
-        if not successExecute or type(dataTable) ~= 'table' then
-            warn('[Decoder Error] Failed to execute the script, or the final result is not in the form of a table.: ' .. tostring(dataTable))
-            return nil
-        end
-    else
-        dataTable=tableOrString
-    end
-    local instancesByVariable={}
-    local pendingObjectReferences={}
+		if not successExecute or type(dataTable) ~= 'table' then
+			warn('[Decoder Error] Failed to execute the script, or the final result is not in the form of a table.: ' .. tostring(dataTable))
+			return nil
+		end
+	else
+		dataTable=tableOrString
+	end
+	local instancesByVariable={}
+	local pendingObjectReferences={}
+	
+	local ValueSurfaces={'BackSurface','BottomSurface','FrontSurface','LeftSurface','RightSurface','TopSurface'}
+	
+	local function createInstancesPass(dataList, currentParent)
+		for i,data in ipairs(dataList) do
+			if data.ClassName=='Coding' then continue end
 
-    local function createInstancesPass(dataList, currentParent)
-        for i,data in ipairs(dataList) do
-            if data.ClassName=='Coding' then continue end
 			if i%20==0 then task.wait() end
-            local ok,newInstance=pcall(function()
-                return Instance.new(data.ClassName)
-            end)
-            if not ok or not newInstance then continue end
-            if data.Name then newInstance.Name=data.Name end
-            newInstance.Parent=currentParent
-            if data.Id and data.Id~='nil' and data.Id~='' then
-                instancesByVariable[tostring(data.Id)]=newInstance
+			
+			local ok,newInstance=pcall(function()
+				return Instance.new(data.ClassName)
+			end)
+
+			if not ok or not newInstance then continue end
+			if data.Name then newInstance.Name=data.Name end
+			newInstance.Parent=currentParent
+			
+			local isPart=newInstance:IsA('BasePart')
+	
+			data.Id=tostring(data.Id or 'nil')
+			
+			if data.Id and data.Id~='nil' and data.Id~='' then
+				instancesByVariable[data.Id]=newInstance
 			end
-            if data.Properties then
-			    local j=0
-                for propertyName,propertyValue in next,data.Properties do
-					j=(j+1)%20
-					if j==0 then task.wait() end
-                    if propertyValue~=nil then
-                        local propertyDefultValue=newInstance[propertyName]
-                        local propertyType=typeof(propertyDefultValue or 'nil')
-                        local isObjectRef=type(propertyValue)=='string' and propertyValue:match('v%d+')
-                        if isObjectRef then
-                            table.insert(pendingObjectReferences,{Instance=newInstance,PropertyName=propertyName,Id=tostring(propertyValue)})
+
+			if data.Properties then
+				local j=0
+				for propertyName,propertyValue in next,data.Properties do
+					if propertyValue~=nil then
+						j=(j+1)%20
+						if j==0 then task.wait() end
+						if isPart and propertyName=='SurfaceType' then
+							local changed=true
+							if typeof(propertyValue)=='EnumItem' then
+								for _,propertyKey in ipairs(ValueSurfaces) do
+									pcall(function() newInstance[propertyKey]=propertyValue end)
+								end
+							elseif type(propertyValue)=='table' then
+								for x=1,#ValueSurfaces do
+									local propertyKey=ValueSurfaces[x]
+									pcall(function() newInstance[propertyKey]=propertyValue[x] or (newInstance[propertyKey] or 0) end)
+								end
+							else
+								changed=false
+							end
+							if changed then
+								continue
+							end
+						end
+						local propertyDefultValue=newInstance[propertyName]
+						local propertyType=typeof(propertyDefultValue or 'nil')
+						local isObjectRef=type(propertyValue)=='string' and propertyValue:match('v%d+')
+						if isObjectRef then
+							table.insert(pendingObjectReferences,{Instance=newInstance,PropertyName=propertyName,Id=tostring(propertyValue)})
 						else
 							local success=pcall(function()  newInstance[propertyName]=Parse(propertyValue,propertyType,propertyDefultValue) return nil end)
 							if not success then
 								warn('Failed to Parse '..propertyName..' of '..data.ClassName..' to '..tostring(propertyValue))
 							end
-                        end
-                    end
-                end
-            end
+						end
+					end
+				end
+			end
 
-            if data.Children and #data.Children>0 then
-                createInstancesPass(data.Children, newInstance)
-            end
+			if data.Children and #data.Children>0 then
+				createInstancesPass(data.Children, newInstance)
+			end
 
-            if currentParent then
-                newInstance.Parent=currentParent
-            end
-        end
-    end
-    createInstancesPass(dataTable, targetParent)
-    for j, ref in ipairs(pendingObjectReferences) do
-		if j%20==0 then task.wait() end
-        local targetInst=instancesByVariable[ref.Id]
-        if targetInst then
-            pcall(function()
-                ref.Instance[ref.PropertyName]=targetInst
-            end)
-        end
-    end
-    return instancesByVariable
+			if currentParent then
+				newInstance.Parent=currentParent
+			end
+		end
+	end
+
+	createInstancesPass(dataTable, targetParent)
+
+	for _, ref in ipairs(pendingObjectReferences) do
+		local targetInst=instancesByVariable[ref.Id]
+		if targetInst then
+			pcall(function()
+				ref.Instance[ref.PropertyName]=targetInst
+			end)
+		end
+	end
+	return instancesByVariable
 end
 
 local TargetModule=require(workspace:FindFirstChildOfClass('Terrain'):FindFirstChild('Instal'))
 BuildDecode(TargetModule,workspace)
+warn('Decode Complete')
