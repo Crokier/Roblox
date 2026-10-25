@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V79 04-05-2024
+-- Instal V80 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -89,7 +89,13 @@ Utility={
 	CopyInstanceWith=Instancer.CopyInstanceWith,
 	CopyInstance=Instancer.CopyInstance,
 	GetInstanceProperty=Instancer.GetInstanceProperty,
-	CreateVariable=function(instance,variables,options)
+	CreateVariable=function(instance,options)
+		if options.Duplicated==nil then
+			options.Duplicated={}
+		end
+		if options.Variables==nil then
+			options.Variables={}
+		end
 		local currentName=instance.Name
 		-- Remove symbols
 		local nameWithoutSymbols=''
@@ -105,18 +111,16 @@ Utility={
 		else
 			baseName=nameWithoutSymbols
 		end
-		if not options.Duplicated then
-			options.Duplicated={}
-		end
+		
 		if not options.Duplicated[baseName] then
 			options.Duplicated[baseName]=1
-			variables[instance]=baseName
+			options.Variables[instance]=baseName
 			return
 		end
 		options.Duplicated[baseName]+=1
 		local count=options.Duplicated[baseName]
 		local mainBaseName=baseName .. '_' .. tostring(count)
-		variables[instance]=mainBaseName
+		options.Variables[instance]=mainBaseName
 	end,
 	ConvertMeshPartToSpecialMesh=Instancer.ConvertMeshPartToSpecialMesh,
 	SetChildrenParent=Instancer.SetChildrenParent,
@@ -944,6 +948,12 @@ WedgePart
 	bool CanCollide
 	bool Anchored
 	PhysicalProperties CustomPhysicalProperties
+	SurfaceType BackSurface
+	SurfaceType BottomSurface
+	SurfaceType FrontSurface
+	SurfaceType LeftSurface
+	SurfaceType RightSurface
+	SurfaceType TopSurface
 CornerWedgePart
 	bool Archivable
 	string Name
@@ -959,6 +969,12 @@ CornerWedgePart
 	bool CanCollide
 	bool Anchored
 	PhysicalProperties CustomPhysicalProperties
+	SurfaceType BackSurface
+	SurfaceType BottomSurface
+	SurfaceType FrontSurface
+	SurfaceType LeftSurface
+	SurfaceType RightSurface
+	SurfaceType TopSurface
 TrussPart
 	bool Archivable
 	string Name
@@ -975,6 +991,12 @@ TrussPart
 	bool Anchored
 	PhysicalProperties CustomPhysicalProperties
 	Style Style
+	SurfaceType BackSurface
+	SurfaceType BottomSurface
+	SurfaceType FrontSurface
+	SurfaceType LeftSurface
+	SurfaceType RightSurface
+	SurfaceType TopSurface
 Part
 	bool Archivable
 	string Name
@@ -990,10 +1012,22 @@ Part
 	bool Anchored
 	PhysicalProperties CustomPhysicalProperties
 	PartType Shape
+	SurfaceType BackSurface
+	SurfaceType BottomSurface
+	SurfaceType FrontSurface
+	SurfaceType LeftSurface
+	SurfaceType RightSurface
+	SurfaceType TopSurface
 MeshPart
 	bool Archivable
 	string Name
 	Object Parent
+	SurfaceType BackSurface
+	SurfaceType BottomSurface
+	SurfaceType FrontSurface
+	SurfaceType LeftSurface
+	SurfaceType RightSurface
+	SurfaceType TopSurface
 ]]
 
 GlobalData.Propertys.Animation=[[
@@ -1862,7 +1896,7 @@ function Module:SetUpdate(mode,...)
 					if gui then isGui=gui:IsA('ScreenGui') if isGui then Values.GuiTarget=gui child:Destroy() end end
 					lastText=isGui and 'Successfully' or 'An Error Occured'
 					Interfaces.MainLabel.Text=lastText
-					task.wait(2)
+					task.wait(1)
 					if Interfaces.MainLabel.Text==lastText then
 						Interfaces.MainLabel.Text=originText
 					end
@@ -1890,7 +1924,7 @@ end
 function Module:GetGrabData(mode)
 	mode=tostring(mode)
 	Interfaces.StatusLabel:Set(mode)
-	task.wait(2)
+	task.wait(1)
 	local newModel=Instance.new('Model') newModel.Name=mode
 	local objectLength,textValue,textLength,maxText,textRemoved,needle,needles,list,actives,explorers=0,'',0,100,true,nil,GlobalData.Explorers[mode] or {},{},{},{}
 	if mode=='Texture' or mode=='Effect' or mode=='Decal' or mode=='Trail' or mode=='Beam' then
@@ -2051,11 +2085,11 @@ function Module:GetGrabData(mode)
 	end
 	local isModel,modelChildren=false,newModel:GetChildren()
 	if #textValue>0 then
-		if #textValue>=2000 then Interfaces.StatusLabel:Set(mode..' string is too long! and '..tostring(#textValue)) task.wait(2) end 
+		if #textValue>=2000 then Interfaces.StatusLabel:Set(mode..' string is too long! and '..tostring(#textValue)) task.wait(1) end 
 		if textRemoved then newModel:SetAttribute('Coding',true) end 
 		InstalCache[mode]={textValue}
 	elseif #textValue<=0 and not next(modelChildren) then
-		self:SetStatus(0,mode..' Has Empty') newModel:Destroy() newModel=nil task.wait(2)
+		self:SetStatus(0,mode..' Has Empty') newModel:Destroy() newModel=nil task.wait(1)
 	else
 		isModel=true
 	end
@@ -2067,7 +2101,7 @@ function Module:Initialize()
 	if Values.Debounce then return end
 	Values.Debounce=true
 	Interfaces.StatusLabel:Set('Initialize')
-	task.wait(2)
+	task.wait(1)
 	self:SetUpdate(2)
 	if Values.GrabberModel then Values.GrabberModel:Destroy() Values.GrabberModel=nil end
 	local newInstance=Instance.new('Model')
@@ -2097,14 +2131,14 @@ function Module:Initialize()
 		local length=#newInstance:GetDescendants()+1
 		if length>=MAX_CAP then Values.LastStatus=tostring(length)..'Object is Dangerous!' else Values.LastStatus='Grab '..tostring(length)..' Object' end
 		Interfaces.StatusLabel:Set(Values.LastStatus)
-		task.wait(2)
+		task.wait(1)
 		Values.GrabberModel=newInstance
 		Values.InstalTarget=newInstance
 		self:SetStatus(0,'Successfully')
 	else
 		self:SetStatus(0,'An Error Occured')
 	end
-	task.wait(2)
+	task.wait(1)
 	self:SetStatus(0,'Status')
 	Values.Debounce=false
 end
@@ -2113,6 +2147,7 @@ function Module:Scan(instance,func,data)
 	if data==nil then 
 		data={Count=0,Max=#instance:GetDescendants()} 
 	end
+	if data.Count%20==0 then RunService.Stepped:Wait() end
 	local currentChildren=instance:GetChildren()
 	Utility.Foreach(currentChildren,function(v)
 		if data.Count%20==0 then RunService.Stepped:Wait() end
@@ -2162,63 +2197,81 @@ function Module:Starting(instance,func)
 	func(progress,nil,maxProgress) 
 end
 
-function Module:Creating(instance,visualInstance,data,func)
-	local selections,variables,objectives,advencedVariables,options={},{},{},{},{Duplicated={}}
-	local count,progress,maxProgress=0,0,0
-	local descendants=instance:GetDescendants()
-	for mode,list in pairs(data) do for j,k in ipairs(list) do if type(k)=='string' then maxProgress+=1 end end end
-	maxProgress+=#descendants
-	for i,v in ipairs(descendants) do
-		if i%30 then RunService.Stepped:Wait() end
+function Module:Create(instance,options,func)
+	Utility.Foreach(instance:GetChildren(),function(v)
+		if options.Count%20==0 then RunService.Stepped:Wait() end
 		if ObjectClasses[v.ClassName] then 
-			progress+=1
-			count=count+1
-			Utility.CreateVariable(v,variables,options)
-			objectives[variables[v]]=v
-			advencedVariables[v]=string.format("%s[\'%s\']","V",count)
-			table.insert(selections,v)
-			func(progress,v,maxProgress)
+			options.Count+=1
+			Utility.CreateVariable(v,options)
+			options.Objectives[options.Variables[v]]=v
+			options.AdvencedVariables[v]=string.format("%s[\'%s\']","V",options.Count)
+			table.insert(options.Selections,v)
+		else
+			options.Max-=1
 		end
-	end
+		func(options.Count,v,options.Max)
+		local children=v:GetChildren()
+		if #children>0 then
+			self:Create(v,options,func)
+			table.clear(children)
+		end
+	end)
+	func(options.Count,nil,options.Max)
+end
+
+function Module:Creating(instance,visualInstance,data,func)
+	local descendants=instance:GetDescendants()
+	local options={
+		Count=0,
+		Duplicated={},
+		Max=#descendants,
+		Variables={},
+		AdvencedVariables={},
+		Objectives={},
+		Selections={},
+		Properties={}
+	}
+	for mode,list in pairs(data) do for j,k in ipairs(list) do if type(k)=='string' then options.Max+=1 end end end
+	self:Create(instance,options,func)
 	table.clear(descendants)
 	for mode,list in pairs(data) do
 		for i,k in ipairs(list) do
 			if k==nil or type(k)~='string' then continue end
-			progress+=1
+			options.Count+=1
 			if i%30 then RunService.Stepped:Wait() end
 			local v=visualInstance:FindFirstChild(mode)
 			if v then
 				local coding=v:GetAttribute('Coding')
-				local variable=advencedVariables[v]
+				local variable=options.AdvencedVariables[v]
 				if variable then
 					if coding~=nil and coding==true then
-						advencedVariables[v]=nil
-						local instanceIndex=table.find(selections,v)
-						if instanceIndex then table.remove(selections,instanceIndex) end
-						local otherVariable=variables[v]
+						options.AdvencedVariables[v]=nil
+						local instanceIndex=table.find(options.Selections,v)
+						if instanceIndex then table.remove(options.Selections,instanceIndex) end
+						local otherVariable=options.Variables[v]
 						if otherVariable then
-							variables[v]=nil
-							objectives[otherVariable]=nil
+							options.Variables[v]=nil
+							options.Objectives[otherVariable]=nil
 						end
-						count-=1
-						table.insert(selections,k)
+						options.Count-=1
+						table.insert(options.Selections,k)
 						v:Destroy()
 					else
-						table.insert(selections,string.format(k,variable))
+						table.insert(options.Selections,string.format(k,variable))
 					end
 				end
 			end
-			func(progress,k,maxProgress)
+			func(options.Count,k,options.Max)
 		end
 		table.clear(list)
 	end
-	func(maxProgress,nil,maxProgress)
-	return selections,variables,objectives,advencedVariables
+	func(options.Count,nil,options.Max)
+	return options.Selections,options.Variables,options.Objectives,options.AdvencedVariables,options.Properties
 end
 
 function Module:Serialize(Value,Type,DefaultValue)
 	if Value==nil then return 'nil' end
-	
+
 	-- String
 	if Type=='string' then
 		return "\'".. Utility.Trim(Value):gsub("[\"\\]","\\%1"):gsub("\n","\\\\n").."\'"
@@ -2229,8 +2282,6 @@ function Module:Serialize(Value,Type,DefaultValue)
 		if Value==math.huge then return 'math.huge' end
 		if Value==-math.huge then return '-math.huge' end
 		return Utility.ToNumber(Value)
-
-		-- boolean
 	elseif Type=='boolean' or type(Value)=='boolean' then
 		return Value and 'true' or 'false'
 	elseif Type=='BrickColor' then
@@ -2243,7 +2294,6 @@ function Module:Serialize(Value,Type,DefaultValue)
 			return string.format('{%d,%d}',r,g)
 		end
 		return string.format('{%d,%d,%d}',r,g,b)
-		-- Color3: {R,G,B}
 	elseif Type=='Color3' then
 		local r,g,b=math.round(Value.R*255),math.round(Value.G*255),math.round(Value.B*255)
 		local dr,dg,db=math.round(DefaultValue.R*255),math.round(DefaultValue.G*255),math.round(DefaultValue.B*255)
@@ -2254,8 +2304,6 @@ function Module:Serialize(Value,Type,DefaultValue)
 			return string.format('{%d,%d}',r,g)
 		end
 		return string.format('{%d,%d,%d}',r,g,b)
-
-		-- Vector2: {X,Y}
 	elseif Type=='Vector2' then
 		local x,y=Value.X,Value.Y
 		local dx,dy=DefaultValue.X,DefaultValue.Y
@@ -2263,8 +2311,6 @@ function Module:Serialize(Value,Type,DefaultValue)
 			return string.format('{%s}',Utility.ToNumber(x))
 		end
 		return string.format('{%s,%s}',Utility.ToNumber(x),Utility.ToNumber(y))
-
-		-- Vector3: {X,Y,Z}
 	elseif Type=='Vector3' then
 		local x,y,z=Value.X,Value.Y,Value.Z
 		local dx,dy,dz=DefaultValue.X,DefaultValue.Y,DefaultValue.Z
@@ -2272,7 +2318,7 @@ function Module:Serialize(Value,Type,DefaultValue)
 			if y==dy then
 				return string.format('{%s}',Utility.ToNumber(x))
 			end
-			return string.format('{%s,%s}',Utility.ToNumber(x),Utility.ToNumber(z))
+			return string.format('{%s,%s}',Utility.ToNumber(x),Utility.ToNumber(y))
 		end
 		return string.format('{%s,%s,%s}',Utility.ToNumber(x),Utility.ToNumber(y),Utility.ToNumber(z))
 	elseif Type=='CFrame' then
@@ -2305,8 +2351,6 @@ function Module:Serialize(Value,Type,DefaultValue)
 			return string.format('{%s}',Utility.ToNumber(scale))
 		end
 		return string.format('{%s,%s}',Utility.ToNumber(scale),Utility.ToNumber(offset))
-
-		-- UDim2: {{XScale,XOffset},{YScale,YOffset}}
 	elseif Type=='UDim2' then
 		local xScale,xOffset,yScale,yOffset=Value.X.Scale,Value.X.Offset,Value.Y.Scale,Value.Y.Offset
 		local dxScale,dxOffset,dyScale,dyOffset=DefaultValue.X.Scale,DefaultValue.X.Offset,DefaultValue.Y.Scale,DefaultValue.Y.Offset
@@ -2320,8 +2364,6 @@ function Module:Serialize(Value,Type,DefaultValue)
 			return string.format('{%s,%s,%s}',Utility.ToNumber(xScale),Utility.ToNumber(xOffset),Utility.ToNumber(yScale))
 		end
 		return string.format('{%s,%s,%s,%s}',Utility.ToNumber(xScale),Utility.ToNumber(xOffset),Utility.ToNumber(yScale),Utility.ToNumber(yOffset))
-
-		-- ColorSequence: {{Time,{R,G,B}},...}
 	elseif Type=='ColorSequence' then
 		local text='{'
 		local keypoints=Value.Keypoints
@@ -2332,57 +2374,67 @@ function Module:Serialize(Value,Type,DefaultValue)
 		end
 		text=text..'}'
 		return text
-
-		-- NumberSequence / FloatSequence: {{Time,Valueue,Envelope},...}
 	elseif Type=='NumberSequence' or Type=='FloatSequence' then
 		local text='{'
 		local keypoints=Value.Keypoints
 		for i,k in ipairs(keypoints) do text=text..string.format('{%s,%s,%s}',Utility.ToNumber(k.Time),Utility.ToNumber(k.Value),Utility.ToNumber(k.Envelope or 0))..(i<#keypoints and ',' or '') end
 		text=text..'}'
 		return text
-
-		-- NumberRange / FloatRange: {Min,Max}
 	elseif Type=='NumberRange' or Type=='FloatRange' then
 		if Value.Max==DefaultValue.Max then
 			return string.format('{%s}',Utility.ToNumber(Value.Min))
 		else
 			return string.format('{%s,%s}',Utility.ToNumber(Value.Min),Utility.ToNumber(Value.Max))
 		end
-
-		-- EnumItem
 	elseif typeof(Value)=='EnumItem' or Type=='EnumItem' or string.find(Type,'Enum') then
-		return string.format('%q',tostring(Value))
-		
-		-- Font
+		return tostring(Value)
 	elseif Type=='Font' or typeof(Value)=='Font' then
 		local family=Value.Family
 		local weight=tostring(Value.Weight) 
 		local style=tostring(Value.Style)
-
 		weight=string.gsub(weight, "Enum%.FontWeight%.", "")
 		style=string.gsub(style, "Enum%.FontStyle%.", "")
-
 		if DefaultValue and typeof(DefaultValue) == "Font" then
 			if Value.Family == DefaultValue.Family and Value.Weight == DefaultValue.Weight and Value.Style == DefaultValue.Style then
-				return '""'
+				return nil
 			end
 		end
 		return string.format('Font{Family=%q,Weight=%s,Style=%s}', family, weight, style)
-		
-		-- Content
 	elseif Type=='Content' or typeof(Value)=='Content' then
 		local uri=typeof(Value)=="Content" and Value.Uri or tostring(Value)
 
 		if DefaultValue then
 			local defaultUri = typeof(DefaultValue) == "Content" and DefaultValue.Uri or tostring(DefaultValue)
 			if uri == defaultUri then
-				return '""'
+				return nil
 			end
 		end
 
 		return string.format('%q', Utility.Trim(uri):gsub("[\"\\]", "\\%1"))
-		
-		-- Other
+	elseif Type=='PhysicalProperties' or typeof(Value)=='PhysicalProperties' then
+		local Value:PhysicalProperties,DefaultValue:PhysicalProperties=Value,DefaultValue
+		if Value.Density==DefaultValue.Density and Value.Friction==DefaultValue.Friction and Value.Elasticity==DefaultValue.Elasticity and Value.FrictionWeight==DefaultValue.FrictionWeight and Value.ElasticityWeight==DefaultValue.ElasticityWeight then
+			return nil
+		end
+		if Value.ElasticityWeight==DefaultValue.ElasticityWeight then
+			if Value.FrictionWeight==DefaultValue.FrictionWeight then
+				if Value.Elasticity==DefaultValue.Elasticity then
+					if Value.Friction==DefaultValue.Friction then
+						return string.format('{%s}',Utility.ToNumber(Value.Density))
+					end
+					return string.format('{%s,%s}',Utility.ToNumber(Value.Density),Utility.ToNumber(Value.Friction))
+				end
+				return string.format('{%s,%s,%s}',Utility.ToNumber(Value.Density),Utility.ToNumber(Value.Friction),Utility.ToNumber(Value.Elasticity))
+			end
+			return string.format('{%s,%s,%s,%s}',Utility.ToNumber(Value.Density),Utility.ToNumber(Value.Friction),Utility.ToNumber(Value.Elasticity),Utility.ToNumber(Value.FrictionWeight))
+		end
+		return string.format('{%s,%s,%s,%s,%s}',Utility.ToNumber(Value.Density),Utility.ToNumber(Value.Friction),Utility.ToNumber(Value.Elasticity),Utility.ToNumber(Value.FrictionWeight),Utility.ToNumber(Value.ElasticityWeight))
+	elseif Type=='SurfaceType' then
+		for _,key in ipairs(Enum.SurfaceType:GetEnumItems()) do
+			if Value.BackSurface.Name==key.Name and Value.BottomSurface.Name==key.Name and Value.FrontSurface.Name==key.Name and Value.LeftSurface.Name==key.Name and Value.RightSurface.Name==key.Name and Value.TopSurface.Name==key.Name then return string.format('Enum.SurfaceType.%s',key.Name) end
+		end
+		if Value.BackSurface==DefaultValue.BackSurface and Value.BottomSurface==DefaultValue.BottomSurface and Value.FrontSurface==DefaultValue.FrontSurface and Value.LeftSurface==DefaultValue.LeftSurface and Value.RightSurface==DefaultValue.RightSurface and Value.TopSurface==DefaultValue.TopSurface then return nil end
+		return string.format('{%s,%s,%s,%s,%s,%s}',tostring(Value.BackSurface),tostring(Value.BottomSurface),tostring(Value.FrontSurface),tostring(Value.LeftSurface),tostring(Value.RightSurface),tostring(Value.TopSurface))
 	else
 		return string.format('%q',tostring(Value))
 	end
@@ -2391,272 +2443,185 @@ end
 function Module:BuildEncode(v,variables,targets,objectives,data,depth,func)
 	if data.Duplicated[v] then return end
 	data.Duplicated[v]=true
-	if data.Count%20 then RunService.Stepped:Wait() end
+
 	data.Count+=1
+	if data.Count % 20 == 0 then 
+		RunService.Stepped:Wait() 
+	end
+
 	local canWrapText=data.CanWrapText
 	local indent=string.rep("\t", depth)
 	local innerIndent=string.rep("\t", depth + 1)
-	local buildText,className,variable=(canWrapText and '{\n' or '{'),v.ClassName,variables[v] or ''
-	func(data.Count,v,data.Max)
-	buildText=buildText..(canWrapText and innerIndent or '')..'ClassName='..SafeData.string(className)..',Id='..SafeData.string(string.format('%s',tostring(variable:match('%d+') or '')))..(canWrapText and ',\n' or ',')
+	local className,variable=v.ClassName,variables[v] or ''
+	local isPart=v:IsA('BasePart')
+	
+	if func then
+		func(data.Count,v,data.Max)
+	end
+
+	local bufferList={
+		'{',
+		canWrapText and '\n' or '',
+		(canWrapText and innerIndent or '')..'ClassName='..SafeData.string(className)..',Id='..string.format('%s',tostring(variable:match('%d+') or '')),
+		canWrapText and ',\n' or ','
+	}
+	
+	local DefaultSurfaces=nil
+
 	local properties,isPropertyChanged,actives,needle={},false,{},nil
 	for propertyName,property,propertyIndex in Utility.GetProperties(ObjectClasses[className]) do
 		if propertyIndex%20==0 then RunService.Stepped:Wait() end
 		local propertyDefaultValue,propertyType,propertyValue=property.DefaultValue,property.DataType,v[propertyName]
 		if propertyValue==propertyDefaultValue then continue end
+		if propertyType=='Object' and propertyName=='Parent' then continue end
 		needle=propertyType..'_'..propertyName 
 		if actives[needle] then continue end actives[needle]=true
-		isPropertyChanged=true
 		if propertyType=='Object' then
-			if propertyName=='Parent' then continue end
 			local objectTarget=variables and variables[propertyValue] or (targets and targets[propertyValue] and objectives[targets[propertyValue]])
 			if objectTarget then
-				table.insert(properties,tostring(propertyName)..'='..SafeData.string(string.format('%s',tostring(objectTarget:match('%d+') or ''))))
+				table.insert(properties,tostring(propertyName)..'='..string.format('%s',tostring(objectTarget:match('%d+') or '')))
 			end
 		else
+			if isPart and propertyType=='SurfaceType' or typeof(propertyValue)=='EnumItem' then 
+				if Utility.IsStrings(propertyName,{'BackSurface','BottomSurface','FrontSurface','LeftSurface','RightSurface','TopSurface'}) then 
+					if DefaultSurfaces==nil then DefaultSurfaces={} end
+					DefaultSurfaces[propertyName]=propertyDefaultValue
+					continue
+				end 
+			end
 			local serializeValue=self:Serialize(propertyValue,propertyType,propertyDefaultValue)
-			table.insert(properties,tostring(propertyName)..'='..serializeValue)
+			if serializeValue~=nil then
+				table.insert(properties,tostring(propertyName)..'='..serializeValue)
+			end
+		end
+		isPropertyChanged=true
+	end
+	
+	if isPart and DefaultSurfaces then
+		local ValueSurfaces={
+			BackSurface=v.BackSurface,
+			BottomSurface=v.BottomSurface,
+			FrontSurface=v.FrontSurface,
+			LeftSurface=v.LeftSurface,
+			RightSurface=v.RightSurface,
+			TopSurface=v.TopSurface
+		}
+		local serializeValue=self:Serialize(ValueSurfaces,'SurfaceType',DefaultSurfaces)
+		if serializeValue~=nil then
+			table.insert(properties,'SurfaceType='..serializeValue)
+			isPropertyChanged=true
 		end
 	end
+	
 	local children=v:GetChildren()
 	local childrenLen=#children
+
 	if isPropertyChanged then
-		buildText=buildText..(canWrapText and innerIndent or '')..'Properties={'..table.concat(properties,',')..'}'
+		table.insert(bufferList, canWrapText and innerIndent or '')
+		table.insert(bufferList, 'Properties={'..table.concat(properties,',')..'}')
 	end
+
 	if childrenLen>0 then
-		buildText=buildText..(canWrapText and ',\n' or ',')
+		table.insert(bufferList, canWrapText and ',\n' or ',')
 	else
-		buildText=buildText..(canWrapText and '\n' or '')
+		table.insert(bufferList, canWrapText and '\n' or '')
 	end
+
 	if childrenLen>0 then
+		table.insert(bufferList, canWrapText and innerIndent..'Children={' or 'Children={')
 		if canWrapText then
-			buildText=buildText..innerIndent..'Children={\n'
-		else
-			buildText=buildText..'Children={'
+			table.insert(bufferList, '\n')
 		end
+
 		for i,child in ipairs(children) do
 			local result=self:BuildEncode(child,variables,targets,objectives,data,depth+2,func)
 			if canWrapText then
-				buildText=buildText..innerIndent..'\t'..result
+				table.insert(bufferList, innerIndent..'\t'..result)
 			else
-				buildText=buildText..result
+				table.insert(bufferList, result)
 			end
-			if i<childrenLen then buildText=buildText..',' end
-			if canWrapText then buildText=buildText..'\n' end
+			if i<childrenLen then 
+				table.insert(bufferList, ',') 
+			end
+			if canWrapText then 
+				table.insert(bufferList, '\n') 
+			end
 		end
+
 		if canWrapText then
-			buildText=buildText..innerIndent..'}\n'
+			table.insert(bufferList, innerIndent..'}\n')
 		else
-			buildText=buildText..'}'
+			table.insert(bufferList, '}')
 		end
-	
+
 		table.clear(children)
 	end
-	if canWrapText then
-		buildText=buildText..indent..'}'
-	else
-		buildText=buildText..'}'
-	end
-	actives={} needle=nil table.clear(properties)
-	return buildText
+
+	table.insert(bufferList, canWrapText and indent..'}' or '}')
+
+	actives={} 
+	needle=nil 
+	table.clear(properties)
+
+	return table.concat(bufferList)
 end
 
 function Module:Process(selections,variables,objectives,targets,visual,func)
 	local canWrapText=Values.CanWrapText
 	local maxProgress=#selections
-	local arrayText='local V={'..(canWrapText and '\n' or '')
-	local codings={}
-	for _,value in ipairs(selections) do if type(value)=='string' then table.insert(codings,value) end end
-	table.clear(selections)
-	local data={Duplicated={},Count=0,Max=maxProgress,CanWrapText=canWrapText}
-	local itemStr=self:BuildEncode(visual:FindFirstChildOfClass('Model') or visual:FindFirstChildOfClass('Folder'),variables,targets,objectives,data,1,func)
+
+	local bufferList = {}
+	table.insert(bufferList, 'local V={')
 	if canWrapText then
-		arrayText=arrayText..'\t'..itemStr..'\n'
-	else
-		arrayText=arrayText..itemStr
+		table.insert(bufferList, '\n')
 	end
+
+	local codings={}
+	for _,value in ipairs(selections) do 
+		if type(value)=='string' then 
+			table.insert(codings,value) 
+		end 
+	end
+	table.clear(selections)
+
+	local data={Duplicated={},Count=0,Max=maxProgress,CanWrapText=canWrapText}
+	local rootModel = visual:FindFirstChildOfClass('Model') or visual:FindFirstChildOfClass('Folder')
+
+	if rootModel then
+		local itemStr=self:BuildEncode(rootModel,variables,targets,objectives,data,1,func)
+		if canWrapText then
+			table.insert(bufferList, '\t'..itemStr..'\n')
+		else
+			table.insert(bufferList, itemStr)
+		end
+	end
+
 	local codingsLen=#codings
 	if codingsLen>0 then
-		local codingText='{'
+		table.insert(bufferList, '{')
 		for i,coding in ipairs(codings) do
 			data.Count+=1
 			if data.Count%20==0 then RunService.Stepped:Wait() end
-			codingText=codingText.."{ClassName='Coding',Properties={Value="..tostring(coding).."}}"
-			if i<codingsLen then codingText=codingText..',' end
-			func(data.Count,coding,data.Max)
+			table.insert(buffer, "{ClassName='Coding',Properties={Value="..tostring(coding).."}}")
+			if i<codingsLen then 
+				table.insert(buffer, ',') 
+			end
+			if func then
+				func(data.Count,coding,data.Max)
+			end
 		end
-		codingText=codingText..'}'
-		arrayText=arrayText..codingText
-		codingText=''
+		table.insert(bufferList, '}')
 		table.clear(codings)
 	end
+
 	if canWrapText then
-		arrayText=arrayText..'}\n\nreturn V'
+		table.insert(bufferList, '}\nreturn V')
 	else
-		arrayText=arrayText..'} return V'
+		table.insert(bufferList, '} return V')
 	end
-	return arrayText
+
+	return table.concat(bufferList)
 end
-
--- Old Code
---function Module:Process(selections,variables,objectives,targets,instance,func)
---	local isLimit,isProperty=#selections>=MAX_CAP,false
---	local textLocal,textCoding,textProperty,textInstance,textPrefix,textValue='','','','local V={\n','',''
---	local foundLocals,localCache={},{}
---	local progress,maxProgress,instanceIndex,maxInstance,noName=0,#selections,0,0,Values.NoName
---	func(progress,nil,maxProgress)
---	for i=1,maxProgress do local v=selections[i] if v and typeof(v)=='Instance' then maxInstance+=1 end end
---	local isInstanceLocal=GlobalData.Locals['Instance']
---	for i=1,maxProgress do
---		local v=selections[i]
---		if not v then continue end
---		if i%20==0 then RunService.Stepped:Wait() end
---		progress+=1
---		if type(v)=='string' then
---			textCoding=textCoding..v..'\n'
---		else
---			instanceIndex+=1
---			if isInstanceLocal and not foundLocals['Instance'] then
---				foundLocals['Instance']=true
---				table.insert(foundLocals,'Instance')
---			end
---			local variable,name,className=variables[v],v.Name,v.ClassName
---			local isPart=v:IsA('BasePart')
---			local data=InstalCache[name]
---			if GlobalData.Locals['Instance'] and not foundLocals['Instance'] then
---				foundLocals['Instance']=true
---				table.insert(foundLocals,'Instance')
---			end
---			local instanceStr=string.sub(variable,2,#variable).."=e('"..className.."')"
---			textInstance=textInstance..(instanceIndex==maxInstance and instanceStr or instanceStr..',') 
---			if not isLimit then textProperty=textProperty..'\n' end
---			local needle,actives,defaultPropertyAdds=nil,{},{}
---			local particleEmitter=v:IsA('ParticleEmitter') and v or nil
---			if particleEmitter~=nil then
---				pcall(function()
---					local rv=nil
---					if particleEmitter.FlipbookLayout==Enum.ParticleFlipbookLayout.None then
---						rv={'FlipbookBlendFrames','FlipbookFramerate','FlipbookMode','FlipbookSizeY','FlipbookSizeX','FlipbookStartRandom'}
---					elseif Utility.IsEnums(particleEmitter.FlipbookLayout,{Enum.ParticleFlipbookLayout.Grid2x2,Enum.ParticleFlipbookLayout.Grid4x4,Enum.ParticleFlipbookLayout.Grid8x8}) then
---						rv={'FlipbookSizeY','FlipbookSizeX'}
---					end
---					if rv then for j,k in ipairs(rv) do if not defaultPropertyAdds[k] then defaultPropertyAdds[k]=true end end end
---				end)
---			end
---			for propertyName,property in Utility.GetProperties(ObjectClasses[className]) do
---				RunService.Stepped:Wait()
---				local propertyType,propertyValue,propertyDefaultValue=property.DataType,nil,property.DefaultValue
---				local success,err=pcall(function() propertyValue=v[propertyName] end)
---				if not success then continue end
---				if defaultPropertyAdds[propertyName] then
---					propertyValue=propertyDefaultValue
---				end
---				if isLimit and propertyType=='string' and propertyName=='Name' then propertyValue=propertyDefaultValue end
---				if noName then propertyValue=propertyDefaultValue end
---				if propertyValue==propertyDefaultValue then continue end
---				if isLimit and (propertyType=='CFrame' or propertyType=='PhysicalProperties') then continue end
---				if isLimit and (propertyType=='string' or propertyType=='bool') and (propertyName=='Name' or (isPart and propertyName=='Anchored')) then continue end
---				if isLimit and propertyType=='boolean' and propertyName=='Archivable' then continue end
---				needle=propertyType..'_'..propertyName 
---				if actives[needle] then continue end 
---				actives[needle]=true
---				isProperty=false
---				if GlobalData.Locals[propertyType] and not foundLocals[propertyType] then
---					foundLocals[propertyType]=true
---					table.insert(foundLocals,propertyType)
---					local secondPropertyType=''
---					if propertyType=='ColorSequence' or propertyType=='NumberSequence' or propertyType=='FloatSequence' then
---						secondPropertyType=propertyType..'Keypoint'
---					end
---					if #secondPropertyType~=0 and not foundLocals[secondPropertyType] then
---						foundLocals[secondPropertyType]=true
---						table.insert(foundLocals,secondPropertyType)
---					end
---				end
---				if Utility.IsStrings(propertyType,{'number','float','int','short','double'}) and type(propertyValue)=='number' then 
---					isProperty=true
---					if propertyValue~=propertyValue then
---						textProperty=textProperty..variable..'.'..propertyName..'=0/0;'
---					elseif propertyValue>=Values.Inf then
---						textProperty=textProperty..variable..'.'..propertyName..'=math.huge;'
---					elseif propertyValue<=-Values.Inf then
---						textProperty=textProperty..variable..'.'..propertyName..'=-math.huge;'
---					else
---						isProperty=false 
---					end
---				elseif propertyType=='Object' and propertyName=='Parent' and v.Parent==instance then 
---					isProperty=true
---					textProperty=textProperty..variable..'.Parent=workspace;'
---				end
---				if not isProperty then
---					if propertyType=='Object' then
---						if variables[propertyValue] then
---							textProperty=textProperty..variable..'.'..propertyName..'='..variables[propertyValue]..';'
---						elseif variables[v] then
---							textProperty=textProperty..variable..'.'..propertyName..'='..variables[v]..';'
---						else
---							warn('['..PLUGIN_NAME..'] PROCESS FAILED: Object '..name..' '..className..'.'..propertyName..' '..tostring(objectives[targets[propertyValue]]))
---						end
---					else
---						local result=nil
---						local success,err=pcall(function() result=SafeData[propertyType](propertyValue) end)
---						if not success or result==nil then
---							warn('['..PLUGIN_NAME..'] PROCESS FAILED: '..propertyValue..' '..className..'.'..propertyName)
---						else
---							textProperty=textProperty..variable..'.'..propertyName..'='..result..';'
---						end
---					end
---				end
---			end
---		end
---		func(progress,v,maxProgress)
---	end
---	textInstance=textInstance..'\n}'
---	local foundLocalsLength=#foundLocals
---	for i,k in ipairs(foundLocals) do
---		local v=GlobalData.Locals[k] 
---		if v then
---			local prefix,value,vLength=v.Prefix,v.Value,v.Length
---			if vLength and type(vLength)=='number' then
---				for j=1,vLength do
---					local prefix2,value2=prefix[j],value[j]
---					if prefix2~=nil and value2~=nil then
---						textPrefix=textPrefix..prefix2
---						textValue=textValue..value2
---						if j<vLength then
---							textPrefix=textPrefix..",'
---							textValue=textValue..','
---						end
---					end
---				end
---			else
---				textPrefix=textPrefix..prefix
---				textValue=textValue..value
---				if i<foundLocalsLength then
---					textPrefix=textPrefix..','
---					textValue=textValue..','
---				end
---			end
-
---		end
---	end
---	table.clear(localCache) table.clear(foundLocals)
---	func(maxProgress,nil,maxProgress)
---	if #textPrefix>0 then
---		textLocal=textLocal..'local '..textPrefix..'='
---	else
---		textLocal=textLocal..'local Empty='
---	end
---	if #textValue>0 then
---		textLocal=textLocal..textValue
---	else
---		textLocal=textLocal..'1'
---	end
---	if not isLimit then textLocal=textLocal..'\n' end
---	local text=textLocal..textInstance..textProperty
---	if #textCoding>0 then text=textLocal..textInstance..textCoding..textProperty end
---	return text
---end
 
 function Module:Convert(data,target)
 	local lastTime=tick()
@@ -2667,34 +2632,34 @@ function Module:Convert(data,target)
 
 	Interfaces.StatusLabel:Set('Starting Object')
 	self:Starting(target,function(i,v,length) Interfaces.StatusLabel:Set('Starting Object') self:SetStatus(2,i,length) end)
-	task.wait(2)
+	task.wait(1)
 
 	local length=#target:GetDescendants()+1
 	if length>=MAX_CAP then Values.LastStatus=tostring(length)..' Object is Dangerous!' else Values.LastStatus='Grab '..tostring(length)..' Object' end
 	Interfaces.StatusLabel:Set(Values.LastStatus)
-	task.wait(2)
+	task.wait(1)
 
 	Interfaces.StatusLabel:Set('Create Object')
 	local selections,variables,objectives,advencedVariables=self:Creating(visualInstance,target,data,function(i,v,length) Interfaces.StatusLabel:Set('Create Object') self:SetStatus(2,i,length) end)
-	task.wait(2)
+	task.wait(1)
 
 	Interfaces.StatusLabel:Set('Process Object')
 	local text=self:Process(selections,advencedVariables,objectives,variables,visualInstance,function(i,v,length) Interfaces.StatusLabel:Set('Process Object') self:SetStatus(2,i,length) end)
-	task.wait(2)
+	task.wait(1)
 
 	target.Parent=nil
 	visualInstance:Destroy()
 	Interfaces.StatusLabel:Set('Complete')
 	task.wait(0.5)
 	Interfaces.StatusLabel:Set('Text Length: '..tostring(#text))
-	task.wait(2)
+	task.wait(1)
 	return text
 end
 
 function Module:Instal()
 	Interfaces.StatusLabel:Set('Instal' )
 	self:SetUpdate(2) 
-	task.wait(2)
+	task.wait(1)
 	if not next(InstalCache) or not Values.InstalTarget then self:SetStatus(1,'Target Has Empty',2) return end
 	if Values.Debounce then return end
 	Values.Debounce=true
@@ -2732,7 +2697,7 @@ function Module:Instal()
 	if Values.GrabberModel then Values.GrabberModel:Destroy() Values.GrabberModel=nil end
 	table.clear(InstalCache)
 	self:SetUpdate(1)
-	task.wait(2)
+	task.wait(1)
 	Values.Debounce=false
 end
 
@@ -2927,76 +2892,6 @@ function Module:Record()
 		})
 		task.wait(length)
 		Recording:Stop()
-		
-		--local animSaves=model:FindFirstChild('AnimSaves')
-		--if not animSaves then
-		--	animSaves=Instance.new('ObjectValue')
-		--	animSaves.Name='AnimSaves'
-		--	animSaves.Parent=model
-		--end
-
-		--local changed=Instance.new('BindableEvent')
-
-		--local count=1
-
-		--local function createPose(node,parent)
-		--	count+=1
-		--	local pose=Utility.Create('Pose',node)
-		--	return pose
-		--end
-
-		--for i,v in ipairs(sources) do 
-		--	if recordAnimMode=='Bone' then 
-		--		changed.Event:Connect(function(parent)
-		--			createPose({Name=v.Name,CFrame=v.Transform,Parent=parent})
-		--		end)
-		--	else 
-		--		changed.Event:Connect(function(parent)
-		--			createPose({Name=v.Part1.Name,CFrame=v.Transform,Parent=parent})
-		--		end)
-		--	end 
-		--end
-		--if #animationName==0 or animationName=='' then animationName='Record' end
-		--local keyframeSequence=Instance.new('KeyframeSequence')
-		--keyframeSequence.Name=animationName..'_'..tostring(os.time())
-		--keyframeSequence.Loop=oldTrack.Looped
-		--keyframeSequence.Priority=oldTrack.Priority
-		--keyframeSequence.Parent=animSaves
-		--local finished,lastKeyframe,connection,didConnection=false,false,nil,nil
-		--local duplicated={}
-		--local function capture(timePosition)
-		--	local id=tostring(timePosition)
-		--	if duplicated[id] then return end
-		--	duplicated[id]=true
-		--	count+=1
-		--	local keyframe=Instance.new('Keyframe')
-		--	keyframe.Time=timePosition
-		--	changed:Fire(keyframe)
-		--	keyframeSequence:AddKeyframe(keyframe)
-		--end
-		--local function finish(status,removeSequence)
-		--	if finished then return end finished=true
-		--	duplicated={} Values.RecordDebounce=nil
-		--	if didConnection then didConnection:Disconnect() didConnection=nil end
-		--	if connection then connection:Disconnect() end
-		--	if removeSequence and keyframeSequence.Parent then keyframeSequence:Destroy() count=0 end
-		--	changed:Destroy()
-		--	self:SetStatus(1,count>0 and (status.. ' '..tostring(count)..' Keyframe') or status,2)
-		--end
-		--Interfaces.StatusLabel:Set('Recording...')
-		--oldTrack:Stop()
-		--didConnection=oldTrack.DidLoop:Once(function()
-		--	oldTrack:Stop()
-		--	finish('Record Complete',false)
-		--end)
-		--connection=RunService.PreAnimation:Connect(function(_)
-		--	if not model.Parent then finish('Record Failed',true) return end
-		--	if finished then return end
-		--	if not finished and oldTrack.IsPlaying then
-		--		capture(oldTrack.TimePosition)
-		--	end
-		--end)
-		--oldTrack:Play()
 	end
 	
 	for _,animator in ipairs(animators)  do
@@ -3183,7 +3078,7 @@ Interfaces.TextBox=Window:AddInput({
 		else
 			local lastTextBox='Please enter the number'
 			Interfaces.TextBox.Text=lastTextBox
-			task.wait(2)
+			task.wait(1)
 			if Interfaces.TextBox.Text==lastTextBox then
 				Interfaces.TextBox.Text=''
 			end
