@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V80 04-05-2024
+-- Instal V81 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -50,6 +50,7 @@ local Values={
 	['UseMyself']=false,
 	['CanShutdown']=false,
 	['CanWrapText']=true,
+	['AnimationCache']={}
 }
 
 local Templates={
@@ -1683,12 +1684,12 @@ function RecordAnimation.new(model,options)
 	
 	local recordAnimationType=options.RecordAnimationType or "Motor6D"
 	local animationName=options.Name
-	
-	local Container=model:FindFirstChild('AnimSaves')
+
+    local Container=Values.AnimationCache[model]
 	if not Container then
 		Container=Instance.new('ObjectValue')
 		Container.Name='AnimSaves'
-		Container.Parent=model
+		Values.AnimationCache[model]=Container
 	end
 
 	local baseParts=model:QueryDescendants('BasePart')
@@ -1885,6 +1886,7 @@ function Module:SetUpdate(mode,...)
 		self:SetUpdate(isBuilding and 2 or 0)
 		if Cacheds.PlayerGuiAdded then Cacheds.PlayerGuiAdded:Disconnect() Cacheds.PlayerGuiAdded=nil end
 		Interfaces.TextBox.Visible=isBuilding
+		Interfaces.BuildQueryTextBox.Visible=isBuilding
 		Interfaces.TextBox.Title=isBuilding and 'Building Index (0-'.. tostring(Values.BuildingIndex)..')' or ''
 		Interfaces.AddButton.Visible=lastGrabType~='None' and lastGrabType~='Settings' and lastGrabType~='Animation'
 		if lastGrabType=='Gui' then
@@ -2151,6 +2153,8 @@ function Module:Scan(instance,func,data)
 	local currentChildren=instance:GetChildren()
 	Utility.Foreach(currentChildren,function(v)
 		if data.Count%20==0 then RunService.Stepped:Wait() end
+		local anim=Values.AnimationCache[v]
+		if anim then Values.AnimationCache[v]=nil if v.Parent then anim.Parent=v end end
 		local info=ObjectClasses[v.ClassName]
 		if info==nil then
 			data.Max-=1
@@ -3063,6 +3067,18 @@ Interfaces.MainLabel=Window:AddLabel({
 	Text='',
 	Visible=false,
 	TextScaled=true
+})
+Interfaces.BuildQueryTextBox=Window:AddInput({
+	Text='Example: Explorer > #Name > #Name >> ClassName',
+	Visible=false,
+	Callback=function(text)
+		local targets=game:QueryDescendants(text)
+		if #targets>0 then
+			Values.BuildingTarget=targets[1]
+			table.clear(targets)
+		end
+		Module:SetStatus(1,#targets>0 and 'Query Found' or 'No Query',2)
+	end
 })
 Interfaces.TextBox=Window:AddInput({
 	Text='None',
