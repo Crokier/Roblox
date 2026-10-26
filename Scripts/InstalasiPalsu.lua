@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V81 04-05-2024
+-- Instal V82 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -1886,11 +1886,12 @@ function Module:SetUpdate(mode,...)
 		self:SetUpdate(isBuilding and 2 or 0)
 		if Cacheds.PlayerGuiAdded then Cacheds.PlayerGuiAdded:Disconnect() Cacheds.PlayerGuiAdded=nil end
 		Interfaces.TextBox.Visible=isBuilding
-		Interfaces.BuildQueryTextBox.Visible=isBuilding
+		Interfaces.BuildQueryTextBox.Visible=isBuilding or lastGrabType=='Gui'
 		Interfaces.TextBox.Title=isBuilding and 'Building Index (0-'.. tostring(Values.BuildingIndex)..')' or ''
 		Interfaces.AddButton.Visible=lastGrabType~='None' and lastGrabType~='Settings' and lastGrabType~='Animation'
 		if lastGrabType=='Gui' then
-			local originText,lastText="Use dex/explorer and Add StringValue and named 'Instal' to any ScreenGui in PlayerGui",''
+			Interfaces.BuildQueryTextBox.Text='#GUI > #FRAME'
+			--[[local originText,lastText="Use dex/explorer and Add StringValue and named 'Instal' to any ScreenGui in PlayerGui",''
 			Interfaces.MainLabel.Text=originText
 			Cacheds.PlayerGuiAdded=PlayerGui.DescendantAdded:Connect(function(child)
 				if child and child.Parent and child:IsA('StringValue') and child.Name=='Instal' then
@@ -1903,12 +1904,13 @@ function Module:SetUpdate(mode,...)
 						Interfaces.MainLabel.Text=originText
 					end
 				end
-			end)
+			end)]]
 		else
+			Interfaces.BuildQueryTextBox.Text='EXPLORER > #NAME > CLASSNAME'
 			Interfaces.MainLabel.Text=''
 		end
-		Interfaces.MainLabel.TextScaled=lastGrabType=='Gui'
-		Interfaces.MainLabel.Visible=lastGrabType=='Gui'
+		--Interfaces.MainLabel.TextScaled=lastGrabType=='Gui'
+		--Interfaces.MainLabel.Visible=lastGrabType=='Gui'
 		Interfaces.StopButton.Visible=isBuilding
 		Interfaces.FPSTitle.Visible=isSettings
 		Interfaces.FPSSelector.Visible=isSettings
@@ -2978,6 +2980,7 @@ Interfaces.GrabTypeSelector=Window:AddSelector({
 Interfaces.FileNameTextBox=Window:AddInput({
 	Text='File Name (Optional)',
 	Visible=false,
+	ClearOnFocus=false,
 	Callback=function(text)
 		Values.FileName=text
 	end
@@ -3068,18 +3071,31 @@ Interfaces.MainLabel=Window:AddLabel({
 	Visible=false,
 	TextScaled=true
 })
+
+-- bisakah anda baiki ini
 Interfaces.BuildQueryTextBox=Window:AddInput({
-	Text='Example: Explorer > #Name > #Name >> ClassName',
+	Text='EXPLORER > #NAME > CLASSNAME',
 	Visible=false,
+	ClearOnFocus=false,
 	Callback=function(text)
-		local targets=game:QueryDescendants(text)
-		if #targets>0 then
-			Values.BuildingTarget=targets[1]
+		local lastGrabType=Values.GrabType
+		local explorer=game
+		if lastGrabType=='Gui' then explorer=PlayerGui end
+		local targets=explorer:QueryDescendants(text)
+		local noEmpty=#targets>0
+		if noEmpty then
+			local value=targets[1]
+			if lastGrabType=='Gui' then
+				Values.GuiTarget=value
+			else
+				Values.BuildingTarget=value
+			end
 			table.clear(targets)
 		end
-		Module:SetStatus(1,#targets>0 and 'Query Found' or 'No Query',2)
+		Module:SetStatus(1,noEmpty and 'Query Found' or 'No Query',2)
 	end
 })
+
 Interfaces.TextBox=Window:AddInput({
 	Text='None',
 	Visible=false,
@@ -3104,6 +3120,7 @@ Interfaces.TextBox=Window:AddInput({
 Interfaces.AnimationTextBox=Window:AddInput({
 	Text='Animation Name',
 	Visible=false,
+	ClearOnFocus=false,
 	Callback=function(text)
 		Values.AnimationName=text
 		if Values.AnimationPriority=='Auto' then
