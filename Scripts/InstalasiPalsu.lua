@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V82 04-05-2024
+-- Instal V83 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -112,7 +112,7 @@ Utility={
 		else
 			baseName=nameWithoutSymbols
 		end
-		
+
 		if not options.Duplicated[baseName] then
 			options.Duplicated[baseName]=1
 			options.Variables[instance]=baseName
@@ -191,7 +191,7 @@ local GlobalData={
 			['Prefix']='BC',
 			['Value']='BrickColor.new'
 		},
-		['Rect2D']={
+		['Rect']={
 			['Prefix']='R2D',
 			['Value']='Rect.new'
 		},
@@ -338,7 +338,7 @@ local GlobalData={
 	},
 	['Types']={
 		['GrabTypes']={'None','Building','Gui','Lighting','Sound','Tool','Icon','GuiIcon','MouseIcon','Animation','Team','Event','Texture','Decal','Beam','Trail','Name','GuiColor','PartColor','Settings'},
-		['BannedGrabTypes']={'None','Animation'},
+		['BannedGrabTypes']={'None'},
 		['RecordAnimTypes']={'Auto','Motor6D','Bone'},
 		['FPSTypes']={'12 FPS','24 FPS','30 FPS','60 FPS','120 FPS','240 FPS','Unlimited'},
 		['NumericTypes']={'1','2','3','4','5','6','7','8','9','0'},
@@ -511,7 +511,7 @@ ImageButton
 	Vector2 ImageRectSize
 	float ImageTransparency
 	ScaleType ScaleType
-	Rect2D SliceCenter
+	Rect SliceCenter
 	float SliceScale
 	UDim2 TileSize
 ImageLabel
@@ -550,7 +550,7 @@ ImageLabel
 	Vector2 ImageRectSize
 	float ImageTransparency
 	ScaleType ScaleType
-	Rect2D SliceCenter
+	Rect SliceCenter
 	float SliceScale
 	UDim2 TileSize
 ScrollingFrame
@@ -1509,7 +1509,7 @@ do
 	SafeData['PhysicalProperties']=function(value)
 		return ('PhyProp(%s,%s,%s,%s,%s)'):format(Utility.ToNumber(value.Density,3),Utility.ToNumber(value.Friction,3),Utility.ToNumber(value.Elasticity,3),Utility.ToNumber(value.FrictionWeight,3),Utility.ToNumber(value.ElasticityWeight,3))
 	end
-	SafeData['Rect2D']=function(value)
+	SafeData['Rect']=function(value)
 		return 'R2D('..tostring(value):gsub('\n',''):gsub(' ','')..')'
 	end
 	SafeData['BrickColor']=function(value)
@@ -1681,17 +1681,10 @@ local RecordAnimation={}
 
 function RecordAnimation.new(model,options)
 	options=options or {}
-	
+
 	local recordAnimationType=options.RecordAnimationType or "Motor6D"
 	local animationName=options.Name
-
-    local Container=Values.AnimationCache[model]
-	if not Container then
-		Container=Instance.new('ObjectValue')
-		Container.Name='AnimSaves'
-		Values.AnimationCache[model]=Container
-	end
-
+	
 	local baseParts=model:QueryDescendants('BasePart')
 	local isSinglePart=#baseParts==1
 
@@ -1700,10 +1693,10 @@ function RecordAnimation.new(model,options)
 
 	local PrimaryPart=isSinglePart and baseParts[1] or rootPart or torso or model.PrimaryPart or baseParts[1]
 	local KeyframeSequence=Instance.new('KeyframeSequence')
-	
+
 	if not animationName or animationName=='' then animationName='Record' end
 	KeyframeSequence.Name=animationName..'_'..tostring(os.time())
-	
+
 	local Time=0
 	local Init=PrimaryPart and CFrame.new(PrimaryPart.Position) or CFrame.new()
 
@@ -1716,7 +1709,7 @@ function RecordAnimation.new(model,options)
 				RootPose.Name = PrimaryPart.Name
 				RootPose.CFrame = Init:ToObjectSpace(PrimaryPart.CFrame)
 				Keyframe:AddPose(RootPose)
-				
+
 				local function AddBonePoses(parentObj, parentPose)
 					for _, child in ipairs(parentObj:GetChildren()) do
 						if child:IsA("Bone") then
@@ -1807,7 +1800,6 @@ function RecordAnimation.new(model,options)
 	return {
 		Stop=function(_)
 			Connection:Disconnect()
-			KeyframeSequence.Parent=Container
 			return KeyframeSequence
 		end
 	}
@@ -1872,6 +1864,7 @@ function Module:SetUpdate(mode,...)
 	elseif mode==3 then
 		local lastGrabType=Values.GrabType
 		local isAnimation,isBuilding,isSettings=lastGrabType=='Animation',lastGrabType=='Building' or lastGrabType=='Animation',lastGrabType=='Settings'
+		local isObject=isBuilding or lastGrabType=='Gui'
 		Interfaces.SoundSlider.Visible=lastGrabType=='Sound' or isSettings
 		Interfaces.FileNameTextBox.Visible=isSettings
 		Interfaces.AutoSaveFileToggle.Visible=isSettings
@@ -1886,31 +1879,18 @@ function Module:SetUpdate(mode,...)
 		self:SetUpdate(isBuilding and 2 or 0)
 		if Cacheds.PlayerGuiAdded then Cacheds.PlayerGuiAdded:Disconnect() Cacheds.PlayerGuiAdded=nil end
 		Interfaces.TextBox.Visible=isBuilding
-		Interfaces.BuildQueryTextBox.Visible=isBuilding or lastGrabType=='Gui'
+		Interfaces.BuildQueryTextBox.Visible=isObject
 		Interfaces.TextBox.Title=isBuilding and 'Building Index (0-'.. tostring(Values.BuildingIndex)..')' or ''
-		Interfaces.AddButton.Visible=lastGrabType~='None' and lastGrabType~='Settings' and lastGrabType~='Animation'
+		Interfaces.AddButton.Visible=lastGrabType~='None' and lastGrabType~='Settings'
+		Interfaces.MainLabel.Text='Example: Explorer > ClassName >> #Name'
 		if lastGrabType=='Gui' then
-			Interfaces.BuildQueryTextBox.Text='#GUI > #FRAME'
-			--[[local originText,lastText="Use dex/explorer and Add StringValue and named 'Instal' to any ScreenGui in PlayerGui",''
-			Interfaces.MainLabel.Text=originText
-			Cacheds.PlayerGuiAdded=PlayerGui.DescendantAdded:Connect(function(child)
-				if child and child.Parent and child:IsA('StringValue') and child.Name=='Instal' then
-					local isGui,gui=false,child.Parent
-					if gui then isGui=gui:IsA('ScreenGui') if isGui then Values.GuiTarget=gui child:Destroy() end end
-					lastText=isGui and 'Successfully' or 'An Error Occured'
-					Interfaces.MainLabel.Text=lastText
-					task.wait(1)
-					if Interfaces.MainLabel.Text==lastText then
-						Interfaces.MainLabel.Text=originText
-					end
-				end
-			end)]]
-		else
-			Interfaces.BuildQueryTextBox.Text='EXPLORER > #NAME > CLASSNAME'
+			Interfaces.MainLabel.Text='Example: #Gui > #Frame'
+		end
+		if not isObject then
 			Interfaces.MainLabel.Text=''
 		end
-		--Interfaces.MainLabel.TextScaled=lastGrabType=='Gui'
-		--Interfaces.MainLabel.Visible=lastGrabType=='Gui'
+		Interfaces.MainLabel.TextScaled=isObject
+		Interfaces.MainLabel.Visible=isObject
 		Interfaces.StopButton.Visible=isBuilding
 		Interfaces.FPSTitle.Visible=isSettings
 		Interfaces.FPSSelector.Visible=isSettings
@@ -2072,6 +2052,14 @@ function Module:GetGrabData(mode)
 		Values.GuiTarget=nil local k,v=next(GuiCache) while k and v do RunService.Stepped:Wait() GuiCache[k]=nil local cv=k:Clone() if cv and cv.Parent==nil then Interfaces.StatusLabel:Set(mode..': '..cv.Name) cv.Parent=newModel end k,v=next(GuiCache) end
 	elseif mode=='Building' then
 		Values.BuildingTarget=nil local k,v=next(BuildingCache) while k and v do RunService.Stepped:Wait() BuildingCache[k]=nil local cv=k:Clone() if cv and cv.Parent==nil then Interfaces.StatusLabel:Set(mode..': '..cv.Name) cv.Parent=newModel end k,v=next(BuildingCache) end
+	elseif mode=='Animation' then
+		local k,v=next(Values.AnimationCache) 
+		while k and v do 
+			RunService.Stepped:Wait() 
+			Values.AnimationCache[k]=nil  	
+			v.Parent=newModel 
+			k,v=next(Values.AnimationCache) 
+		end
 	else
 		return false,nil
 	end
@@ -2155,8 +2143,6 @@ function Module:Scan(instance,func,data)
 	local currentChildren=instance:GetChildren()
 	Utility.Foreach(currentChildren,function(v)
 		if data.Count%20==0 then RunService.Stepped:Wait() end
-		local anim=Values.AnimationCache[v]
-		if anim then Values.AnimationCache[v]=nil if v.Parent then anim.Parent=v end end
 		local info=ObjectClasses[v.ClassName]
 		if info==nil then
 			data.Max-=1
@@ -2281,7 +2267,6 @@ function Module:Serialize(Value,Type,DefaultValue)
 	-- String
 	if Type=='string' then
 		return "\'".. Utility.Trim(Value):gsub("[\"\\]","\\%1"):gsub("\n","\\\\n").."\'"
-
 		-- number
 	elseif Utility.IsStrings(Type,{'number','float','int','short','double'}) then
 		if Value~=Value then return '0/0' end
@@ -2329,27 +2314,27 @@ function Module:Serialize(Value,Type,DefaultValue)
 		return string.format('{%s,%s,%s}',Utility.ToNumber(x),Utility.ToNumber(y),Utility.ToNumber(z))
 	elseif Type=='CFrame' then
 		local comp={Value:GetComponents()}
-		local defComp=DefaultValue and {DefaultValue:GetComponents()} or nil
+		local defComp={DefaultValue:GetComponents()}
 		local isIdentityRotation=comp[4]==1 and comp[5]==0 and comp[6]==0 and comp[7]==0 and comp[8]==1 and comp[9]==0 and comp[10]==0 and comp[11]==0 and comp[12]==1
 		if isIdentityRotation then
 			local x,y,z=comp[1],comp[2],comp[3]
-			if defComp then
-				local dx,dy,dz=defComp[1],defComp[2],defComp[3]
-				if z==dz then
-					if y==dy then
-						return string.format('{%s}',Utility.ToNumber(x))
-					end
-					return string.format('{%s,%s}',Utility.ToNumber(x),Utility.ToNumber(y))
+			local dx,dy,dz=defComp[1],defComp[2],defComp[3]
+			if z==dz then
+				if y==dy then
+					return string.format('{%s}',Utility.ToNumber(x))
 				end
+				return string.format('{%s,%s}',Utility.ToNumber(x),Utility.ToNumber(y))
 			end
 			return string.format('{%s,%s,%s}',Utility.ToNumber(x),Utility.ToNumber(y),Utility.ToNumber(z))
 		end
-		local formatText="{"
+		local list={'{'}
+		local compLen=#comp
 		for i,v in ipairs(comp) do
-			formatText=formatText..Utility.ToNumber(v)..(i<=#comp and ',' or '')
+			table.insert(list,Utility.ToNumber(v))
+			if i<compLen then table.insert(list,',') end
 		end
-		formatText=formatText..'}'
-		return formatText
+		table.insert(list,'}')
+		return table.concat(list)
 	elseif Type=='UDim' then
 		local scale,offset=Value.Scale,Value.Offset
 		local dScale,dOffset=DefaultValue.Scale,DefaultValue.Offset
@@ -2370,6 +2355,16 @@ function Module:Serialize(Value,Type,DefaultValue)
 			return string.format('{%s,%s,%s}',Utility.ToNumber(xScale),Utility.ToNumber(xOffset),Utility.ToNumber(yScale))
 		end
 		return string.format('{%s,%s,%s,%s}',Utility.ToNumber(xScale),Utility.ToNumber(xOffset),Utility.ToNumber(yScale),Utility.ToNumber(yOffset))
+	elseif Type=='Rect' then
+		if Value.Min==DefaultValue.Min and Value.Max==DefaultValue.Max then return nil end
+		local info={Value.Min.X,Value.Min.Y,Value.Max.X,Value.Max.Y}
+		local list={'{'}
+		for i,v in ipairs(info) do
+			table.insert(list,Utility.ToNumber(v[1]))
+			if i<4 then table.insert(list,',') end
+		end
+		table.insert(list,'}')
+		return table.concat(list)
 	elseif Type=='ColorSequence' then
 		local text='{'
 		local keypoints=Value.Keypoints
@@ -2393,30 +2388,33 @@ function Module:Serialize(Value,Type,DefaultValue)
 			return string.format('{%s,%s}',Utility.ToNumber(Value.Min),Utility.ToNumber(Value.Max))
 		end
 	elseif typeof(Value)=='EnumItem' or Type=='EnumItem' or string.find(Type,'Enum') then
-		return tostring(Value)
+		return self:Serialize(Value.Name,'string',DefaultValue.Name)
 	elseif Type=='Font' or typeof(Value)=='Font' then
-		local family=Value.Family
-		local weight=tostring(Value.Weight) 
-		local style=tostring(Value.Style)
-		weight=string.gsub(weight, "Enum%.FontWeight%.", "")
-		style=string.gsub(style, "Enum%.FontStyle%.", "")
-		if DefaultValue and typeof(DefaultValue) == "Font" then
-			if Value.Family == DefaultValue.Family and Value.Weight == DefaultValue.Weight and Value.Style == DefaultValue.Style then
-				return nil
-			end
+		if Value.Family==DefaultValue.Family and Value.Weight==DefaultValue.Weight and Value.Style==DefaultValue.Style then
+			return nil
 		end
-		return string.format('Font{Family=%q,Weight=%s,Style=%s}', family, weight, style)
+		local info={
+			{Value.Family,DefaultValue.Family},
+			{Value.Weight,DefaultValue.Weight},
+			{Value.Style,DefaultValue.Style},
+			{Value.Bold,DefaultValue.Bold},
+		}
+		local list={'{'}
+		for i,v in ipairs(info) do
+			if v[1]~=v[2] then
+				table.insert(list,self:Serialize(v[1],typeof(v[1]),v[2]))
+			else
+				table.insert(list,'nil')
+			end
+			if i<4 then table.insert(list,',') end
+		end
+		table.insert(list,'}')
+		return table.concat(list)
 	elseif Type=='Content' or typeof(Value)=='Content' then
 		local uri=typeof(Value)=="Content" and Value.Uri or tostring(Value)
-
-		if DefaultValue then
-			local defaultUri = typeof(DefaultValue) == "Content" and DefaultValue.Uri or tostring(DefaultValue)
-			if uri == defaultUri then
-				return nil
-			end
-		end
-
-		return string.format('%q', Utility.Trim(uri):gsub("[\"\\]", "\\%1"))
+		local defaultUri=typeof(DefaultValue)=="Content" and DefaultValue.Uri or tostring(DefaultValue)
+		if uri==defaultUri then return nil end
+		return self:Serialize(uri,'string',defaultUri)
 	elseif Type=='PhysicalProperties' or typeof(Value)=='PhysicalProperties' then
 		local Value:PhysicalProperties,DefaultValue:PhysicalProperties=Value,DefaultValue
 		if Value.Density==DefaultValue.Density and Value.Friction==DefaultValue.Friction and Value.Elasticity==DefaultValue.Elasticity and Value.FrictionWeight==DefaultValue.FrictionWeight and Value.ElasticityWeight==DefaultValue.ElasticityWeight then
@@ -2460,7 +2458,7 @@ function Module:BuildEncode(v,variables,targets,objectives,data,depth,func)
 	local innerIndent=string.rep("\t", depth + 1)
 	local className,variable=v.ClassName,variables[v] or ''
 	local isPart=v:IsA('BasePart')
-	
+
 	if func then
 		func(data.Count,v,data.Max)
 	end
@@ -2471,7 +2469,7 @@ function Module:BuildEncode(v,variables,targets,objectives,data,depth,func)
 		(canWrapText and innerIndent or '')..'ClassName='..SafeData.string(className)..',Id='..string.format('%s',tostring(variable:match('%d+') or '')),
 		canWrapText and ',\n' or ','
 	}
-	
+
 	local DefaultSurfaces=nil
 
 	local properties,isPropertyChanged,actives,needle={},false,{},nil
@@ -2502,7 +2500,7 @@ function Module:BuildEncode(v,variables,targets,objectives,data,depth,func)
 		end
 		isPropertyChanged=true
 	end
-	
+
 	if isPart and DefaultSurfaces then
 		local ValueSurfaces={
 			BackSurface=v.BackSurface,
@@ -2518,19 +2516,18 @@ function Module:BuildEncode(v,variables,targets,objectives,data,depth,func)
 			isPropertyChanged=true
 		end
 	end
-	
+
 	local children=v:GetChildren()
 	local childrenLen=#children
 
 	if isPropertyChanged then
 		table.insert(bufferList, canWrapText and innerIndent or '')
 		table.insert(bufferList, 'Properties={'..table.concat(properties,',')..'}')
-	end
-
-	if childrenLen>0 then
-		table.insert(bufferList, canWrapText and ',\n' or ',')
-	else
-		table.insert(bufferList, canWrapText and '\n' or '')
+		if childrenLen>0 then
+			table.insert(bufferList, canWrapText and ',\n' or ',')
+		else
+			table.insert(bufferList, canWrapText and '\n' or '')
+		end
 	end
 
 	if childrenLen>0 then
@@ -2857,25 +2854,22 @@ end
 
 function Module:Record()
 	if Values.GrabType~='Animation' then return end
-	
+
 	local useMyself=Values.UseMyself
 	local target=useMyself and LocalPlayer.Character or Values.BuildingTarget
 	if not (target and target.Parent) then self:SetStatus(1,useMyself and 'No Myself Target' or 'No Building Target', 2) return end
-	
+
 	local recordAnimationType,fpsMode,animationName=Values.RecordAnimType,Values.FPSType,Values.AnimationName
 	local animators=target:QueryDescendants('Animator')
 	if #animators<=0 then self:SetStatus(1,'No Animator',2) return end
-	
+
 	local function recordAnimation(animator)
 		local model=animator.Parent.Parent
-
 		local playingTracks:{AnimationTrack}=animator:GetPlayingAnimationTracks()
 		local oldTrack=playingTracks[1]
 		if #playingTracks<=0 then return end
-
 		local length=oldTrack.Length
 		if length<=0 then return end
-
 		local sources={}
 		if recordAnimationType=='Auto' then
 			local bones,motors=model:QueryDescendants('Bone'),model:QueryDescendants('Motor6D')
@@ -2897,14 +2891,20 @@ function Module:Record()
 			RecordAnimationType=recordAnimationType,
 		})
 		task.wait(length)
-		Recording:Stop()
+		local KeyframeSequence=Recording:Stop()
+		local container=Values.AnimationCache[model]
+		if not container then
+			container=Instance.new('ObjectValue')
+			container.Name=string.format('%s AnimSaves',model.Name)
+		end
+		KeyframeSequence.Parent=container
+		Values.AnimationCache[model]=container
+		self:SetStatus(1,'Record Complete',2)
 	end
-	
+
 	for _,animator in ipairs(animators)  do
 		task.defer(recordAnimation,animator)
 	end
-	
-	self:SetStatus(1,'Look at the dex',2)
 end
 
 function Module:SaveToFile()
@@ -3066,36 +3066,6 @@ Interfaces.TopSelect=Window:AddSelect({
 	end,
 	Deactivated=function() Module:SetUpdate(2) Module:SetStatus(1,Interfaces.StatusLabel.Text) end
 })
-Interfaces.MainLabel=Window:AddLabel({
-	Text='',
-	Visible=false,
-	TextScaled=true
-})
-
--- bisakah anda baiki ini
-Interfaces.BuildQueryTextBox=Window:AddInput({
-	Text='EXPLORER > #NAME > CLASSNAME',
-	Visible=false,
-	ClearOnFocus=false,
-	Callback=function(text)
-		local lastGrabType=Values.GrabType
-		local explorer=game
-		if lastGrabType=='Gui' then explorer=PlayerGui end
-		local targets=explorer:QueryDescendants(text)
-		local noEmpty=#targets>0
-		if noEmpty then
-			local value=targets[1]
-			if lastGrabType=='Gui' then
-				Values.GuiTarget=value
-			else
-				Values.BuildingTarget=value
-			end
-			table.clear(targets)
-		end
-		Module:SetStatus(1,noEmpty and 'Query Found' or 'No Query',2)
-	end
-})
-
 Interfaces.TextBox=Window:AddInput({
 	Text='None',
 	Visible=false,
@@ -3115,6 +3085,33 @@ Interfaces.TextBox=Window:AddInput({
 				Interfaces.TextBox.Text=''
 			end
 		end
+	end
+})
+Interfaces.MainLabel=Window:AddLabel({
+	Text='',
+	Visible=false,
+	TextScaled=true
+})
+Interfaces.BuildQueryTextBox=Window:AddInput({
+	Text='Query Descendants',
+	Visible=false,
+	ClearOnFocus=false,
+	Callback=function(text)
+		local lastGrabType=Values.GrabType
+		local explorer=game
+		if lastGrabType=='Gui' then explorer=PlayerGui end
+		local targets=explorer:QueryDescendants(text)
+		local noEmpty=#targets>0
+		if noEmpty then
+			local value=targets[1]
+			if lastGrabType=='Gui' then
+				Values.GuiTarget=value
+			else
+				Values.BuildingTarget=value
+			end
+			table.clear(targets)
+		end
+		Module:SetStatus(1,noEmpty and 'Query Found' or 'No Query',2)
 	end
 })
 Interfaces.AnimationTextBox=Window:AddInput({
