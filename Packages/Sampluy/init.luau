@@ -3,7 +3,7 @@
    Crokyreo | Programming
    Gemini AI | Just help and fix
 ]]
---[[ Version: 70 ]]
+--[[ Version: 71 ]]
 --[[ Info
 	Feature
 	- Can fit to the height of all devices with AutoMaxHeight
@@ -1063,62 +1063,64 @@ local function getComponents(Window)
 				options:Set(inputText)
 			end)
 		else
-			main = create("Frame", {
-				Size = UDim2.new(1, 0, 0, 52),
-				BackgroundTransparency = 1,
+			main=create("Frame", {
+				Size=UDim2.new(1, 0, 0, 52),
+				BackgroundTransparency=1,
 				Parent=Window.Container
 			})
 
-			local outline = create("ImageLabel", {
-				Position = UDim2.new(0, 6, 0, 4),
-				Size = UDim2.new(1, -12, 1, -10),
-				BackgroundTransparency = 1,
-				Image = "rbxassetid://3570695787",
-				ImageColor3 = Color3.fromRGB(60, 60, 60),
-				ScaleType = Enum.ScaleType.Slice,
-				SliceCenter = Rect.new(100, 100, 100, 100),
-				SliceScale = 0.02,
-				Parent = main
+			local outline=create("ImageLabel", {
+				Position=UDim2.new(0, 6, 0, 4),
+				Size=UDim2.new(1, -12, 1, -10),
+				BackgroundTransparency=1,
+				Image="rbxassetid://3570695787",
+				ImageColor3=Color3.fromRGB(60, 60, 60),
+				ScaleType=Enum.ScaleType.Slice,
+				SliceCenter=Rect.new(100, 100, 100, 100),
+				SliceScale=0.02,
+				Parent=main
 			})
 
-			local round = create("ImageLabel", {
-				Position = UDim2.new(0, 8, 0, 6),
-				Size = UDim2.new(1, -16, 1, -14),
-				BackgroundTransparency = 1,
-				Image = "rbxassetid://3570695787",
-				ImageColor3 = Color3.fromRGB(20, 20, 20),
-				ScaleType = Enum.ScaleType.Slice,
-				SliceCenter = Rect.new(100, 100, 100, 100),
-				SliceScale = 0.01,
-				Parent = main
+			local round=create("ImageLabel", {
+				Position=UDim2.new(0, 8, 0, 6),
+				Size=UDim2.new(1, -16, 1, -14),
+				BackgroundTransparency=1,
+				Image="rbxassetid://3570695787",
+				ImageColor3=Color3.fromRGB(20, 20, 20),
+				ScaleType=Enum.ScaleType.Slice,
+				SliceCenter=Rect.new(100, 100, 100, 100),
+				SliceScale=0.01,
+				Parent=main
 			})
 
-			title = create("TextLabel", {
-				Position = UDim2.new(0, 12, 0, 8),
-				Size = UDim2.new(1, -24, 0, 14),
-				BackgroundTransparency = 1,
-				Text = options.Text,
-				TextSize = 14,
-				Font = Enum.Font.GothamBlack,
-				TextColor3 = Color3.fromRGB(100, 100, 100),
-				TextXAlignment = Enum.TextXAlignment.Left,
-				Parent = main
+			title=create("TextLabel", {
+				Position=UDim2.new(0, 12, 0, 8),
+				Size=UDim2.new(1, -24, 0, 14),
+				BackgroundTransparency=1,
+				Text=options.Text,
+				TextSize=14,
+				Font=Enum.Font.GothamBlack,
+				TextColor3=Color3.fromRGB(100, 100, 100),
+				TextXAlignment=Enum.TextXAlignment.Left,
+				Parent=main
 			})
 
-			inputBox = create("TextBox", {
-				Position = UDim2.new(0, 12, 0, 20),
-				Size = UDim2.new(1, -24, 0, 24),
-				BackgroundTransparency = 1,
-				Text = options.Value,
-				TextSize = 18,
-				Font = Enum.Font.GothamBlack,
-				TextColor3 = Color3.fromRGB(255, 255, 255),
-				TextXAlignment = Enum.TextXAlignment.Left,
-				TextWrapped = true,
-				Parent = main
+			inputBox=create("TextBox", {
+				Position=UDim2.new(0, 12, 0, 20),
+				Size=UDim2.new(1, -24, 0, 24),
+				PlaceholderText=options.PlaceholderText,
+				BackgroundTransparency=1,
+				Text=options.Value,
+				TextSize=18,
+				Font=Enum.Font.GothamBlack,
+				TextColor3=Color3.fromRGB(255, 255, 255),
+				TextXAlignment=Enum.TextXAlignment.Left,
+				TextScaled=true,
+				ClearTextOnFocus=false,
+				Parent=main
 			})
 
-			local inContact, focused = false, false
+			local inContact, focused=false, false
 
 			function options:Set(value)
 				options.Value=tostring(value)
@@ -1134,7 +1136,7 @@ local function getComponents(Window)
 				end
 
 				if input.UserInputType == Enum.UserInputType.MouseMovement then
-					inContact = true
+					inContact=true
 					if not focused then
 						tween(outline,TweenCache.Other,{ImageColor3=Color3.fromRGB(100,100,100)})
 					end
@@ -1143,7 +1145,7 @@ local function getComponents(Window)
 
 			connections.InputEnded=main.InputEnded:connect(function(input)
 				if input.UserInputType == Enum.UserInputType.MouseMovement then
-					inContact = false
+					inContact=false
 					if not focused then
 						tween(outline,TweenCache.Other,{ImageColor3=Color3.fromRGB(60,60,60)})
 					end
@@ -1156,7 +1158,7 @@ local function getComponents(Window)
 			end)
 
 			connections.FocusLost=inputBox.FocusLost:connect(function(enter)
-				focused = false
+				focused=false
 				tween(outline,TweenCache.Default,{ImageColor3=Color3.fromRGB(60,60,60)})
 				if not enter and not options.NoEnter then return end
 				local inputText=inputBox.Text
