@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V83 04-05-2024
+-- Instal V84 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -50,7 +50,8 @@ local Values={
 	['UseMyself']=false,
 	['CanShutdown']=false,
 	['CanWrapText']=true,
-	['AnimationCache']={}
+	['AnimationCache']={},
+	['RuntimeType']='PreSimulation'
 }
 
 local Templates={
@@ -147,6 +148,15 @@ Utility={
 	end,
 	IsEnums=function(enum1,enum2)
 		for i,v in ipairs(enum2) do if enum1==v then return true end end return false
+	end,
+	
+	-- Utility --
+	CustomWait=function(duration,runtimeType)
+		runtimeType=runtimeType or 'PreSimulation'
+		if not duration then return RunService[runtimeType]:Wait() end
+		local start=tick()
+		while tick()-start<duration do RunService[runtimeType]:Wait() end
+		return start-duration
 	end
 }
 
@@ -348,7 +358,8 @@ local GlobalData={
 		['ColorProperties']={'BackgroundColor3','ImageColor3','BorderColor3','Color','Color3','Value','BrickColor'},
 		['IconProperties']={'Texture','Icon','TextureId','Image','HoverImage'},
 		['TextProperties']={'Name','Value','Message','Text','Print','DisplayName'},
-		['AnimationPriority']={}
+		['AnimationPriority']={},
+		['RuntimeTypes']={'PreSimulation','RenderStepped','Heartbeat','PreRender'}
 	},
 	['Propertys']={},
 	['FPSRates']={
@@ -1676,7 +1687,6 @@ for _,v in pairs(Enum.AnimationPriority:GetEnumItems()) do
 	end
 end
 
--- by cybercrazyyy and Gemini AI
 local RecordAnimation={}
 
 function RecordAnimation.new(model,options)
@@ -1684,123 +1694,133 @@ function RecordAnimation.new(model,options)
 
 	local recordAnimationType=options.RecordAnimationType or "Motor6D"
 	local animationName=options.Name
-	
+	local runtimeType=options.RuntimeType or 'PreSimulation'
+
 	local baseParts=model:QueryDescendants('BasePart')
 	local isSinglePart=#baseParts==1
 
 	local rootPart=model:FindFirstChild('HumanoidRootPart')
 	local torso=model:FindFirstChild('LowerTorso') or model:FindFirstChild('Torso')
 
-	local PrimaryPart=isSinglePart and baseParts[1] or rootPart or torso or model.PrimaryPart or baseParts[1]
-	local KeyframeSequence=Instance.new('KeyframeSequence')
+	local primaryPart=isSinglePart and baseParts[1] or rootPart or torso or model.PrimaryPart or baseParts[1]
+	local keyframeSequence=Instance.new('KeyframeSequence')
 
 	if not animationName or animationName=='' then animationName='Record' end
-	KeyframeSequence.Name=animationName..'_'..tostring(os.time())
+	keyframeSequence.Name=animationName..'_'..tostring(os.time())
 
 	local Time=0
-	local Init=PrimaryPart and CFrame.new(PrimaryPart.Position) or CFrame.new()
-
+	local current=primaryPart and CFrame.new(primaryPart.Position) or CFrame.new()
+	
 	local function GenerateKeyframe()
-		local Keyframe=Instance.new("Keyframe")
+		local keyframe=Instance.new("Keyframe")
 
-		if recordAnimationType == "Bone" or isSinglePart then
-			if PrimaryPart then
-				local RootPose = Instance.new("Pose")
-				RootPose.Name = PrimaryPart.Name
-				RootPose.CFrame = Init:ToObjectSpace(PrimaryPart.CFrame)
-				Keyframe:AddPose(RootPose)
+		if recordAnimationType=="Bone" or isSinglePart then
+			if primaryPart then
+				local RootPose=Instance.new("Pose")
+				RootPose.Name=primaryPart.Name
+				RootPose.CFrame=current:ToObjectSpace(primaryPart.CFrame)
+				keyframe:AddPose(RootPose)
 
-				local function AddBonePoses(parentObj, parentPose)
-					for _, child in ipairs(parentObj:GetChildren()) do
-						if child:IsA("Bone") then
-							local Pose = Instance.new("Pose")
-							Pose.Name = child.Name
-							Pose.CFrame = child.Transform
-							parentPose:AddSubPose(Pose)
-							AddBonePoses(child, Pose)
+				local function AddBonePoses(Part,ParentPose)
+					for _,Joint in ipairs(Part:GetChildren()) do
+						if Joint:IsA("Bone") then
+							local Pose=Instance.new("Pose")
+							Pose.Name=Joint.Name
+							Pose.CFrame=Joint.TransformedCFrame
+							ParentPose:AddSubPose(Pose)
+							AddBonePoses(Joint,Pose)
 						end
 					end
 				end
-
-				for _, part in ipairs(baseParts) do
-					for _, child in ipairs(part:GetChildren()) do
-						if child:IsA("Bone") then
-							local Pose = Instance.new("Pose")
-							Pose.Name = child.Name
-							Pose.CFrame = child.Transform
+				
+				for _,Part in ipairs(baseParts) do
+					for _,Joint in ipairs(Part:GetChildren()) do
+						if Joint:IsA("Bone") then
+							local Pose=Instance.new("Pose")
+							Pose.Name=Joint.Name
+							Pose.CFrame=Joint.TransformedCFrame
 							RootPose:AddSubPose(Pose)
-							AddBonePoses(child, Pose)
+							AddBonePoses(Joint,Pose)
 						end
 					end
 				end
 			end
 		else
 			if not rootPart and not torso then
-				warn("Character does not have HumanoidRootPart, LowerTorso, or Torso for Motor6D mode.")
-				return Keyframe
+				warn("Model does not have HumanoidRootPart,LowerTorso,or Torso for Motor6D mode.")
+				return keyframe
 			end
 
-			local ActiveRoot = rootPart or torso
-			local ActiveTorso = torso or rootPart
+			local ActiveRoot=rootPart or torso
+			local ActiveTorso=torso or rootPart
 
-			local PartsAdded = {
-				[ActiveRoot] = true,
-				[ActiveTorso] = true
+			local PartsAdded={
+				[ActiveRoot]=true,
+				[ActiveTorso]=true
 			}
 
-			local function AddPoses(Part: BasePart, ParentPose)
-				for _, Joint in pairs(Part:GetJoints()) do
+			local function AddPoses(Part,ParentPose)
+				for _,Joint in pairs(Part:GetJoints()) do
 					if Joint:IsA("AnimationConstraint") or Joint:IsA('Motor6D') then
-						local ConnectedPart = nil
+						local ConnectedPart=nil
 						if Joint.Part0 == Part then
-							ConnectedPart = Joint.Part1
+							ConnectedPart=Joint.Part1
 						elseif Joint.Part1 == Part then
-							ConnectedPart = Joint.Part0
+							ConnectedPart=Joint.Part0
 						end
 						if ConnectedPart then
 							if not PartsAdded[ConnectedPart] then
-								PartsAdded[ConnectedPart] = true
-								local Pose = Instance.new("Pose")
-								Pose.CFrame = Joint.Transform
-								Pose.Name = ConnectedPart.Name
+								PartsAdded[ConnectedPart]=true
+								local Pose=Instance.new("Pose")
+								Pose.CFrame=Joint.Transform
+								Pose.Name=ConnectedPart.Name
 								ParentPose:AddSubPose(Pose)
-								AddPoses(ConnectedPart, Pose)
+								AddPoses(ConnectedPart,Pose)
 							end
 						end
 					end
 				end
 			end
 
-			local RootPose = Instance.new("Pose")
-			RootPose.Name = ActiveRoot.Name
-			RootPose.CFrame = Init:ToObjectSpace(ActiveRoot.CFrame)
-			Keyframe:AddPose(RootPose)
+			local RootPose=Instance.new("Pose")
+			RootPose.Name=ActiveRoot.Name
+			RootPose.CFrame=current:ToObjectSpace(ActiveRoot.CFrame)
+			keyframe:AddPose(RootPose)
 
 			if ActiveTorso ~= ActiveRoot then
-				local TorsoPose = Instance.new("Pose")
-				TorsoPose.Name = ActiveTorso.Name
-				TorsoPose.CFrame = Init:ToObjectSpace(ActiveTorso.CFrame)
+				local TorsoPose=Instance.new("Pose")
+				TorsoPose.Name=ActiveTorso.Name
+				TorsoPose.CFrame=current:ToObjectSpace(ActiveTorso.CFrame)
 				RootPose:AddSubPose(TorsoPose)
-				AddPoses(ActiveTorso, TorsoPose)
+				AddPoses(ActiveTorso,TorsoPose)
 			else
-				AddPoses(ActiveRoot, RootPose)
+				AddPoses(ActiveRoot,RootPose)
 			end
 		end
 
-		return Keyframe
+		return keyframe
 	end
 
-	local Connection=RunService.Heartbeat:Connect(function(deltaTime)
-		Time+=deltaTime
-		local Keyframe=GenerateKeyframe()
-		Keyframe.Time=Time
-		KeyframeSequence:AddKeyframe(Keyframe)
+	local connection=nil
+	local runSignal=nil
+
+	local success=pcall(function() 
+		runSignal=RunService[runtimeType] 
 	end)
+
+	if runSignal then
+		connection=runSignal:Connect(function(deltaTime)
+			Time+=deltaTime
+			local Keyframe=GenerateKeyframe()
+			Keyframe.Time=Time
+			keyframeSequence:AddKeyframe(Keyframe)
+		end)
+	end
 
 	return {
 		Stop=function(_)
-			Connection:Disconnect()
-			return KeyframeSequence
+			if connection then connection:Disconnect() end
+			return keyframeSequence
 		end
 	}
 end
@@ -1879,21 +1899,24 @@ function Module:SetUpdate(mode,...)
 		self:SetUpdate(isBuilding and 2 or 0)
 		if Cacheds.PlayerGuiAdded then Cacheds.PlayerGuiAdded:Disconnect() Cacheds.PlayerGuiAdded=nil end
 		Interfaces.TextBox.Visible=isBuilding
-		Interfaces.BuildQueryTextBox.Visible=isObject
+		
 		Interfaces.TextBox.Title=isBuilding and 'Building Index (0-'.. tostring(Values.BuildingIndex)..')' or ''
 		Interfaces.AddButton.Visible=lastGrabType~='None' and lastGrabType~='Settings'
-		Interfaces.MainLabel.Text='Example: Explorer > ClassName >> #Name'
 		if lastGrabType=='Gui' then
-			Interfaces.MainLabel.Text='Example: #Gui > #Frame'
+			Interfaces.QueryTextBox.PlaceholderText='#Gui > #Frame'
+		elseif isObject then
+			Interfaces.QueryTextBox.PlaceholderText='Explorer > ClassName >> #Name'
+		else
+			Interfaces.QueryTextBox.PlaceholderText=''
 		end
-		if not isObject then
-			Interfaces.MainLabel.Text=''
-		end
-		Interfaces.MainLabel.TextScaled=isObject
-		Interfaces.MainLabel.Visible=isObject
+		Interfaces.QueryTextBox.Visible=isObject
 		Interfaces.StopButton.Visible=isBuilding
 		Interfaces.FPSTitle.Visible=isSettings
 		Interfaces.FPSSelector.Visible=isSettings
+		for i,v in ipairs({Interfaces.RuntimeSelector,Interfaces.RuntimeTitle}) do
+			if Values.GrabType~=lastGrabType then break end
+			v.Visible=isAnimation or isSettings
+		end
 		for i,v in ipairs({Interfaces.RecordButton,Interfaces.PlayButton}) do 
 			if Values.GrabType~=lastGrabType then break end
 			v.Visible=isAnimation
@@ -2168,6 +2191,7 @@ function Module:Starting(instance,func)
 	local packList={instance:FindFirstChild('Building'),instance:FindFirstChild('Tool'),instance:FindFirstChild('Gui')}
 	for _,model in ipairs(packList) do 
 		if model then 
+			local isGui=model.Name=='Gui'
 			local i=0
 			Utility.Foreach(model:GetDescendants(),function(v) 
 				if v:IsA('MeshPart') then 
@@ -2181,7 +2205,7 @@ function Module:Starting(instance,func)
 					})
 					func(progress,v,maxProgress) 
 				end 
-			end) 
+			end)
 		end 
 	end
 	maxProgress+=#instance:GetDescendants()
@@ -2666,7 +2690,7 @@ function Module:Instal()
 	if not next(InstalCache) or not Values.InstalTarget then self:SetStatus(1,'Target Has Empty',2) return end
 	if Values.Debounce then return end
 	Values.Debounce=true
-	local success,text=pcall(function() return self:Convert(InstalCache,Values.InstalTarget) end)
+	local success,text=xpcall(function() return self:Convert(InstalCache,Values.InstalTarget) end,debug.traceback)
 	if Values.Destroyed then return end
 	if success and type(text)=='string' then
 		setclipboard(text)
@@ -2859,7 +2883,7 @@ function Module:Record()
 	local target=useMyself and LocalPlayer.Character or Values.BuildingTarget
 	if not (target and target.Parent) then self:SetStatus(1,useMyself and 'No Myself Target' or 'No Building Target', 2) return end
 
-	local recordAnimationType,fpsMode,animationName=Values.RecordAnimType,Values.FPSType,Values.AnimationName
+	local recordAnimationType,fpsMode,animationName,runtimeType=Values.RecordAnimType,Values.FPSType,Values.AnimationName,Values.RuntimeType
 	local animators=target:QueryDescendants('Animator')
 	if #animators<=0 then self:SetStatus(1,'No Animator',2) return end
 
@@ -2889,8 +2913,9 @@ function Module:Record()
 		local Recording=RecordAnimation.new(model,{
 			Name=animationName,
 			RecordAnimationType=recordAnimationType,
+			RuntimeType=runtimeType,
 		})
-		task.wait(length)
+		Utility.CustomWait(length,runtimeType)
 		local KeyframeSequence=Recording:Stop()
 		local container=Values.AnimationCache[model]
 		if not container then
@@ -3001,6 +3026,28 @@ Interfaces.UseNameToggle=Window:AddToggle({
 		Values.NoName=value
 	end
 })
+Interfaces.QueryTextBox=Window:AddInput({
+	Text='Query Descendants',
+	Visible=false,
+	ClearOnFocus=false,
+	Callback=function(text)
+		local lastGrabType=Values.GrabType
+		local explorer=game
+		if lastGrabType=='Gui' then explorer=PlayerGui end
+		local targets=explorer:QueryDescendants(text)
+		local noEmpty=#targets>0
+		if noEmpty then
+			local value=targets[1]
+			if lastGrabType=='Gui' then
+				Values.GuiTarget=value
+			else
+				Values.BuildingTarget=value
+			end
+			table.clear(targets)
+		end
+		Module:SetStatus(1,noEmpty and 'Query Found' or 'No Query',2)
+	end
+})
 Interfaces.UseMyselfToggle=Window:AddToggle({
 	Text='Use Myself',
 	Value=false,
@@ -3087,31 +3134,19 @@ Interfaces.TextBox=Window:AddInput({
 		end
 	end
 })
-Interfaces.MainLabel=Window:AddLabel({
-	Text='',
+Interfaces.RuntimeTitle=Window:AddLabel({
+	Text='Runtime Type',
 	Visible=false,
 	TextScaled=true
 })
-Interfaces.BuildQueryTextBox=Window:AddInput({
-	Text='Query Descendants',
+Interfaces.RuntimeSelector=Window:AddSelector({
+	Options=GlobalData.Types.RuntimeTypes,
+	Value=Values.RuntimeType,
+	NoCap=true,
 	Visible=false,
-	ClearOnFocus=false,
-	Callback=function(text)
-		local lastGrabType=Values.GrabType
-		local explorer=game
-		if lastGrabType=='Gui' then explorer=PlayerGui end
-		local targets=explorer:QueryDescendants(text)
-		local noEmpty=#targets>0
-		if noEmpty then
-			local value=targets[1]
-			if lastGrabType=='Gui' then
-				Values.GuiTarget=value
-			else
-				Values.BuildingTarget=value
-			end
-			table.clear(targets)
-		end
-		Module:SetStatus(1,noEmpty and 'Query Found' or 'No Query',2)
+	Flag='runtime_type',
+	Callback=function(value,key) 
+		Values.RuntimeType=value 
 	end
 })
 Interfaces.AnimationTextBox=Window:AddInput({
