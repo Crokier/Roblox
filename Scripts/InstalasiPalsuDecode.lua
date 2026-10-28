@@ -1,4 +1,6 @@
--- Instal Decode V10
+-- Instal Decode V11
+local UseMeshPart=true
+
 local function Parse(Value,Type,DefaultValue)
 	DefaultValue=DefaultValue or {}
 	if Value==nil or Value=='' or Value=='""' then
@@ -173,15 +175,15 @@ local function BuildDecode(tableOrString,targetParent)
 	end
 	local instancesByVariable={}
 	local pendingObjectReferences={}
-	
+
 	local ValueSurfaces={'BackSurface','BottomSurface','FrontSurface','LeftSurface','RightSurface','TopSurface'}
-	
+
 	local function createInstancesPass(dataList, currentParent)
 		for i,data in ipairs(dataList) do
 			if data.ClassName=='Coding' then continue end
 
 			if i%20==0 then task.wait() end
-			
+
 			local ok,newInstance=pcall(function()
 				return Instance.new(data.ClassName)
 			end)
@@ -189,11 +191,11 @@ local function BuildDecode(tableOrString,targetParent)
 			if not ok or not newInstance then continue end
 			if data.Name then newInstance.Name=data.Name end
 			newInstance.Parent=currentParent
-			
+
 			local isPart=newInstance:IsA('BasePart')
-	
+
 			data.Id=tostring(data.Id or 'nil')
-			
+
 			if data.Id and data.Id~='nil' and data.Id~='' then
 				instancesByVariable[data.Id]=newInstance
 			end
@@ -261,5 +263,93 @@ local function BuildDecode(tableOrString,targetParent)
 end
 
 local TargetModule=require(workspace:FindFirstChildOfClass('Terrain'):FindFirstChild('Instal'))
-BuildDecode(TargetModule,workspace)
+local result=BuildDecode(TargetModule,workspace)
 warn('Decode Complete')
+
+local function MeshPartDecode(instance)
+	local AssetService=game:GetService("AssetService")
+	local specialMeshs=instance:QueryDescendants("SpecialMesh")
+	local meshChanged=false
+	for i,specialMesh in ipairs(specialMeshs) do
+		if i%20 then task.wait() end
+		local part=specialMesh.Parent
+		local model=part.Parent
+		local meshPart=nil
+		local success=pcall(function()
+			meshPart=AssetService:CreateMeshPartAsync(specialMesh.MeshContent)
+		end)
+		if success and meshPart then
+			meshChanged=true
+			meshPart.Parent=model
+			meshPart.TextureContent=specialMesh.TextureContent
+			meshPart.Size=part.Size
+			meshPart.CFrame=part.CFrame
+			local surfaceAppearanceFolder=part:QueryDescendants('Folder#SurfaceAppearance')[1]
+			if surfaceAppearanceFolder then
+				local length=#surfaceAppearanceFolder:GetChildren()
+				local surfaceAppearance=Instance.new("SurfaceAppearance")
+				surfaceAppearance.Parent=meshPart
+				local emissiveTint=surfaceAppearanceFolder:FindFirstChild("EmissiveTint")
+				local metalnessMap=surfaceAppearanceFolder:FindFirstChild("MetalnessMap")
+				local roughnessMap=surfaceAppearanceFolder:FindFirstChild("RoughnessMap")
+				local emissiveStrength=surfaceAppearanceFolder:FindFirstChild("EmissiveStrength")
+				local emissiveMask=surfaceAppearanceFolder:FindFirstChild("EmissiveMaskContent") or surfaceAppearanceFolder:FindFirstChild("EmissiveMask")
+				local colorMap=surfaceAppearanceFolder:FindFirstChild("ColorMap")
+				local normalMap=surfaceAppearanceFolder:FindFirstChild("NormalMap")
+				local color=surfaceAppearanceFolder:FindFirstChild("Color")
+				local count=0
+				if color then
+					surfaceAppearance.Color=color.Value
+					count+=1
+				end
+				if colorMap then
+					surfaceAppearance.ColorMapContent=Content.fromUri(colorMap.Value)
+					count+=1
+				end
+				if emissiveTint then
+					surfaceAppearance.EmissiveTint=emissiveTint.Value
+					count+=1
+				end
+				if metalnessMap then
+					surfaceAppearance.MetalnessMapContent=Content.fromUri(metalnessMap.Value)
+					count+=1
+				end
+				if roughnessMap then
+					surfaceAppearance.RoughnessMapContent=Content.fromUri(roughnessMap.Value)
+					count+=1
+				end
+				if normalMap then
+					surfaceAppearance.NormalMapContent=Content.fromUri(normalMap.Value)
+					count+=1
+				end
+				if emissiveStrength then
+					surfaceAppearance.EmissiveStrength=emissiveStrength.Value
+					count+=1
+				end
+				if emissiveMask then
+					surfaceAppearance.EmissiveMaskContent=Content.fromUri(emissiveMask.Value)
+					count+=1
+				end
+				for _,obj in ipairs(part:GetChildren()) do
+					if obj:IsA("Bone") or obj:IsA("Texture") or obj:IsA("Decal") then
+						obj.Parent=meshPart
+						count+=1
+						length+=1
+					end
+				end
+				if count>=length then
+					part:Destroy()
+				end
+			end
+		end
+	end
+	if meshChanged then
+		warn('MeshPart Decode Complete')
+	else
+		warn('MeshPart Decode Failed')
+	end
+end
+
+if UseMeshPart then
+	MeshPartDecode(result['1'])
+end
