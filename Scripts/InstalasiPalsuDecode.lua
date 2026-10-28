@@ -1,4 +1,4 @@
--- Instal Decode V11
+-- Instal Decode V12
 local UseMeshPart=true
 
 local function Parse(Value,Type,DefaultValue)
@@ -280,13 +280,23 @@ local function MeshPartDecode(instance)
 		end)
 		if success and meshPart then
 			meshChanged=true
+			meshPart.Color=part.Color
+			meshPart.Transparency=part.Transparency
+			meshPart.Material=part.Material
+			meshPart.Anchored=part.Anchored
+			meshPart.CanCollide=part.CanCollide
+			meshPart.CanQuery=part.CanQuery
+			meshPart.CanTouch=part.CanTouch
+			meshPart.CastShadow=part.CastShadow
+			meshPart.Name=part.Name
 			meshPart.Parent=model
 			meshPart.TextureContent=specialMesh.TextureContent
 			meshPart.Size=part.Size
 			meshPart.CFrame=part.CFrame
+			local count,length=0,0
 			local surfaceAppearanceFolder=part:QueryDescendants('Folder#SurfaceAppearance')[1]
 			if surfaceAppearanceFolder then
-				local length=#surfaceAppearanceFolder:GetChildren()
+				length=#surfaceAppearanceFolder:GetChildren()
 				local surfaceAppearance=Instance.new("SurfaceAppearance")
 				surfaceAppearance.Parent=meshPart
 				local emissiveTint=surfaceAppearanceFolder:FindFirstChild("EmissiveTint")
@@ -297,7 +307,6 @@ local function MeshPartDecode(instance)
 				local colorMap=surfaceAppearanceFolder:FindFirstChild("ColorMap")
 				local normalMap=surfaceAppearanceFolder:FindFirstChild("NormalMap")
 				local color=surfaceAppearanceFolder:FindFirstChild("Color")
-				local count=0
 				if color then
 					surfaceAppearance.Color=color.Value
 					count+=1
@@ -330,16 +339,16 @@ local function MeshPartDecode(instance)
 					surfaceAppearance.EmissiveMaskContent=Content.fromUri(emissiveMask.Value)
 					count+=1
 				end
-				for _,obj in ipairs(part:GetChildren()) do
-					if obj:IsA("Bone") or obj:IsA("Texture") or obj:IsA("Decal") then
-						obj.Parent=meshPart
-						count+=1
-						length+=1
-					end
+			end
+			for _,obj in ipairs(part:GetChildren()) do
+				if obj:IsA("Bone") or obj:IsA("Texture") or obj:IsA("Decal") then
+					obj.Parent=meshPart
+					count+=1
+					length+=1
 				end
-				if count>=length then
-					part:Destroy()
-				end
+			end
+			if count>=length then
+				part:Destroy()
 			end
 		end
 	end
