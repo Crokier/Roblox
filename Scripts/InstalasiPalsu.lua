@@ -1,5 +1,5 @@
 --                         This was made by Crokyreo 
--- Instal V84 04-05-2024
+-- Instal V85 04-05-2024
 
 local PLUGIN_NAME='Instal'
 local MAX_CAP=math.huge
@@ -1710,23 +1710,24 @@ function RecordAnimation.new(model,options)
 
 	local Time=0
 	local current=primaryPart and CFrame.new(primaryPart.Position) or CFrame.new()
+	local currentCFrame=primaryPart and primaryPart.CFrame
 	
 	local function GenerateKeyframe()
-		local keyframe=Instance.new("Keyframe")
+		local Keyframe=Instance.new("Keyframe")
 
 		if recordAnimationType=="Bone" or isSinglePart then
 			if primaryPart then
 				local RootPose=Instance.new("Pose")
 				RootPose.Name=primaryPart.Name
-				RootPose.CFrame=current:ToObjectSpace(primaryPart.CFrame)
-				keyframe:AddPose(RootPose)
+				RootPose.CFrame=current:ToObjectSpace(currentCFrame)
+				Keyframe:AddPose(RootPose)
 
 				local function AddBonePoses(Part,ParentPose)
 					for _,Joint in ipairs(Part:GetChildren()) do
 						if Joint:IsA("Bone") then
 							local Pose=Instance.new("Pose")
 							Pose.Name=Joint.Name
-							Pose.CFrame=Joint.TransformedCFrame
+							Pose.CFrame=Joint.Transform
 							ParentPose:AddSubPose(Pose)
 							AddBonePoses(Joint,Pose)
 						end
@@ -1738,7 +1739,7 @@ function RecordAnimation.new(model,options)
 						if Joint:IsA("Bone") then
 							local Pose=Instance.new("Pose")
 							Pose.Name=Joint.Name
-							Pose.CFrame=Joint.TransformedCFrame
+							Pose.CFrame=Joint.Transform
 							RootPose:AddSubPose(Pose)
 							AddBonePoses(Joint,Pose)
 						end
@@ -1748,7 +1749,7 @@ function RecordAnimation.new(model,options)
 		else
 			if not rootPart and not torso then
 				warn("Model does not have HumanoidRootPart,LowerTorso,or Torso for Motor6D mode.")
-				return keyframe
+				return Keyframe
 			end
 
 			local ActiveRoot=rootPart or torso
@@ -1785,7 +1786,7 @@ function RecordAnimation.new(model,options)
 			local RootPose=Instance.new("Pose")
 			RootPose.Name=ActiveRoot.Name
 			RootPose.CFrame=current:ToObjectSpace(ActiveRoot.CFrame)
-			keyframe:AddPose(RootPose)
+			Keyframe:AddPose(RootPose)
 
 			if ActiveTorso ~= ActiveRoot then
 				local TorsoPose=Instance.new("Pose")
@@ -1798,7 +1799,7 @@ function RecordAnimation.new(model,options)
 			end
 		end
 
-		return keyframe
+		return Keyframe
 	end
 
 	local connection=nil
