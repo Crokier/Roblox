@@ -11,7 +11,7 @@ function Tabler.GetProperties(t:{[any]:any}):(any,any,number)
 end
 
 function Tabler.IsAlive(t:{[any]:any}):boolean
-	return if t and type(t)=="table" and getmetatable(t) then true else false
+	if t and type(t)=="table" and getmetatable(t) then return true else return false end
 end
 
 function Tabler.NextValue(t:{any},i:number):(number,any)
@@ -93,20 +93,32 @@ function Tabler.RandomNoSame(t:{any},length:number?,match:(value:any,index:numbe
 	local values=nil
 	if #t>0 then
 		local list={}
-		for i,v in ipairs(t) do
-			local can=match(v,i)
-			if can then
-				table.insert(list,v)
-			end
-		end
+		for i,v in ipairs(t) do local can=match(v,i) if can then table.insert(list,v) end end
 		values={}
-		if not length or length<=0 or length>=#list then length=#list end
-		local index,limit,waitingIndex=1,#list,0
+		local waitingIndex=0
+		if not (length==nil and length>0) then 
+			length=#list 
+		elseif length>#list then
+			local newList={}
+			local createWaitingIndex,createIndex=0,0
+			while createIndex<length do
+				createWaitingIndex=0
+				for _,v in ipairs(list) do
+					table.insert(newList,v)
+					createIndex+=1
+					createWaitingIndex=(createWaitingIndex+1)%5
+					if createWaitingIndex==0 then task.wait() end
+				end
+				waitingIndex=(waitingIndex+1)%5
+				if waitingIndex==0 then task.wait() end
+			end
+			list=newList
+		end
+		waitingIndex=0
+		local index,limit=1,#list
 		while #list>0 do
 			waitingIndex=(waitingIndex+1)%5
-			if #list>=5 or waitingIndex==0 then
-				task.wait()
-			end
+			if waitingIndex==0 then task.wait() end
 			index=1
 			if #list>1 then
 				index=rng:NextInteger(1,#list)
