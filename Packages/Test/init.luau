@@ -1,3 +1,9 @@
+--[[ Example
+When `Test.Run` is called, 
+for example `ReplicatedStorage` to check for the existence of "init.test", if found, 
+it executes it, and so on.
+]]
+
 export type TestExpect = {
 	Success: boolean,
 	Err: any,
